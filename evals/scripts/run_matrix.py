@@ -15,6 +15,11 @@ Outcomes (accurate means max error <= --accurate-pct of the image radius):
     gate_hole       gates passed but inaccurate (the gates missed it)
     over_strict     gates failed but the answer was accurate
     refused         gates failed or the tool declared failure, and the answer was not accurate
+Negative controls ("negatives": {"pairs": [[task_place, ref_place], ...], "kinds", "strengths", "seeds"}) make the
+task at task_place but move the hint bbox, same size, to centre on ref_place; the reference is fetched and the gates
+are run with that wrong hint. The right outcome is a refusal:
+    correct_reject  the tool declared failure or a gate failed
+    false_accept    every gate passed for a map of another place (a gate hole)
 Every task gets exactly one row; a step that crashes is recorded as "error" with its stderr.
 """
 
@@ -43,6 +48,22 @@ def tasks(m):
         tid = f"L{m['level']}-{place}-{style}-{kind}-s{strength}-r{seed}"
         yield {"id": tid, "place": place, "center": lonlat, "style": style, "kind": kind,
                "strength": strength, "seed": seed}
+
+
+def negatives(m):
+    n = m.get("negatives")
+    if not n:
+        return
+    for (tp, rp), kind, strength, seed in itertools.product(n["pairs"], n["kinds"], n["strengths"], n["seeds"]):
+        yield {"id": f"N{m['level']}-{tp}-on-{rp}-{kind}-s{strength}-r{seed}", "place": tp, "center": m["places"][tp],
+               "style": m["styles"][0], "kind": kind, "strength": strength, "seed": seed,
+               "wrong_center": m["places"][rp]}
+
+
+def shifted_bbox(bbox, center):
+    w, s, e, n = bbox
+    hw, hh = (e - w) / 2, (n - s) / 2
+    return [center[0] - hw, center[1] - hh, center[0] + hw, center[1] + hh]
 
 
 def classify(declared_failure, gates_passed, max_pct, accurate_pct):
@@ -76,6 +97,11 @@ def run_one(t, m, work, cache, accurate_pct):
                 "--strength", str(t["strength"]), "--seed", str(t["seed"]), "--cache", str(cache),
                 "--task-out", str(task), "--truth-out", str(truth)], truth / "truth.json", d / "make.log")
     hint = json.loads((task / "hint.json").read_text(encoding="utf-8"))
+    hint_path = task / "hint.json"
+    if "wrong_center" in t:
+        hint = {**hint, "bbox": shifted_bbox(hint["bbox"], t["wrong_center"])}
+        hint_path = run / "wrong_hint.json"
+        hint_path.write_text(json.dumps(hint, indent=2), encoding="utf-8")
     step(UVX + [str(SKILLS / "tile-reference" / "scripts" / "fetch_reference.py"), "--style", m["ref_style"],
                 "--zoom", str(hint["zoom"]), "--bbox", *map(str, hint["bbox"]), "--cache", str(cache),
                 "--out", str(run / "ref")], run / "ref" / "reference.json", d / "fetch.log")
@@ -86,7 +112,7 @@ def run_one(t, m, work, cache, accurate_pct):
     gates_out = run / "gates.json"
     if not gates_out.exists():
         r = subprocess.run(UVX + [str(SKILLS / "georef-gates" / "scripts" / "check_gcps.py"), str(run / "refined.json"),
-                                  "--hint", str(task / "hint.json")], capture_output=True, text=True, cwd=ROOT, env=ENV)
+                                  "--hint", str(hint_path)], capture_output=True, text=True, cwd=ROOT, env=ENV)
         if r.returncode not in (0, 1):
             raise RuntimeError(f"check_gcps exited {r.returncode}: {r.stderr[-800:]}")
         gates_out.write_text(r.stdout, encoding="utf-8")
@@ -100,7 +126,11 @@ def run_one(t, m, work, cache, accurate_pct):
     sc = json.loads(score_out.read_text(encoding="utf-8"))
     loo = next((g.get("max_px") for g in gates["gates"] if g["name"] == "loo_residual"), None)
     pct = sc.get("max_pct_radius")
-    return {**t, "outcome": classify(gates["declared_failure"], gates["passed"], pct, accurate_pct),
+    if "wrong_center" in t:
+        outcome = "false_accept" if gates["passed"] else "correct_reject"
+    else:
+        outcome = classify(gates["declared_failure"], gates["passed"], pct, accurate_pct)
+    return {**{k: v for k, v in t.items() if k != "wrong_center"}, "outcome": outcome,
             "register": ans["status"], "gates_passed": gates["passed"],
             "failed_gates": ",".join(g["name"] for g in gates["gates"] if not g["passed"]),
             "max_m": sc.get("max_m"), "median_m": sc.get("median_m"), "max_pct_radius": pct,
@@ -123,7 +153,7 @@ def main():
     ap.add_argument("--accurate-pct", type=float, default=1.0)
     a = ap.parse_args()
     m = json.loads(Path(a.matrix).read_text(encoding="utf-8"))
-    all_tasks = list(tasks(m))
+    all_tasks = list(tasks(m)) + list(negatives(m))
     rows = []
     for i, t in enumerate(all_tasks):
         try:
