@@ -150,3 +150,13 @@ def test_distinct_counts_one_inlier_per_place():
     mask = np.array([True, True, True, True, False])
     out = register.distinct(pts, mask)
     assert out.tolist() == [True, False, True, False, False]
+
+
+def test_many_image_points_on_one_reference_point_count_once():
+    # what a degenerate homography from a repeated symbol looks like
+    rng = np.random.default_rng(0)
+    p1 = rng.uniform(0, 800, (60, 2))
+    p2 = np.tile([[400.3, 300.2]], (60, 1)) + rng.normal(0, 0.1, (60, 2))
+    mask = np.ones(60, bool)
+    assert register.distinct(p1, mask).sum() == 60
+    assert register.distinct(p2, register.distinct(p1, mask)).sum() <= 2

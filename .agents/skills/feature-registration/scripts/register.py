@@ -145,7 +145,10 @@ def register(image, ref_img, ref_meta, detector_name="sift", ratio=0.75, ransac_
         return {**base, "status": "failed", "reason": "no consistent homography", "gcps": []}
     inl = mask.ravel().astype(bool)
     stats["inliers"] = int(inl.sum())
-    inl = distinct(p1, inl)
+    # one-to-one: a repeated symbol in the image (bus stop icons, route shields) can all match one reference
+    # point, and MAGSAC then accepts a degenerate homography that collapses the image onto it. In the level 1
+    # negative controls, 21-167 image positions mapped to 1-2 reference positions (2026-11-03).
+    inl = distinct(p2, distinct(p1, inl))
     stats["inliers_distinct"] = int(inl.sum())
     stats["inlier_ratio"] = float(inl.sum() / len(good))
     if inl.sum() < min_inliers or stats["inlier_ratio"] < min_inlier_ratio:

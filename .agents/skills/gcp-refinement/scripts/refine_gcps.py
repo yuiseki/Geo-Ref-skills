@@ -42,7 +42,15 @@ def refine(answer, target_loo_px=3.0, max_remove_fraction=0.1):
     cap = int(np.floor(max_remove_fraction * n0))
     keep = np.arange(n0)
     removed = []
-    r = loo_px(method, cr, dst, W, H)
+    try:
+        r = loo_px(method, cr, dst, W, H)
+    except ValueError as e:
+        # not ours to repair: pass the answer on, say why, and let the gates fail it
+        out = dict(answer)
+        out["refinement"] = {"tool": "gcp-refinement", "n_input": n0, "removed": [], "stopped": "unfittable",
+                             "error": str(e), "target_loo_px": target_loo_px,
+                             "max_remove_fraction": max_remove_fraction}
+        return out
     initial = float(r.max())
     stopped = "target_met"
     while r.max() > target_loo_px:
@@ -53,9 +61,14 @@ def refine(answer, target_loo_px=3.0, max_remove_fraction=0.1):
             stopped = "too_few_points"
             break
         worst = int(np.argmax(r))
+        try:
+            r_next = loo_px(method, cr[np.delete(keep, worst)], dst[np.delete(keep, worst)], W, H)
+        except ValueError:
+            stopped = "unfittable_after_removal"
+            break
         removed.append({"index": int(keep[worst]), "loo_px": float(r[worst]), **g[keep[worst]]})
         keep = np.delete(keep, worst)
-        r = loo_px(method, cr[keep], dst[keep], W, H)
+        r = r_next
     out = dict(answer)
     out["gcps"] = [g[i] for i in keep]
     out["refinement"] = {"tool": "gcp-refinement", "n_input": n0, "removed": removed, "stopped": stopped,
@@ -79,7 +92,7 @@ def main():
     with open(a.out, "w", encoding="utf-8") as fh:
         json.dump(out, fh, indent=2)
     r = out.get("refinement", {})
-    print(json.dumps({k: r.get(k) for k in ("n_input", "stopped", "initial_max_loo_px", "final_max_loo_px")}
+    print(json.dumps({k: r.get(k) for k in ("n_input", "stopped", "initial_max_loo_px", "final_max_loo_px", "error")}
                      | {"removed": len(r.get("removed", []))}))
     sys.exit(0)
 

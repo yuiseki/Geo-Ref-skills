@@ -80,3 +80,13 @@ def test_cli(tmp_path):
     assert r.returncode == 0, r.stderr
     out = json.loads(o.read_text(encoding="utf-8"))
     assert [x["index"] for x in out["refinement"]["removed"]] == [5]
+
+
+def test_unfittable_answer_is_passed_on_with_the_reason():
+    a = answer(30, 0.3)
+    for g in a["gcps"]:  # every point on one ground position: no transform
+        g["lon"], g["lat"] = 139.74, 35.70
+    out = refine_gcps.refine(a)
+    assert out["refinement"]["stopped"] == "unfittable"
+    assert "error" in out["refinement"]
+    assert out["gcps"] == a["gcps"]
