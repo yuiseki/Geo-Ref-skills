@@ -12,4 +12,9 @@
 
 ## 状況
 
-作り始めたところ。先行の仕事と、そこから取り入れることは [docs/related-work.md](docs/related-work.md)。
+作り始めたところ。
+
+- [AGENTS.md](AGENTS.md): エージェントへの指示と、失敗からスキルを育てる手順
+- [docs/curriculum.md](docs/curriculum.md): タイルから作る模擬の課題 (レベル 1〜5)、歪み、採点、関門
+- [docs/datasets.md](docs/datasets.md): 本番用に取っておく AI4CMA と、開発に使う tile.yuiseki.net
+- [docs/related-work.md](docs/related-work.md): 先行の仕事と、そこから取り入れること
