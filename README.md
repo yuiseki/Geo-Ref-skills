@@ -6,6 +6,8 @@
 
 ![東京の例: 歪んだ地図を地上に戻し (赤紫)、元の地図に重ねたもの](docs/examples/tokyo-projective-magenta.jpg)
 
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
 ## 考え方
 
 - LLM や VLM に座標を推測させない。画像の照合、変換の推定、外れた点の除去、誤差の評価は、Python の決定論的な処理と古典的な機械学習の道具として、エージェントに渡します。
@@ -48,6 +50,8 @@
 |---|---|
 | ![東京の入力](docs/examples/tokyo-projective-input.jpg) | ![東京の結果](docs/examples/tokyo-projective-magenta.jpg) |
 
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
 GCP 268 点、関門は全て通過。誤差は最大 1.63 m、中央値 0.43 m です (画像の範囲は地上で約 5.4 km x 3.2 km)。
 
 ### 十勝の畑 (地物がまばらで、強いアフィンの歪み)
@@ -55,6 +59,8 @@ GCP 268 点、関門は全て通過。誤差は最大 1.63 m、中央値 0.43 m 
 | 入力 | 結果 |
 |---|---|
 | ![十勝の入力](docs/examples/tokachi-asift-input.jpg) | ![十勝の結果](docs/examples/tokachi-asift-magenta.jpg) |
+
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
 
 GCP 36 点、誤差は最大 2.66 m、中央値 0.76 m です (範囲は約 4.9 km x 2.7 km)。
 
@@ -69,6 +75,8 @@ GCP 36 点、誤差は最大 2.66 m、中央値 0.76 m です (範囲は約 4.9 
 | 入力 | 結果 |
 |---|---|
 | ![レベル 2a の入力](docs/examples/level2a-binary-input.jpg) | ![レベル 2a の結果](docs/examples/level2a-binary-magenta.jpg) |
+
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
 
 大阪、GCP 163 点、誤差は最大 0.94 m です。72 課題のうち 64 課題を正解しました。解けなかったのは、二値にすると畑の区画がほとんど消える地図で、道具は失敗を宣言しています。
 
@@ -86,6 +94,8 @@ GCP 36 点、誤差は最大 2.66 m、中央値 0.76 m です (範囲は約 4.9 
 |---|---|
 | ![osm-carto の入力](docs/examples/level2-carto-input.jpg) | ![osm-carto の結果](docs/examples/level2-carto-magenta.jpg) |
 
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
 大阪、GCP 75 点、誤差は最大 2.16 m です。
 
 ### 開発中に見ていない e-paper の地図 (透視の歪み)
@@ -93,6 +103,8 @@ GCP 36 点、誤差は最大 2.66 m、中央値 0.76 m です (範囲は約 4.9 
 | 入力 | 結果 |
 |---|---|
 | ![e-paper の入力](docs/examples/level2-epaper-projective-input.jpg) | ![e-paper の結果](docs/examples/level2-epaper-projective-magenta.jpg) |
+
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
 
 黒、白、赤、黄の 4 色で描くスタイルで、水も白です。福岡、GCP 80 点、誤差は最大 1.83 m です。水の手がかりが無いので、水で合わせる方法は「画像に水が無い」と失敗を宣言します。そのときだけ、次の手として道路の中心線どうしで合わせる方法を試します。
 
@@ -106,11 +118,15 @@ GCP 36 点、誤差は最大 2.66 m、中央値 0.76 m です (範囲は約 4.9 
 |---|---|
 | ![鉄道の入力](docs/examples/level3-railways-input.jpg) | ![鉄道の結果](docs/examples/level3-railways-magenta.jpg) |
 
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
 大阪の鉄道、GCP 55 点、誤差は最大 2.48 m です。
 
 ### 解けないと宣言して止まった例
 
 ![金沢の鉄道の入力](docs/examples/level3-refused-input.jpg)
+
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
 
 金沢の鉄道の地図です。線が 2 本ほどしか無く、場所を決める手がかりが足りません。升ごとの照合で 1 つの変換にそろった升は 4 個で、下限の 12 に届かなかったため、道具は答えを出さずに止まりました。ここでは、これが正しい振る舞いです。
 
