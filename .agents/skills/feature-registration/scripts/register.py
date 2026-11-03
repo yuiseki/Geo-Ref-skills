@@ -95,6 +95,23 @@ def distinct(points, mask):
     return out
 
 
+def gradient_image(img):
+    """Edge strength in place of colour: the largest Sobel magnitude over the three channels, scaled so the 99th
+    percentile is 255. It drops which colour a road or river is drawn in and keeps where its edges are."""
+    f = img.astype(np.float32)
+    gx = np.max([np.abs(cv2.Sobel(f[..., c], cv2.CV_32F, 1, 0)) for c in range(3)], axis=0)
+    gy = np.max([np.abs(cv2.Sobel(f[..., c], cv2.CV_32F, 0, 1)) for c in range(3)], axis=0)
+    m = np.hypot(gx, gy)
+    top = np.percentile(m, 99)
+    if top <= 0:
+        return np.zeros_like(img)
+    m = np.clip(m / top * 255.0, 0, 255).astype(np.uint8)
+    return np.stack([m] * 3, axis=-1)
+
+
+REPRESENTATIONS = {"gray": lambda x: x, "gradient": gradient_image}
+
+
 def thin(points, scores, W, H, bins=10, per_bin=4):
     """Keep the best-scoring points in each cell of a bins x bins grid, so no area dominates."""
     cell = (np.minimum((points[:, 0] / W * bins).astype(int), bins - 1) * bins
@@ -107,30 +124,48 @@ def thin(points, scores, W, H, bins=10, per_bin=4):
 
 
 def register(image, ref_img, ref_meta, detector_name="sift", ratio=0.75, ransac_px=3.0, min_inliers=20,
-             method="projective", bins=10, per_bin=4, asift="auto", min_inlier_ratio=0.1):
-    """asift: "off" plain features; "on" affine-simulated views of the image; "auto" plain, then on if it fails."""
+             method="projective", bins=10, per_bin=4, asift="auto", min_inlier_ratio=0.1, representation="auto"):
+    """asift: "off" plain features; "on" affine-simulated views of the image; "auto" plain, then on if it fails.
+    representation: "gray" (the images as drawn), "gradient" (edge strength, for maps drawn in another style),
+    or "auto": gray, then gradient if gray fails. Every attempt is kept in stats["attempts"]."""
+    if representation == "auto":
+        attempts = []
+        for rep in ("gray", "gradient"):
+            ans = register(image, ref_img, ref_meta, detector_name, ratio, ransac_px, min_inliers, method, bins,
+                           per_bin, asift, min_inlier_ratio, rep)
+            if ans["status"] == "ok":
+                ans["stats"]["attempts"] = attempts
+                return ans
+            attempts.append({"representation": rep, "reason": ans.get("reason")})
+        ans["stats"]["attempts"] = attempts
+        return ans
+    if representation not in REPRESENTATIONS:
+        raise ValueError(f"representation must be auto or one of {sorted(REPRESENTATIONS)}")
     if asift == "auto":
         first = register(image, ref_img, ref_meta, detector_name, ratio, ransac_px, min_inliers, method, bins,
-                         per_bin, "off", min_inlier_ratio)
+                         per_bin, "off", min_inlier_ratio, representation)
         if first["status"] == "ok":
             return first
         second = register(image, ref_img, ref_meta, detector_name, ratio, ransac_px, min_inliers, method, bins,
-                          per_bin, "on", min_inlier_ratio)
+                          per_bin, "on", min_inlier_ratio, representation)
         second["stats"]["plain_attempt"] = {"reason": first.get("reason"), **first["stats"]}
         return second
     if asift not in ("on", "off"):
         raise ValueError(f"asift must be auto, on or off, got {asift}")
     H, W = image.shape[:2]
     det, norm = detector(detector_name)
-    g1 = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    g2 = cv2.cvtColor(ref_img, cv2.COLOR_RGB2GRAY)
+    rep = REPRESENTATIONS[representation]
+    g1 = cv2.cvtColor(rep(image), cv2.COLOR_RGB2GRAY)
+    g2 = cv2.cvtColor(rep(ref_img), cv2.COLOR_RGB2GRAY)
     off = KEYPOINT_OFFSET[detector_name]
     p1all, d1 = detect(det, g1, asift == "on", off)
     p2all, d2 = detect(det, g2, False, off)
-    stats = {"keypoints_image": len(p1all), "keypoints_reference": len(p2all), "asift": asift == "on"}
+    stats = {"keypoints_image": len(p1all), "keypoints_reference": len(p2all), "asift": asift == "on",
+             "representation": representation}
     base = {"image": {"width": W, "height": H}, "method": method, "crs": "EPSG:4326",
             "tool": {"name": "feature-registration", "detector": detector_name, "ratio": ratio,
-                     "ransac_px": ransac_px, "asift": asift}, "stats": stats}
+                     "ransac_px": ransac_px, "asift": asift,
+                     "representation": representation}, "stats": stats}
     if d1 is None or d2 is None or len(p1all) < 2 or len(p2all) < 2:
         return {**base, "status": "failed", "reason": "no keypoints", "gcps": []}
     pairs = cv2.BFMatcher(norm).knnMatch(d1, d2, k=2)
@@ -188,6 +223,8 @@ def main():
     ap.add_argument("--ransac-px", type=float, default=3.0)
     ap.add_argument("--min-inliers", type=int, default=20, help="distinct inlier positions needed")
     ap.add_argument("--min-inlier-ratio", type=float, default=0.1, help="inliers / ratio-test matches needed")
+    ap.add_argument("--representation", default="auto", choices=["auto", "gray", "gradient"],
+                    help="what to match: the images as drawn, or edge strength; auto tries gray first")
     ap.add_argument("--asift", default="auto", choices=["auto", "on", "off"],
                     help="affine-simulated views of the image (ASIFT); auto tries plain features first")
     a = ap.parse_args()
@@ -196,7 +233,8 @@ def main():
     if meta.get("crs") != "EPSG:3857":
         raise ValueError(f"reference must be EPSG:3857, got {meta.get('crs')}")
     ans = register(read_rgb(a.image), read_rgb(ref / "reference.png"), meta, a.detector, a.ratio, a.ransac_px,
-                   a.min_inliers, a.method, asift=a.asift, min_inlier_ratio=a.min_inlier_ratio)
+                   a.min_inliers, a.method, asift=a.asift, min_inlier_ratio=a.min_inlier_ratio,
+                   representation=a.representation)
     Path(a.out).write_text(json.dumps(ans, indent=2), encoding="utf-8")
     print(json.dumps({"status": ans["status"], "reason": ans.get("reason"), **ans["stats"]}))
     sys.exit(0 if ans["status"] == "ok" else 1)

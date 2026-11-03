@@ -160,3 +160,24 @@ def test_many_image_points_on_one_reference_point_count_once():
     mask = np.ones(60, bool)
     assert register.distinct(p1, mask).sum() == 60
     assert register.distinct(p2, register.distinct(p1, mask)).sum() <= 2
+
+
+def test_gradient_image_ignores_which_colour_a_shape_is_drawn_in():
+    img = scene()
+    g = register.gradient_image(img)
+    assert g.dtype == np.uint8 and g.shape == img.shape
+    np.testing.assert_array_equal(register.gradient_image(255 - img), g)  # light on dark or dark on light
+    swapped = img[..., ::-1].copy()  # red and blue swapped
+    assert np.abs(register.gradient_image(swapped).astype(int) - g.astype(int)).mean() < 3
+    flat = np.full((50, 50, 3), 128, np.uint8)
+    assert register.gradient_image(flat).max() == 0
+
+
+def test_auto_representation_keeps_the_record_of_attempts():
+    ref = scene(seed=1)
+    task = warp(scene(seed=2), np.eye(3), 800, 600)
+    ans = register.register(task, ref, meta(), "sift")
+    assert ans["status"] == "failed"
+    assert [a["representation"] for a in ans["stats"]["attempts"]] == ["gray", "gradient"]
+    good = register.register(warp(ref, np.eye(3), 800, 600), ref, meta(), "sift")
+    assert good["status"] == "ok" and good["tool"]["representation"] == "gray"
