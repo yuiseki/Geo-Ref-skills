@@ -142,3 +142,16 @@ def test_line_mask_is_width_independent():
     b = rcs.line_mask(lines_scene(5))
     inter = (a & b).sum() / max(1, (a | b).sum())
     assert inter > 0.5
+
+
+def test_consistent_patches_tell_a_place_from_scatter():
+    r = np.random.default_rng(3)
+    src = r.uniform(0, 900, (40, 2))
+    q = np.column_stack([src, np.ones(40)]) @ D.T
+    good = [(a, b) for a, b in zip(src, q[:, :2] / q[:, 2:] + r.normal(0, 0.5, (40, 2)))]
+    _, n_good = rcs.consistent_patches(good)
+    assert n_good >= 38 and rcs.place_is_supported(n_good, 40)
+    bad = [(a, a + r.uniform(-48, 48, 2)) for a in src]  # each patch found its own shift: another place
+    _, n_bad = rcs.consistent_patches(bad)
+    assert not rcs.place_is_supported(n_bad, 40)
+    assert not rcs.place_is_supported(13, 40)  # enough patches but under half of them

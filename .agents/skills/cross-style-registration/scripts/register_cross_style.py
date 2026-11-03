@@ -36,7 +36,9 @@ DEFAULTS = {
     "rotation_step": 3.0,
     "scale_min": 0.7, "scale_max": 1.45, "scale_step": 0.05,  # log steps
     "water_min": 0.005, "water_max": 0.5,  # fraction of each image that must look like water
-    "min_coarse_score": 0.6,   # masked NCC of the blue masks at the best similarity
+    "min_coarse_score": 0.3,   # masked NCC of the masks at the best similarity: a cheap early exit only
+    "min_consistent": 12,      # first-pass patches that one homography explains (RANSAC, 6 px) ...
+    "min_consistent_share": 0.5,  # ... and their share of the first-pass patches: the real test of the place
     "grid": (10, 8), "half": 64, "search": 48, "k": 8,
     "search2": 10,             # second pass search, around the first pass's homography
     "min_valid": 0.6,          # share of a patch that must be inside the map (patches at a rotated map's edge)
@@ -230,6 +232,20 @@ def refine_patches(task, ref, A, o=DEFAULTS, search=None, la_task=None, lb=None)
     return pts, info, la_task, lb
 
 
+def consistent_patches(pts, tol=6.0):
+    """(homography, number of patches it explains) for patch matches [(task corner, ref corner), ...]."""
+    if len(pts) < 4:
+        return None, 0
+    src = np.float32([p for p, _ in pts])
+    dst = np.float32([q for _, q in pts])
+    Hm, mask = cv2.findHomography(src, dst, cv2.RANSAC, tol)
+    return (Hm, int(mask.sum())) if Hm is not None else (None, 0)
+
+
+def place_is_supported(consistent, n, o=DEFAULTS):
+    return consistent >= o["min_consistent"] and consistent >= o["min_consistent_share"] * max(n, 1)
+
+
 def register(image, ref_img, ref_meta, mask="water", **opts):
     """mask: "water" (blue water, for full map styles) or "lines" (centre lines of everything that is not the
     background, for maps of rivers or railways only; the reference should then show the same kind of line)."""
@@ -261,14 +277,16 @@ def register(image, ref_img, ref_meta, mask="water", **opts):
     stats.update(patches_pass1=len(info), gcps_pass1=len(pts))
     # second pass: a homography from the first pass's points takes out most of the local scale and shear, so
     # the patches line up and the mutual-information peaks sharpen; search only a little around it
-    if len(pts) >= 8:
-        src = np.float32([p for p, _ in pts])
-        dst = np.float32([q for _, q in pts])
-        Hm, mask = cv2.findHomography(src, dst, cv2.RANSAC, 6.0)
-        if Hm is not None and mask.sum() >= 8:
-            pts2, info2, _, _ = refine_patches(image, ref_img, Hm, o, search=o["search2"], la_task=la_task, lb=lb)
-            pts, info = pts2, info2
-            stats["second_pass"] = True
+    # Patches are measured independently; at the right place one homography explains most of them, at a wrong
+    # place their shifts scatter. This, not the coarse score, decides whether to go on.
+    Hm, consistent = consistent_patches(pts)
+    stats.update(consistent_pass1=consistent)
+    if not place_is_supported(consistent, len(pts), o):
+        return {**base, "status": "failed", "gcps": [],
+                "reason": f"{consistent} of {len(pts)} first-pass patches fit one homography "
+                          f"(need {o['min_consistent']} and {o['min_consistent_share']:.0%})"}
+    pts, info, _, _ = refine_patches(image, ref_img, Hm, o, search=o["search2"], la_task=la_task, lb=lb)
+    stats["second_pass"] = True
     stats.update(patches=len(info), gcps=len(pts))
     if len(pts) < o["min_gcps"]:
         return {**base, "status": "failed", "gcps": [], "reason": f"{len(pts)} patches with a clear peak < {o['min_gcps']}"}
