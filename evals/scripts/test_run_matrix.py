@@ -48,3 +48,20 @@ def test_attempts_from_either_form():
     assert run_matrix.attempts(m)[1] == {"registrar": "cross-style-registration", "args": ["--mask", "lines"]}
     a = [{"registrar": "cross-style-registration", "ref_style": "roads-minimal", "args": ["--mask", "lines"]}]
     assert run_matrix.attempts({"attempts": a}) == a
+
+
+def test_zooms_are_an_axis_when_given():
+    m = {"level": 4, "zoom": 15, "places": {"a": [0, 0]}, "styles": ["s"], "kinds": ["similarity"], "strengths": [0.5],
+         "seeds": [1]}
+    assert [t["zoom"] for t in run_matrix.tasks(m)] == [15]
+    m["zooms"] = [14, 16]
+    ts = list(run_matrix.tasks(m))
+    assert [t["zoom"] for t in ts] == [14, 16] and len({t["id"] for t in ts}) == 2
+
+
+def test_level4_hint_comes_from_place_hint_scale_or_is_a_refusal():
+    ok = {"status": "ok", "bbox": [1, 2, 3, 4], "scale": {"status": "ok", "bbox": [1.5, 2.5, 2.5, 3.5], "zoom": 16}}
+    assert run_matrix.hint_from_place_hint(ok) == {"bbox": [1.5, 2.5, 2.5, 3.5], "zoom": 16, "source": "place-hint"}
+    no_scale = {"status": "ok", "bbox": [1, 2, 3, 4], "scale": {"status": "failed", "reason": "2 of 3 names"}}
+    assert run_matrix.hint_from_place_hint(no_scale) is None
+    assert run_matrix.hint_from_place_hint({"status": "failed", "reason": "support 1"}) is None

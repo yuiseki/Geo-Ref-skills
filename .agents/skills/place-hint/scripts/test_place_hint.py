@@ -89,3 +89,69 @@ def test_common_names_weigh_little():
     assert h["status"] == "ok" and sorted(h["support"]) == ["Katamachi", "Kenrokuen", "Korinbo"]
     only_common = {k: v for k, v in cands.items() if k in ("CHUO", "KITA", "HIGASHI")}
     assert place_hint.cluster(only_common)["status"] == "failed"
+
+
+def names_on_map(m_per_px, rot_deg, centre, n=8, seed=0, size=(900, 700)):
+    """Place names at known image positions of a map drawn at m_per_px (mercator metres per pixel), turned by
+    rot_deg, centred on centre (lon, lat)."""
+    import random
+    rnd = random.Random(seed)
+    cx, cy = place_hint.lonlat_to_mercator(*centre)
+    th = math.radians(rot_deg)
+    pts = []
+    for i in range(n):
+        col, row = rnd.uniform(50, size[0] - 50), rnd.uniform(50, size[1] - 50)
+        dx, dy = col - size[0] / 2, row - size[1] / 2
+        # image (right, down) -> mercator (east, north): turn by -th, scale, flip the row axis
+        ex = (dx * math.cos(th) + dy * math.sin(th)) * m_per_px
+        ny = -(-dx * math.sin(th) + dy * math.cos(th)) * m_per_px
+        lon, lat = place_hint.mercator_to_lonlat(cx + ex, cy + ny)
+        pts.append({"name": f"N{i}", "col": col, "row": row, "lon": lon, "lat": lat})
+    return pts
+
+
+def test_scale_from_names_recovers_scale_rotation_and_zoom():
+    pts = names_on_map(4.78, 12.0, (139.75, 35.68))  # 4.78 m/px is zoom 15
+    s = place_hint.scale_from_names(pts, 900, 700)
+    assert s["status"] == "ok", s
+    assert s["m_per_px"] == pytest.approx(4.78, rel=1e-3)
+    assert s["rotation_deg"] == pytest.approx(12.0, abs=0.1)
+    assert s["zoom"] == 15 and s["inliers"] == 8
+    w, so, e, n = s["bbox"]
+    for p in pts:
+        assert w < p["lon"] < e and so < p["lat"] < n
+
+
+def test_scale_from_names_ignores_a_misplaced_name():
+    pts = names_on_map(9.55, -20.0, (135.50, 34.69), n=7, seed=1)
+    pts[3]["lon"] += 0.03  # a name looked up at the wrong place nearby
+    s = place_hint.scale_from_names(pts, 900, 700)
+    assert s["status"] == "ok" and s["inliers"] == 6 and "N3" not in s["support"]
+    assert s["m_per_px"] == pytest.approx(9.55, rel=1e-2) and s["zoom"] == 14
+
+
+def test_scale_from_names_needs_four_agreeing_names():
+    # two or three names always fit a similarity; they cannot show that the fit is right
+    assert place_hint.scale_from_names(names_on_map(4.78, 0, (139.75, 35.68), n=3), 900, 700)["status"] == "failed"
+
+
+def test_scale_from_names_refuses_names_that_do_not_agree():
+    import random
+    rnd = random.Random(3)
+    pts = [{"name": f"N{i}", "col": rnd.uniform(0, 900), "row": rnd.uniform(0, 700),
+            "lon": 139.7 + rnd.uniform(-0.05, 0.05), "lat": 35.68 + rnd.uniform(-0.05, 0.05)} for i in range(8)]
+    assert place_hint.scale_from_names(pts, 900, 700)["status"] == "failed"
+
+
+def test_mercator_round_trip():
+    x, y = place_hint.lonlat_to_mercator(139.75, 35.68)
+    lon, lat = place_hint.mercator_to_lonlat(x, y)
+    assert lon == pytest.approx(139.75) and lat == pytest.approx(35.68)
+
+
+def test_located_points_take_the_most_confident_reading_of_each_name():
+    words = [{"text": "KORINBO", "conf": 80, "col": 10, "row": 20}, {"text": "KORINBO", "conf": 95, "col": 11, "row": 21},
+             {"text": "片町", "conf": 90, "col": 30, "row": 40}, {"text": "OTHER", "conf": 99, "col": 0, "row": 0}]
+    matches = {"KORINBO": {"lon": 136.656, "lat": 36.561}, "片町": {"lon": 136.652, "lat": 36.556}}
+    pts = place_hint.located_points(words, matches)
+    assert [(p["name"], p["col"]) for p in pts] == [("KORINBO", 11), ("片町", 30)]

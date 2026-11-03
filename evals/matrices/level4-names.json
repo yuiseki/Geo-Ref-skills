@@ -1,0 +1,21 @@
+{
+  "level": 4,
+  "hint": "place-hint",
+  "countrycodes": "jp",
+  "zooms": [14, 15, 16],
+  "size": [900, 700],
+  "ref_style": "osm-liberty",
+  "places": {
+    "nagoya": [136.9066, 35.1709],
+    "kobe": [135.1955, 34.6901],
+    "kagoshima": [130.5571, 31.5966],
+    "morioka": [141.1527, 39.7036]
+  },
+  "styles": ["osm-liberty"],
+  "kinds": ["similarity", "projective"],
+  "strengths": [0.5, 1.0],
+  "seeds": [20],
+  "attempts": [
+    {"registrar": "feature-registration"}
+  ]
+}

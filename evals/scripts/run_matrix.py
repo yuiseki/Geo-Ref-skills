@@ -21,6 +21,9 @@ task at task_place but move the hint bbox, same size, to centre on ref_place; th
 are run with that wrong hint. The right outcome is a refusal:
     correct_reject  the tool declared failure or a gate failed
     false_accept    every gate passed for a map of another place (a gate hole)
+Level 4 ("hint": "place-hint", optionally "zooms": [14, 15, 16] and "countrycodes": "jp") gives the solver no bbox
+and no zoom: the place-hint skill reads the names on the map and fits their positions for the bbox and zoom. When it
+cannot, the task is refused at that step (failed_gates "place_hint") and nothing else runs.
 Every task gets exactly one row; a step that crashes is recorded as "error" with its stderr.
 """
 
@@ -40,19 +43,32 @@ UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-python-he
 # one BLAS thread per step: many threads under a CPU quota fight each other (a 386-point gate check took
 # over a minute with all threads and 11 s with one, 2026-11-03)
 ENV = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+NOMINATIM_CACHE = ROOT / "tmp" / "nominatim"
 REGISTRARS = {"feature-registration": "register.py", "cross-style-registration": "register_cross_style.py"}
 COLUMNS = ["id", "place", "style", "photometric", "kind", "strength", "seed", "outcome", "register", "gates_passed",
            "failed_gates", "max_m", "median_m", "max_pct_radius", "n_gcps", "n_removed", "registrar", "asift", "loo_max_px",
-           "error"]
+           "error", "zoom"]
 
 
 def tasks(m):
-    for (place, lonlat), style, photo, kind, strength, seed in itertools.product(
-            m["places"].items(), m["styles"], m.get("photometrics", ["none"]), m["kinds"], m["strengths"], m["seeds"]):
+    zooms = m.get("zooms", [m.get("zoom")])
+    for (place, lonlat), style, photo, zoom, kind, strength, seed in itertools.product(
+            m["places"].items(), m["styles"], m.get("photometrics", ["none"]), zooms, m["kinds"], m["strengths"],
+            m["seeds"]):
         tag = "" if photo == "none" else f"-{photo}"
-        tid = f"L{m['level']}-{place}-{style}{tag}-{kind}-s{strength}-r{seed}"
-        yield {"id": tid, "place": place, "center": lonlat, "style": style, "photometric": photo, "kind": kind,
-               "strength": strength, "seed": seed}
+        ztag = f"-z{zoom}" if "zooms" in m else ""  # ids without a zoom axis stay as they were (resumable runs)
+        tid = f"L{m['level']}-{place}-{style}{tag}{ztag}-{kind}-s{strength}-r{seed}"
+        yield {"id": tid, "place": place, "center": lonlat, "style": style, "photometric": photo, "zoom": zoom,
+               "kind": kind, "strength": strength, "seed": seed}
+
+
+def hint_from_place_hint(ph):
+    """Level 4 gives the solver no bbox and no zoom: both come from the place-hint skill (names read on the map,
+    looked up, and fitted for scale). No agreeing names, or no scale, is a declared failure: None."""
+    sc = ph.get("scale") or {}
+    if ph.get("status") != "ok" or sc.get("status") != "ok":
+        return None
+    return {"bbox": sc["bbox"], "zoom": sc["zoom"], "source": "place-hint"}
 
 
 def attempts(m):
@@ -109,12 +125,25 @@ def run_one(t, m, work, cache, accurate_pct):
         p.mkdir(parents=True, exist_ok=True)
     W, H = m["size"]
     step(UVX + [str(EVALS / "make_task.py"), "--style", t["style"], "--center", *map(str, t["center"]),
-                "--zoom", str(m["zoom"]), "--size", str(W), str(H), "--distortion", t["kind"],
+                "--zoom", str(t.get("zoom") or m["zoom"]), "--size", str(W), str(H), "--distortion", t["kind"],
                 "--strength", str(t["strength"]), "--seed", str(t["seed"]), "--cache", str(cache),
                 "--task-out", str(task), "--truth-out", str(truth), "--photometric", t.get("photometric", "none")],
          truth / "truth.json", d / "make.log")
     hint = json.loads((task / "hint.json").read_text(encoding="utf-8"))
     hint_path = task / "hint.json"
+    if m.get("hint") == "place-hint":
+        ph_out = run / "place_hint.json"
+        step(UVX + [str(SKILLS / "place-hint" / "scripts" / "place_hint.py"), str(task / "image.png"), "--out",
+                    str(ph_out), "--countrycodes", m.get("countrycodes", "jp"), "--cache", str(NOMINATIM_CACHE)],
+             ph_out, d / "place_hint.log")
+        ph = json.loads(ph_out.read_text(encoding="utf-8"))
+        hint = hint_from_place_hint(ph)
+        if hint is None:
+            why = (ph.get("scale") or {}).get("reason") or ph.get("reason")
+            return {**t, "outcome": "refused", "register": "not run", "gates_passed": False,
+                    "failed_gates": "place_hint", "error": f"place-hint: {why}"}
+        hint_path = run / "hint.json"
+        hint_path.write_text(json.dumps(hint, indent=2), encoding="utf-8")
     if "wrong_center" in t:
         hint = {**hint, "bbox": shifted_bbox(hint["bbox"], t["wrong_center"])}
         hint_path = run / "wrong_hint.json"

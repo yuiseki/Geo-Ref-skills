@@ -1,0 +1,25 @@
+{
+  "level": 3,
+  "zoom": 15,
+  "size": [900, 700],
+  "ref_style": "osm-liberty",
+  "places": {
+    "hiroshima": [132.4553, 34.3853],
+    "niigata": [139.0364, 37.9161],
+    "matsumoto": [137.9720, 36.2380]
+  },
+  "styles": ["osm-liberty-no-text-no-icons"],
+  "kinds": ["similarity", "projective"],
+  "strengths": [0.5, 1.0],
+  "seeds": [12, 13],
+  "negatives": {
+    "pairs": [["hiroshima", "niigata"], ["niigata", "matsumoto"], ["matsumoto", "hiroshima"]],
+    "kinds": ["projective"],
+    "strengths": [0.5],
+    "seeds": [12, 13]
+  },
+  "attempts": [
+    {"registrar": "feature-registration"},
+    {"registrar": "cross-style-registration"}
+  ]
+}
