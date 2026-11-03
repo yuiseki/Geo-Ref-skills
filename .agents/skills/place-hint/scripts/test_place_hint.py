@@ -155,3 +155,8 @@ def test_located_points_take_the_most_confident_reading_of_each_name():
     matches = {"KORINBO": {"lon": 136.656, "lat": 36.561}, "片町": {"lon": 136.652, "lat": 36.556}}
     pts = place_hint.located_points(words, matches)
     assert [(p["name"], p["col"]) for p in pts] == [("KORINBO", 11), ("片町", 30)]
+
+
+def test_zoom_is_the_one_no_coarser_than_the_map():
+    # 6.26 m/px lies between z15 (4.78) and z14 (9.55); the reference must not be coarser than the map
+    assert place_hint.scale_from_names(names_on_map(6.26, 0, (139.75, 35.68)), 900, 700)["zoom"] == 15

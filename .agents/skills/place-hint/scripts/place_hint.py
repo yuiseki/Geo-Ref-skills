@@ -146,8 +146,10 @@ def scale_from_names(points, width, height, tol_frac=0.06, min_inliers=4, min_fr
     name is printed near, not on, the point Nominatim returns). Two or three names always fit some similarity, so
     at least min_inliers names, and min_fraction of them, must agree; otherwise this is a declared failure.
 
-    Returns m_per_px (mercator metres per image pixel), rotation_deg, zoom (the web map zoom whose 256 px tiles
-    have the nearest pixel size), and bbox: the image's footprint under the fit, widened by margin_frac of its
+    Returns m_per_px (mercator metres per image pixel), rotation_deg, zoom (the coarsest web map zoom whose 256 px
+    tiles are at least as fine as the map's pixels, so the reference never has less detail than the map; on
+    2026-11-04 the estimate came out 7 to 11 % coarse on three Tokyo maps, and rounding put one at z14 for a z15
+    map), and bbox: the image's footprint under the fit, widened by margin_frac of its
     size on each side, as a hint for the reference."""
     n = len(points)
     if n < min_inliers:
@@ -183,7 +185,7 @@ def scale_from_names(points, width, height, tol_frac=0.06, min_inliers=4, min_fr
     corners = [complex(c, -r) for c in (-mx, width + mx) for r in (-my, height + my)]
     ll = [mercator_to_lonlat((a * z + b).real, (a * z + b).imag) for z in corners]
     return {"status": "ok", "m_per_px": m_per_px, "rotation_deg": math.degrees(math.atan2(a.imag, a.real)),
-            "zoom": int(round(zoom_f)), "zoom_float": zoom_f, "inliers": len(best), "names": n,
+            "zoom": int(math.ceil(zoom_f - 0.05)), "zoom_float": zoom_f, "inliers": len(best), "names": n,
             "support": sorted(points[k]["name"] for k in best), "median_residual_px": res[len(res) // 2],
             "bbox": [min(x for x, _ in ll), min(y for _, y in ll), max(x for x, _ in ll), max(y for _, y in ll)]}
 
