@@ -2,7 +2,7 @@
 
     python scripts/run_matrix.py matrix.json --work tmp/matrix --out results.tsv
 
-matrix.json: {"level": 1, "zoom": 15, "size": [900, 700], "ref_style": "osm-liberty",
+matrix.json: {"level": 1, "zoom": 15, "size": [900, 700], "ref_style": "osm-liberty", "photometrics": ["none", "gray"],
               "places": {"tokyo": [139.7528, 35.6852], ...}, "styles": ["osm-liberty"],
               "kinds": ["similarity", ...], "strengths": [0.25, ...], "seeds": [1, 2]}
 ref_style is the style of the reference the solver matches against; styles are the task images' styles
@@ -38,15 +38,16 @@ UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-python-he
 # one BLAS thread per step: many threads under a CPU quota fight each other (a 386-point gate check took
 # over a minute with all threads and 11 s with one, 2026-11-03)
 ENV = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
-COLUMNS = ["id", "place", "style", "kind", "strength", "seed", "outcome", "register", "gates_passed",
+COLUMNS = ["id", "place", "style", "photometric", "kind", "strength", "seed", "outcome", "register", "gates_passed",
            "failed_gates", "max_m", "median_m", "max_pct_radius", "n_gcps", "n_removed", "asift", "loo_max_px", "error"]
 
 
 def tasks(m):
-    for (place, lonlat), style, kind, strength, seed in itertools.product(
-            m["places"].items(), m["styles"], m["kinds"], m["strengths"], m["seeds"]):
-        tid = f"L{m['level']}-{place}-{style}-{kind}-s{strength}-r{seed}"
-        yield {"id": tid, "place": place, "center": lonlat, "style": style, "kind": kind,
+    for (place, lonlat), style, photo, kind, strength, seed in itertools.product(
+            m["places"].items(), m["styles"], m.get("photometrics", ["none"]), m["kinds"], m["strengths"], m["seeds"]):
+        tag = "" if photo == "none" else f"-{photo}"
+        tid = f"L{m['level']}-{place}-{style}{tag}-{kind}-s{strength}-r{seed}"
+        yield {"id": tid, "place": place, "center": lonlat, "style": style, "photometric": photo, "kind": kind,
                "strength": strength, "seed": seed}
 
 
@@ -56,7 +57,7 @@ def negatives(m):
         return
     for (tp, rp), kind, strength, seed in itertools.product(n["pairs"], n["kinds"], n["strengths"], n["seeds"]):
         yield {"id": f"N{m['level']}-{tp}-on-{rp}-{kind}-s{strength}-r{seed}", "place": tp, "center": m["places"][tp],
-               "style": m["styles"][0], "kind": kind, "strength": strength, "seed": seed,
+               "style": m["styles"][0], "photometric": "none", "kind": kind, "strength": strength, "seed": seed,
                "wrong_center": m["places"][rp]}
 
 
@@ -95,7 +96,8 @@ def run_one(t, m, work, cache, accurate_pct):
     step(UVX + [str(EVALS / "make_task.py"), "--style", t["style"], "--center", *map(str, t["center"]),
                 "--zoom", str(m["zoom"]), "--size", str(W), str(H), "--distortion", t["kind"],
                 "--strength", str(t["strength"]), "--seed", str(t["seed"]), "--cache", str(cache),
-                "--task-out", str(task), "--truth-out", str(truth)], truth / "truth.json", d / "make.log")
+                "--task-out", str(task), "--truth-out", str(truth), "--photometric", t.get("photometric", "none")],
+         truth / "truth.json", d / "make.log")
     hint = json.loads((task / "hint.json").read_text(encoding="utf-8"))
     hint_path = task / "hint.json"
     if "wrong_center" in t:

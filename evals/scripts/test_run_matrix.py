@@ -30,3 +30,12 @@ def test_negative_controls_move_the_hint_to_another_place():
     assert ns[0]["center"] == [10.0, 20.0] and ns[0]["wrong_center"] == [30.0, 40.0]
     assert run_matrix.shifted_bbox([9.0, 19.5, 11.0, 20.5], [30.0, 40.0]) == [29.0, 39.5, 31.0, 40.5]
     assert list(run_matrix.negatives({"level": 1})) == []
+
+
+def test_photometrics_are_an_axis_and_default_to_none():
+    m = {"level": 2, "places": {"a": [0, 0]}, "styles": ["s"], "kinds": ["similarity"], "strengths": [0.5], "seeds": [1]}
+    assert [t["photometric"] for t in run_matrix.tasks(m)] == ["none"]
+    m["photometrics"] = ["none", "gray", "binary"]
+    ts = list(run_matrix.tasks(m))
+    assert [t["photometric"] for t in ts] == ["none", "gray", "binary"]
+    assert len({t["id"] for t in ts}) == 3

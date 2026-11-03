@@ -52,3 +52,23 @@ def test_hint_contains_the_footprint_but_not_centred(tmp_path):
     assert (fp[:, 0] > w).all() and (fp[:, 0] < e).all() and (fp[:, 1] > s).all() and (fp[:, 1] < n).all()
     assert abs((w + e) / 2 - fp[:, 0].mean()) > 1e-6
     assert "task_px_to_global_px" not in json.loads((tmp_path / "task" / "hint.json").read_text())
+
+
+def test_photometric_gray_and_binary(tmp_path):
+    fill(tmp_path / "c")
+    kw = dict(offline=True, interp="nearest")
+    t0, _, _ = make_task.make("s", CENTER, Z, (300, 200), "similarity", 0.5, 2, tmp_path / "c", tmp_path / "a",
+                              tmp_path / "ta", **kw)
+    tg, _, truth = make_task.make("s", CENTER, Z, (300, 200), "similarity", 0.5, 2, tmp_path / "c", tmp_path / "b",
+                                  tmp_path / "tb", photometric="gray", **kw)
+    tb, _, _ = make_task.make("s", CENTER, Z, (300, 200), "similarity", 0.5, 2, tmp_path / "c", tmp_path / "d",
+                              tmp_path / "td", photometric="binary", **kw)
+    assert truth["photometric"] == "gray"
+    # gray: one value per pixel, the luminance of the colour task
+    assert (tg[..., 0] == tg[..., 1]).all() and (tg[..., 1] == tg[..., 2]).all()
+    lum = np.round(0.299 * t0[..., 0] + 0.587 * t0[..., 1] + 0.114 * t0[..., 2])
+    assert np.abs(tg[..., 0].astype(int) - lum).max() <= 1
+    # binary: only black and white
+    assert set(np.unique(tb)) <= {0, 255}
+    # the geometry does not change
+    assert truth["task_px_to_global_px"] == json.loads((tmp_path / "ta" / "truth.json").read_text())["task_px_to_global_px"]

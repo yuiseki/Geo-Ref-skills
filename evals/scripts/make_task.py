@@ -11,6 +11,8 @@ Distortions, all centred on the image centre:
     similarity  rotation and uniform scale
     affine      plus shear and a different scale on each axis
     projective  plus perspective (as in a photograph taken at an angle)
+photometric changes the colours only, after the geometry: none, gray (luminance) or binary (Otsu threshold of
+the luminance, black and white as a photocopy).
 strength (0..1) scales the largest rotation (45 deg), log scale (0.3), shear and aspect (0.2), perspective (0.3).
 """
 
@@ -51,13 +53,27 @@ def distortion(kind, strength, W, H, rng):
     return K, params
 
 
+PHOTOMETRIC = ("none", "gray", "binary")
+
+
+def photometric_change(img, kind):
+    if kind == "none":
+        return img
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    if kind == "binary":
+        _, gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    elif kind != "gray":
+        raise ValueError(f"unknown photometric {kind}; use one of {PHOTOMETRIC}")
+    return np.stack([gray] * 3, axis=-1)
+
+
 def apply_h(M, p):
     q = np.column_stack([p, np.ones(len(p))]) @ M.T
     return q[:, :2] / q[:, 2:]
 
 
 def make(style, center, zoom, size, kind, strength, seed, cache, task_out, truth_out, margin=0.5,
-         tile_size=256, base=tiles.DEFAULT_BASE, offline=False, interp="linear", max_tiles=400):
+         tile_size=256, base=tiles.DEFAULT_BASE, offline=False, interp="linear", max_tiles=400, photometric="none"):
     rng = np.random.default_rng(seed)
     W, H = size
     K, params = distortion(kind, strength, W, H, rng)
@@ -73,6 +89,7 @@ def make(style, center, zoom, size, kind, strength, seed, cache, task_out, truth
     flag = {"linear": cv2.INTER_LINEAR, "nearest": cv2.INTER_NEAREST}[interp]
     task = cv2.warpPerspective(img, M, (W, H), flags=flag | cv2.WARP_INVERSE_MAP, borderMode=cv2.BORDER_CONSTANT,
                                borderValue=(255, 0, 255))
+    task = photometric_change(task, photometric)
     src = apply_h(M, np.column_stack([np.mgrid[0:W, 0:H][0].ravel(), np.mgrid[0:W, 0:H][1].ravel()]))
     if src.min() < -0.5 or src[:, 0].max() > img.shape[1] - 0.5 or src[:, 1].max() > img.shape[0] - 0.5:
         raise RuntimeError("task pixels fall outside the fetched mosaic")
@@ -91,7 +108,7 @@ def make(style, center, zoom, size, kind, strength, seed, cache, task_out, truth
             "tile_size": tile_size, "style": style, "tile_base": base}
     (task_out / "hint.json").write_text(json.dumps(hint, indent=2), encoding="utf-8")
     truth = {"width": W, "height": H, "zoom": zoom, "tile_size": tile_size, "style": style,
-             "center": list(center), "seed": seed, "distortion": params,
+             "center": list(center), "seed": seed, "distortion": params, "photometric": photometric,
              "task_px_to_global_px": D.tolist(),
              "footprint_lonlat": [[float(a), float(b)] for a, b in zip(lon, lat)], "tiles": stats}
     (truth_out / "truth.json").write_text(json.dumps(truth, indent=2), encoding="utf-8")
@@ -113,9 +130,10 @@ def main():
     ap.add_argument("--truth-out", required=True)
     ap.add_argument("--tile-size", type=int, default=256, choices=[256, 512])
     ap.add_argument("--offline", action="store_true")
+    ap.add_argument("--photometric", choices=PHOTOMETRIC, default="none")
     a = ap.parse_args()
     _, hint, truth = make(a.style, a.center, a.zoom, a.size, a.distortion, a.strength, a.seed, a.cache,
-                          a.task_out, a.truth_out, a.margin, a.tile_size, offline=a.offline)
+                          a.task_out, a.truth_out, a.margin, a.tile_size, offline=a.offline, photometric=a.photometric)
     print(json.dumps({"hint": hint["bbox"], "distortion": truth["distortion"], "tiles": truth["tiles"]}))
 
 
