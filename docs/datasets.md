@@ -44,3 +44,8 @@
   - フルのスタイル: `osm-liberty`、`osm-bright`、`osm-carto`、`osm-fiord` (暗色)、`e-paper-ez-sign`
   - 文字を消したもの: `osm-liberty-no-text` と、その派生
   - 要素を絞ったもの: `railways` (と線幅違い)、`rivers` (と線幅違い)、`roads-minimal` (と `-major`、`-trunk`)、`railways_jp`
+
+## 地名の検索: nominatim.yuiseki.net
+
+- 所在: https://nominatim.yuiseki.net/ (作者のセルフホストの Nominatim)。
+- 地名から位置のあたりを付けるのに使う。公開の nominatim.openstreetmap.org は、動作確認でもテストでも呼ばない。
