@@ -1,0 +1,7 @@
+tmp/
+data/
+__pycache__/
+.pytest_cache/
+.env
+/projects/*
+/artifacts/*
