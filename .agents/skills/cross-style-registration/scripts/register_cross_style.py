@@ -37,7 +37,9 @@ DEFAULTS = {
     "scale_min": 0.7, "scale_max": 1.45, "scale_step": 0.05,  # log steps
     "water_min": 0.005, "water_max": 0.5,  # fraction of each image that must look like water
     "min_coarse_score": 0.6,   # masked NCC of the blue masks at the best similarity
-    "grid": (8, 6), "half": 64, "search": 48, "k": 8,
+    "grid": (10, 8), "half": 64, "search": 48, "k": 8,
+    "search2": 10,             # second pass search, around the first pass's homography
+    "min_valid": 0.6,          # share of a patch that must be inside the map (patches at a rotated map's edge)
     "min_peak_ratio": 1.2,     # best MI / best MI more than 8 px away
     "min_gcps": 12,
 }
@@ -118,8 +120,11 @@ def kmeans_labels(img, k, seed=0):
     return lab.reshape(img.shape[:2])
 
 
-def mutual_information(a, b, k):
-    j = np.bincount((a * k + b).ravel(), minlength=k * k).reshape(k, k).astype(np.float64)
+def mutual_information(a, b, k, mask=None):
+    ab = a * k + b
+    if mask is not None:
+        ab = ab[mask]
+    j = np.bincount(ab.ravel(), minlength=k * k).reshape(k, k).astype(np.float64)
     j /= j.sum()
     pa, pb = j.sum(1, keepdims=True), j.sum(0, keepdims=True)
     nz = j > 0
@@ -131,36 +136,53 @@ def _peak_offset(sm, s0, sp):
     return 0.0 if d >= 0 else float(np.clip(0.5 * (sm - sp) / d, -0.5, 0.5))
 
 
-def refine_patches(task, ref, A, o=DEFAULTS):
-    """Control points (task corner, ref corner) from patch-wise MI around the coarse affine A (task -> ref)."""
-    k, half, R = o["k"], o["half"], o["search"]
+def homography_to_index(Hc):
+    T = lambda d: np.array([[1, 0, d], [0, 1, d], [0, 0, 1.0]])
+    return T(-0.5) @ Hc @ T(0.5)
+
+
+def apply_h(Hm, p):
+    q = Hm @ np.array([p[0], p[1], 1.0])
+    return q[:2] / q[2]
+
+
+def refine_patches(task, ref, A, o=DEFAULTS, search=None, la_task=None, lb=None):
+    """Control points (task corner, ref corner) from patch-wise MI around A (task -> ref, corner coordinates;
+    a 2x3 affine or a 3x3 homography)."""
+    k, half = o["k"], o["half"]
+    R = o["search"] if search is None else search
     H, W = task.shape[:2]
     rh, rw = ref.shape[:2]
-    la_task = kmeans_labels(task, k)
-    Mi = corner_to_index(A)
-    la = cv2.warpAffine(la_task.astype(np.float32), Mi, (rw, rh), flags=cv2.INTER_NEAREST).astype(np.int32)
-    valid = cv2.warpAffine(np.full((H, W), 255, np.uint8), Mi, (rw, rh), flags=cv2.INTER_NEAREST) > 0
-    lb = kmeans_labels(ref, k)
-    Ainv = cv2.invertAffineTransform(A)
+    Hm = np.vstack([A, [0, 0, 1.0]]) if A.shape == (2, 3) else A
+    if la_task is None:
+        la_task = kmeans_labels(task, k)
+    if lb is None:
+        lb = kmeans_labels(ref, k)
+    Mi = homography_to_index(Hm)
+    la = cv2.warpPerspective(la_task.astype(np.float32), Mi, (rw, rh), flags=cv2.INTER_NEAREST).astype(np.int32)
+    valid = cv2.warpPerspective(np.full((H, W), 255, np.uint8), Mi, (rw, rh), flags=cv2.INTER_NEAREST) > 0
+    Hinv = np.linalg.inv(Hm)
     pts, info = [], []
     for gx in np.linspace(0.08, 0.92, o["grid"][0]):
         for gy in np.linspace(0.08, 0.92, o["grid"][1]):
-            q = A @ np.array([gx * W, gy * H, 1.0])
+            q = apply_h(Hm, (gx * W, gy * H))
             x0, y0 = int(round(q[0])), int(round(q[1]))
             if x0 - half - R < 0 or y0 - half - R < 0 or x0 + half + R > rw or y0 + half + R > rh:
                 continue
-            if not valid[y0 - half:y0 + half, x0 - half:x0 + half].all():
+            pv = valid[y0 - half:y0 + half, x0 - half:x0 + half]
+            if pv.mean() < o["min_valid"]:
                 continue
             pa = la[y0 - half:y0 + half, x0 - half:x0 + half]
-            if len(np.unique(pa)) < 2:
+            if len(np.unique(pa[pv])) < 2:
                 continue
 
             def score(dx, dy):
-                return mutual_information(pa, lb[y0 + dy - half:y0 + dy + half, x0 + dx - half:x0 + dx + half], k)
+                return mutual_information(pa, lb[y0 + dy - half:y0 + dy + half, x0 + dx - half:x0 + dx + half], k, pv)
 
             S = np.full((2 * R + 1, 2 * R + 1), -np.inf)
-            for dy in range(-R, R + 1, 3):
-                for dx in range(-R, R + 1, 3):
+            step = 3 if R > 8 else 1
+            for dy in range(-R, R + 1, step):
+                for dx in range(-R, R + 1, step):
                     S[dy + R, dx + R] = score(dx, dy)
             iy, ix = np.unravel_index(np.argmax(S), S.shape)
             for dy in range(iy - R - 3, iy - R + 4):
@@ -185,10 +207,10 @@ def refine_patches(task, ref, A, o=DEFAULTS):
             info.append({"mi": float(best), "peak_ratio": float(ratio)})
             if ratio < o["min_peak_ratio"]:
                 continue
-            task_pt = Ainv @ np.array([x0, y0, 1.0])
+            task_pt = apply_h(Hinv, (x0, y0))
             ref_pt = np.array([x0 + ix - R + sx, y0 + iy - R + sy])
             pts.append((task_pt, ref_pt))
-    return pts, info
+    return pts, info, la_task, lb
 
 
 def register(image, ref_img, ref_meta, **opts):
@@ -208,7 +230,18 @@ def register(image, ref_img, ref_meta, **opts):
     stats.update(coarse_score=score, coarse_rotation=th, coarse_scale=sc)
     if A is None or score < o["min_coarse_score"]:
         return {**base, "status": "failed", "gcps": [], "reason": f"coarse match {score:.3f} < {o['min_coarse_score']}"}
-    pts, info = refine_patches(image, ref_img, A, o)
+    pts, info, la_task, lb = refine_patches(image, ref_img, A, o)
+    stats.update(patches_pass1=len(info), gcps_pass1=len(pts))
+    # second pass: a homography from the first pass's points takes out most of the local scale and shear, so
+    # the patches line up and the mutual-information peaks sharpen; search only a little around it
+    if len(pts) >= 8:
+        src = np.float32([p for p, _ in pts])
+        dst = np.float32([q for _, q in pts])
+        Hm, mask = cv2.findHomography(src, dst, cv2.RANSAC, 6.0)
+        if Hm is not None and mask.sum() >= 8:
+            pts2, info2, _, _ = refine_patches(image, ref_img, Hm, o, search=o["search2"], la_task=la_task, lb=lb)
+            pts, info = pts2, info2
+            stats["second_pass"] = True
     stats.update(patches=len(info), gcps=len(pts))
     if len(pts) < o["min_gcps"]:
         return {**base, "status": "failed", "gcps": [], "reason": f"{len(pts)} patches with a clear peak < {o['min_gcps']}"}
