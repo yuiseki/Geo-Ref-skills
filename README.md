@@ -197,6 +197,8 @@ uvx --with numpy --with pyproj python evals/scripts/score_task.py tmp/t/refined.
 - [docs/failures/](docs/failures/): 失敗の記録と、そこから直したこと
 - [docs/related-work.md](docs/related-work.md): 先行の仕事 (uncharted-ta1、DIGMAPPER など) と、そこから取り入れること
 
-## 地図の出典
+## ライセンス
 
-地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。タイルは tile.yuiseki.net で描いたものです。
+コードと文書は [Apache License 2.0](LICENSE) です。
+
+図に写っている地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。タイルは tile.yuiseki.net で描いたものです。地図のデータは、OpenStreetMap のライセンス (ODbL) に従います。
