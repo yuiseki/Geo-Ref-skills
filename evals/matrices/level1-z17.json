@@ -1,0 +1,21 @@
+{
+  "level": 1,
+  "zoom": 17,
+  "size": [900, 700],
+  "ref_style": "osm-liberty",
+  "registrars": ["feature-registration", "cross-style-registration"],
+  "places": {
+    "fukuoka": [130.4017, 33.5904],
+    "sendai": [140.8719, 38.2682]
+  },
+  "styles": ["osm-liberty"],
+  "kinds": ["similarity", "projective"],
+  "strengths": [0.5, 1.0],
+  "seeds": [8, 9],
+  "negatives": {
+    "pairs": [["fukuoka", "sendai"], ["sendai", "fukuoka"]],
+    "kinds": ["projective"],
+    "strengths": [0.5],
+    "seeds": [8]
+  }
+}
