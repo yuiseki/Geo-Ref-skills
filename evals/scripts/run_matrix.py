@@ -2,7 +2,7 @@
 
     python scripts/run_matrix.py matrix.json --work tmp/matrix --out results.tsv
 
-matrix.json: {"level": 1, "zoom": 15, "size": [900, 700], "ref_style": "osm-liberty", "photometrics": ["none", "gray"],
+matrix.json: {"level": 1, "zoom": 15, "registrars": ["feature-registration", "cross-style-registration"], "size": [900, 700], "ref_style": "osm-liberty", "photometrics": ["none", "gray"],
               "places": {"tokyo": [139.7528, 35.6852], ...}, "styles": ["osm-liberty"],
               "kinds": ["similarity", ...], "strengths": [0.25, ...], "seeds": [1, 2]}
 ref_style is the style of the reference the solver matches against; styles are the task images' styles
@@ -38,8 +38,10 @@ UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-python-he
 # one BLAS thread per step: many threads under a CPU quota fight each other (a 386-point gate check took
 # over a minute with all threads and 11 s with one, 2026-11-03)
 ENV = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
+REGISTRARS = {"feature-registration": "register.py", "cross-style-registration": "register_cross_style.py"}
 COLUMNS = ["id", "place", "style", "photometric", "kind", "strength", "seed", "outcome", "register", "gates_passed",
-           "failed_gates", "max_m", "median_m", "max_pct_radius", "n_gcps", "n_removed", "asift", "loo_max_px", "error"]
+           "failed_gates", "max_m", "median_m", "max_pct_radius", "n_gcps", "n_removed", "registrar", "asift", "loo_max_px",
+           "error"]
 
 
 def tasks(m):
@@ -107,8 +109,18 @@ def run_one(t, m, work, cache, accurate_pct):
     step(UVX + [str(SKILLS / "tile-reference" / "scripts" / "fetch_reference.py"), "--style", m["ref_style"],
                 "--zoom", str(hint["zoom"]), "--bbox", *map(str, hint["bbox"]), "--cache", str(cache),
                 "--out", str(run / "ref")], run / "ref" / "reference.json", d / "fetch.log")
-    step(UVX + [str(SKILLS / "feature-registration" / "scripts" / "register.py"), str(task / "image.png"),
-                str(run / "ref"), "--out", str(run / "answer.json")], run / "answer.json", d / "register.log")
+    # registrars in order: the first that does not declare failure gives the answer; every attempt is kept
+    if not (run / "answer.json").exists():
+        last = None
+        for name in m.get("registrars", ["feature-registration"]):
+            script = REGISTRARS[name]
+            out = run / f"answer.{name}.json"
+            code = step(UVX + [str(SKILLS / name / "scripts" / script), str(task / "image.png"), str(run / "ref"),
+                               "--out", str(out)], out, d / f"register.{name}.log")
+            last = out
+            if json.loads(out.read_text(encoding="utf-8"))["status"] == "ok":
+                break
+        (run / "answer.json").write_text(last.read_text(encoding="utf-8"), encoding="utf-8")
     step(UVX + [str(SKILLS / "gcp-refinement" / "scripts" / "refine_gcps.py"), str(run / "answer.json"),
                 "--out", str(run / "refined.json")], run / "refined.json", d / "refine.log")
     gates_out = run / "gates.json"
@@ -137,7 +149,8 @@ def run_one(t, m, work, cache, accurate_pct):
             "failed_gates": ",".join(g["name"] for g in gates["gates"] if not g["passed"]),
             "max_m": sc.get("max_m"), "median_m": sc.get("median_m"), "max_pct_radius": pct,
             "n_gcps": len(ans["gcps"]), "n_removed": len(ans.get("refinement", {}).get("removed", [])),
-            "asift": ans.get("stats", {}).get("asift"), "loo_max_px": loo, "error": ""}
+            "registrar": ans.get("tool", {}).get("name"), "asift": ans.get("stats", {}).get("asift"),
+            "loo_max_px": loo, "error": ""}
 
 
 def fmt(v):

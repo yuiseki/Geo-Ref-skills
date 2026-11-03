@@ -1,21 +1,69 @@
 {
   "level": 2,
   "zoom": 15,
-  "size": [900, 700],
+  "size": [
+    900,
+    700
+  ],
   "ref_style": "osm-liberty",
   "places": {
-    "osaka": [135.5000, 34.6937],
-    "kanazawa": [136.6562, 36.5613],
-    "asahikawa": [142.2800, 43.8200]
+    "osaka": [
+      135.5,
+      34.6937
+    ],
+    "kanazawa": [
+      136.6562,
+      36.5613
+    ],
+    "asahikawa": [
+      142.28,
+      43.82
+    ]
   },
-  "styles": ["osm-bright", "osm-carto"],
-  "kinds": ["similarity", "projective"],
-  "strengths": [0.5, 1.0],
-  "seeds": [3, 4],
+  "styles": [
+    "osm-bright",
+    "osm-carto"
+  ],
+  "kinds": [
+    "similarity",
+    "projective"
+  ],
+  "strengths": [
+    0.5,
+    1.0
+  ],
+  "seeds": [
+    3,
+    4
+  ],
   "negatives": {
-    "pairs": [["osaka", "kanazawa"], ["kanazawa", "asahikawa"], ["asahikawa", "osaka"]],
-    "kinds": ["projective"],
-    "strengths": [0.5],
-    "seeds": [3, 4]
-  }
+    "pairs": [
+      [
+        "osaka",
+        "kanazawa"
+      ],
+      [
+        "kanazawa",
+        "asahikawa"
+      ],
+      [
+        "asahikawa",
+        "osaka"
+      ]
+    ],
+    "kinds": [
+      "projective"
+    ],
+    "strengths": [
+      0.5
+    ],
+    "seeds": [
+      3,
+      4
+    ]
+  },
+  "registrars": [
+    "feature-registration",
+    "cross-style-registration"
+  ]
 }
