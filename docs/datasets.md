@@ -41,7 +41,8 @@
   - `admins` は、このタイルで 404 だった。境界線のスタイルが描けるズームは未確認。
   - キャッシュに無いタイルは描くのに 1 枚 3〜28 秒かかった。キャッシュに当たると 0.1〜0.4 秒。同じタイルを何度も取らないよう、道具の側で手元にキャッシュする。並列で大量に取らない。
 - スタイルとレベルの対応 (詳しくは [curriculum.md](curriculum.md)):
-  - フルのスタイル: `osm-liberty`、`osm-bright`、`osm-carto`、`osm-fiord` (暗色)、`e-paper-ez-sign`
+  - フルのスタイル: `osm-liberty`、`osm-bright`、`osm-carto`、`osm-fiord` (暗色)
+  - 配色が違い、水も文字もほぼ無いもの: `e-paper-ez-sign` (レベル 3 で使う)
   - 文字を消したもの: `osm-liberty-no-text` と、その派生
   - 要素を絞ったもの: `railways` (と線幅違い)、`rivers` (と線幅違い)、`roads-minimal` (と `-major`、`-trunk`)、`railways_jp`
 
