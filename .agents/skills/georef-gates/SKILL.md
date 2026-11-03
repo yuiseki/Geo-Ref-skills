@@ -1,0 +1,68 @@
+---
+name: georef-gates
+description: ジオリファレンスの答え (GCP と変換の方法) を、返す前に検査する関門。GCP の数、広がり、leave-one-out の残差、変換の形 (裏返し、折り返し、縦横の比)、座標の範囲、手がかりの枠との整合を確かめ、どれかが落ちたら止める。どの方法で GCP を作ったときも、答えを返す前に必ず使う。
+---
+
+# georef-gates
+
+正解の無い本番でも確かめられることだけを検査する。関門は答えを直さない。落ちたら、どの関門で落ちたかを返し、答えを返さない。
+
+## 手順
+
+1. 答えを、下の形の JSON にする (feature-registration の `register.py` はこの形で書く)。
+2. 関門を流す。
+
+   ```sh
+   uvx --with numpy python scripts/check_gcps.py answer.json --hint hint.json
+   ```
+
+3. 終了コード 0 なら全て通った。1 なら、出力の JSON の `gates` で `passed` が false のものを見る。
+4. 落ちた関門ごとに、次のように読む。閾値を緩めて通すことを、最初の手にしない。
+
+| 関門 | 何を見るか | 落ちたら |
+|---|---|---|
+| `coordinates_in_range` | 経緯度が範囲の中か、GCP の画素が画像の中か | 経度と緯度の取り違え、画素の座標の取り違え |
+| `enough_points` | GCP の数が、方法の最少の数の 2 倍以上か (affine 3、projective 4、poly2 6、poly3 10) | GCP を増やすか、自由度の低い方法にする |
+| `spread` | 一直線でないか (縦横の広がりの比 0.15 以上)、凸包が画像の 25% 以上か、4 象限のうち 3 つ以上に点があるか | 点の無い所の外挿になる。点を足す |
+| `loo_residual` | 1 点ずつ外して当て直したときの、外した点のずれの最大 (画像の画素で 3 以下) | `worst_point` の点を疑う。取り違えた対応か、方法の次数が足りない |
+| `geometry` | 裏返しや折り返しが無いか、局所の縦横の縮尺の比が 2 以下か、写した先が範囲の中か | 変換が壊れている |
+| `inside_hint` | 画像の範囲を写した先が、手がかりの枠に入るか | 別の場所に合わせた |
+
+## 答えの形
+
+```json
+{"status": "ok", "image": {"width": W, "height": H}, "method": "projective", "crs": "EPSG:4326",
+ "gcps": [{"col": c, "row": r, "lon": x, "lat": y}, ...]}
+```
+
+`status` が `failed` の答えは、検査せずに、失敗の宣言として返す。
+
+## 中身
+
+- 変換は、画像の画素から EPSG:3857 のメートルへ当てる。座標は中心を引き、平均の半径で割ってから解く。点が足りないとき、一直線に並んで解けないときは、当てずに止める (`transforms.py`)。
+- leave-one-out の残差は、メートルを画像の中心での 1 画素あたりのメートルで割って、画素にする。RMSE ではなく、外した点の最大を見るのは、RMSE が過適合を隠し、次数の高い方法を選びやすいため (Bahgat と Runfola 2021)。
+- 1 つの外れた点は、それを残した他の当てはめも引っ張るので、他の点の残差も上がる (合成の 20 点で、外れ値 72 m に対し、他の中央値が 6 m に上がった)。
+
+## まだ無いこと
+
+- 方法の次数を leave-one-out の最大で選ぶこと、外れた GCP を 1 つずつ除くこと。
+- 合わせた後の画像と参照の画像の重なりの検査。
+- 測地系の根拠の検査。
+
+## スクリプト
+
+| スクリプト | 役割 |
+|---|---|
+| `scripts/check_gcps.py` | 関門 |
+| `scripts/transforms.py` | affine、projective、poly2、poly3 の当てはめと leave-one-out |
+| `scripts/webmercator.py` | 経緯度と EPSG:3857 の換算 |
+
+テスト:
+
+```sh
+uvx --with numpy --with pytest pytest scripts/test_check_gcps.py
+uvx --with numpy --with scikit-image --with pytest pytest scripts/test_transforms.py
+uvx --with numpy --with pyproj --with pytest pytest scripts/test_webmercator.py
+```
+
+関門は 1 つずつ無効にして、どれもテストが落ちることを確かめてある。射影変換は scikit-image の `ProjectiveTransform` と照合している。

@@ -1,0 +1,15 @@
+{
+  "level": 1,
+  "zoom": 15,
+  "size": [900, 700],
+  "ref_style": "osm-liberty",
+  "places": {
+    "tokyo": [139.7528, 35.6852],
+    "sapporo": [141.3505, 43.0621],
+    "tokachi": [143.1000, 42.8500]
+  },
+  "styles": ["osm-liberty"],
+  "kinds": ["similarity", "affine", "projective"],
+  "strengths": [0.25, 0.5, 1.0],
+  "seeds": [1, 2]
+}
