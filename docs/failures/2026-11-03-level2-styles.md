@@ -40,3 +40,18 @@
 
 - 関門の穴は 0 になった。代わりに、レベル 2 で正確な答え 2 件を落とした (over_strict)。
 - 閾値は同じ答えを見て選んだので、この表は効果の評価ではない。
+
+## cross-style-registration を足した後 (2026-11-03)
+
+feature-registration が失敗を宣言した課題だけ、cross-style-registration (水のマスクと升ごとの相互情報量、2 回) に上げて流し直した。
+
+| スタイル | ok | refused | over_strict | gate_hole |
+|---|---:|---:|---:|---:|
+| osm-bright | 15 | 7 | 2 | 0 |
+| osm-carto | 13 | 11 | 0 | 0 |
+
+- 陰性の対照 6 件は、cross-style にも上がったうえで、全て correct_reject。
+- osm-carto の ok 13 件は全て cross-style-registration。osm-bright の ok のうち 1 件も cross-style。
+- osm-carto の refused 11 件: 旭川の郊外 8 件は、参照の水が 0.1% 以下で、水のマスクが使えない (使えない条件として書いたとおり)。大阪 2 件と金沢 1 件は、粗い位置合わせが外れ (誤差 112〜584 m)、関門 (leave-one-out と edge_uncertainty) が落とした。
+- 大阪の osm-carto の projective 0.5、種 3 は、cross-style の道具を直すときに見た課題なので、評価としては汚れている (ok だった)。
+- over_strict 2 件は、旭川の osm-bright の projective 1.0 (edge_uncertainty で落ちた、最大誤差 7.2 m と 12.8 m)。
