@@ -5,7 +5,7 @@
 
 Reads <run>/task/image.png, <run>/run/ref/, <run>/run/refined.json and <run>/run/score.json, and writes
 <name>-input.jpg (the distorted map with its control points) and <name>-result.jpg (the map put back with the
-answer's own transform, in a checkerboard with the reference, its squares in grey, so misalignment shows at the square edges).
+answer's own transform, laid over the reference at half opacity, so misalignment shows as doubled lines).
 """
 
 import json
@@ -56,12 +56,10 @@ def main(run, out):
     back = cv2.remap(img, mapx, mapy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255))
     inside = cv2.remap(np.full((H, W), 255, np.uint8), mapx, mapy, cv2.INTER_NEAREST, borderValue=0) > 0
     crop = ref[y0:y1, x0:x1].copy()
-    sq = 64
-    checker = ((ii // sq + jj // sq) % 2 == 0) & inside
-    # the map put back is drawn in grey so its squares stand apart; roads continuing across square edges
-    # show that it lines up with the reference
-    grey = cv2.cvtColor(cv2.cvtColor(back, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)
-    crop[checker] = grey[checker]
+    # the map put back is laid over the reference at half opacity; where they line up, roads and coasts
+    # show once, and a misfit shows as doubled lines
+    blend = cv2.addWeighted(crop, 0.5, back, 0.5, 0)
+    crop[inside] = blend[inside]
     pts = np.round(fp - [x0, y0]).astype(np.int32)
     cv2.polylines(crop, [pts], True, (0, 0, 255), 2)
     cv2.imwrite(str(out) + "-result.jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
