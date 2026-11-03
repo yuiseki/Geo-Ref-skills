@@ -81,7 +81,7 @@ def fit(method, src, dst):
             rows.append([-x, -y, -1, 0, 0, 0, u * x, u * y, u])
             rows.append([0, 0, 0, -x, -y, -1, v * x, v * y, v])
         M = np.array(rows)
-        _, sv, Vt = np.linalg.svd(M)
+        _, sv, Vt = np.linalg.svd(M, full_matrices=False)
         # an underdetermined system has a second (near) zero singular value
         if sv[7] < RCOND * 1e3 * sv[0]:
             raise ValueError("points do not determine a projective transform (collinear or degenerate)")

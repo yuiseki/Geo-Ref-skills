@@ -21,6 +21,7 @@ Every task gets exactly one row; a step that crashes is recorded as "error" with
 import argparse
 import itertools
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -29,6 +30,9 @@ ROOT = Path(__file__).resolve().parents[2]
 SKILLS = ROOT / ".agents" / "skills"
 EVALS = Path(__file__).resolve().parent
 UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-python-headless", "--with", "pyproj", "python"]
+# one BLAS thread per step: many threads under a CPU quota fight each other (a 386-point gate check took
+# over a minute with all threads and 11 s with one, 2026-11-03)
+ENV = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
 COLUMNS = ["id", "place", "style", "kind", "strength", "seed", "outcome", "register", "gates_passed",
            "failed_gates", "max_m", "median_m", "max_pct_radius", "n_gcps", "loo_max_px", "error"]
 
@@ -54,7 +58,7 @@ def step(cmd, out, log):
     """Run cmd unless out exists. Exit 1 is a legitimate 'no' from register and check_gcps."""
     if Path(out).exists():
         return 0
-    r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT)
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, env=ENV)
     Path(log).write_text(r.stdout + "\n--- stderr ---\n" + r.stderr, encoding="utf-8")
     if r.returncode not in (0, 1) or not Path(out).exists():
         raise RuntimeError(f"{' '.join(map(str, cmd[-6:]))} exited {r.returncode}: {r.stderr[-800:]}")
@@ -80,14 +84,14 @@ def run_one(t, m, work, cache, accurate_pct):
     gates_out = run / "gates.json"
     if not gates_out.exists():
         r = subprocess.run(UVX + [str(SKILLS / "georef-gates" / "scripts" / "check_gcps.py"), str(run / "answer.json"),
-                                  "--hint", str(task / "hint.json")], capture_output=True, text=True, cwd=ROOT)
+                                  "--hint", str(task / "hint.json")], capture_output=True, text=True, cwd=ROOT, env=ENV)
         if r.returncode not in (0, 1):
             raise RuntimeError(f"check_gcps exited {r.returncode}: {r.stderr[-800:]}")
         gates_out.write_text(r.stdout, encoding="utf-8")
     score_out = run / "score.json"
     if not score_out.exists():
         r = subprocess.run(UVX + [str(EVALS / "score_task.py"), str(run / "answer.json"), str(truth / "truth.json")],
-                           capture_output=True, text=True, cwd=ROOT, check=True)
+                           capture_output=True, text=True, cwd=ROOT, env=ENV, check=True)
         score_out.write_text(r.stdout, encoding="utf-8")
     ans = json.loads((run / "answer.json").read_text(encoding="utf-8"))
     gates = json.loads(gates_out.read_text(encoding="utf-8"))
