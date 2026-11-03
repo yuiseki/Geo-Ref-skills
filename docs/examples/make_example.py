@@ -4,7 +4,7 @@
         tmp/matrix/level1/<task-id> docs/examples/<name>
 
 Reads <run>/task/image.png, <run>/run/ref/, <run>/run/refined.json and <run>/run/score.json, and writes
-<name>-input.jpg (the distorted map with its control points) and <name>-result.jpg (the map put back with the
+<name>-input.jpg (the distorted map with its control points) and <name>-overlay.jpg (the map put back with the
 answer's own transform, laid over the reference at half opacity, so misalignment shows as doubled lines).
 """
 
@@ -62,8 +62,8 @@ def main(run, out):
     crop[inside] = blend[inside]
     pts = np.round(fp - [x0, y0]).astype(np.int32)
     cv2.polylines(crop, [pts], True, (0, 0, 255), 2)
-    cv2.imwrite(str(out) + "-result.jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
-    print(json.dumps({"input": str(out) + "-input.jpg", "result": str(out) + "-result.jpg", "gcps": len(cr)}))
+    cv2.imwrite(str(out) + "-overlay.jpg", crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    print(json.dumps({"input": str(out) + "-input.jpg", "result": str(out) + "-overlay.jpg", "gcps": len(cr)}))
 
 
 if __name__ == "__main__":
