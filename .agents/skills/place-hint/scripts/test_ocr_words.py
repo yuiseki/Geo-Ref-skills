@@ -61,3 +61,30 @@ def test_join_cjk_joins_touching_characters_on_a_line():
     assert [j["text"] for j in joined] == ["中伏古"]
     assert joined[0]["conf"] == 85
     assert 100 < joined[0]["col"] < 164
+
+
+CHOME_TSV = """level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext
+5\t1\t1\t1\t1\t1\t100\t50\t120\t20\t92\tKANOCHO
+5\t1\t1\t1\t2\t1\t110\t76\t110\t20\t88\t3-CHOME
+5\t1\t2\t1\t1\t1\t500\t50\t120\t20\t90\tKOTONO
+5\t1\t3\t1\t1\t1\t500\t300\t110\t20\t90\t2-CHOME
+"""
+
+
+def test_a_name_and_the_chome_line_under_it_are_joined():
+    words = ocr_words.parse_tsv(CHOME_TSV)
+    joined = ocr_words.join_chome(words)
+    assert [j["text"] for j in joined] == ["KANOCHO 3-CHOME"]  # KOTONO's chome line is far below: not joined
+    j = joined[0]
+    assert j["conf"] == 88 and j["kind"] == "chome"
+    assert 100 < j["col"] < 220 and 50 < j["row"] < 96  # the box of both lines
+
+
+@needs_tesseract
+def test_both_grey_and_colour_are_read_by_default(tmp_path):
+    img = np.full((300, 800, 3), (200, 220, 240), np.uint8)
+    cv2.putText(img, "KANAZAWA", (420, 200), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (90, 60, 120), 3)
+    p = tmp_path / "c.png"
+    cv2.imwrite(str(p), img)
+    ws = ocr_words.read_words(p, "eng")
+    assert {w["mode"] for w in ws if "KANAZAWA" in w["text"]} == {"grey", "colour"}

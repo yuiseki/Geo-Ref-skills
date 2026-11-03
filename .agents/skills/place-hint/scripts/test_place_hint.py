@@ -130,6 +130,15 @@ def test_scale_from_names_ignores_a_misplaced_name():
     assert s["m_per_px"] == pytest.approx(9.55, rel=1e-2) and s["zoom"] == 14
 
 
+def test_four_district_names_are_not_enough_but_five_are():
+    pts = names_on_map(4.78, 0, (139.75, 35.68), n=4)
+    assert place_hint.scale_from_names(pts, 900, 700)["status"] == "failed"
+    assert place_hint.scale_from_names(names_on_map(4.78, 0, (139.75, 35.68), n=5), 900, 700)["status"] == "ok"
+    for i, p in enumerate(pts[:3]):
+        p["name"] = f"BLOCK{chr(65 + i)} {i + 1}-CHOME"
+    assert place_hint.scale_from_names(pts, 900, 700)["status"] == "ok"
+
+
 def test_scale_from_names_needs_four_agreeing_names():
     # two or three names always fit a similarity; they cannot show that the fit is right
     assert place_hint.scale_from_names(names_on_map(4.78, 0, (139.75, 35.68), n=3), 900, 700)["status"] == "failed"
@@ -160,3 +169,86 @@ def test_located_points_take_the_most_confident_reading_of_each_name():
 def test_zoom_is_the_one_no_coarser_than_the_map():
     # 6.26 m/px lies between z15 (4.78) and z14 (9.55); the reference must not be coarser than the map
     assert place_hint.scale_from_names(names_on_map(6.26, 0, (139.75, 35.68)), 900, 700)["zoom"] == 15
+
+
+@pytest.mark.parametrize("raw,want", [
+    ("KANOCHO 3-CHOME", "KANOCHO 3-CHOME"), ("KAIGANDOR!", "KAIGANDORI"), ("DOR!", None), ("2-CHOME", None),
+    ("SAKAE 12-CHOME", "SAKAE 12-CHOME"), ("CHOME 3-CHOME", None),
+])
+def test_name_filter_chome_and_bang(raw, want):
+    assert place_hint.clean_name(raw) == want
+
+
+def test_chome_hits_match_the_full_name():
+    hits = [{"name": "加納町三丁目", "namedetails": {"name": "加納町三丁目", "name:en": "Kanocho 3-chome"}}]
+    assert place_hint.exact_hits("KANOCHO 3-CHOME", hits) == hits
+
+
+def test_plain_name_is_dropped_when_its_chome_form_was_found():
+    cands = {"KANOCHO": [cand("x", 1, 1)], "KANOCHO 3-CHOME": [cand("y", 1, 1)], "SAKAE": [cand("z", 2, 2)]}
+    assert sorted(place_hint.drop_covered(cands)) == ["KANOCHO 3-CHOME", "SAKAE"]
+
+
+def test_a_name_known_only_by_its_chome_blocks_is_matched():
+    hits = [{"name": "二宮町三丁目", "namedetails": {"name": "二宮町三丁目", "name:en": "Ninomiyacho 3-chome"}},
+            {"name": "二宮町神村", "namedetails": {"name": "二宮町神村", "name:en": "Ninomiyacho-Kamura"}}]
+    assert place_hint.exact_hits("NINOMIYACHO", hits) == [hits[0]]
+    assert place_hint.exact_hits("NINOMIYACHO 3-CHOME", hits) == [hits[0]]
+    assert place_hint.exact_hits("NINOMIYACHO 4-CHOME", hits) == []
+
+
+def test_candidates_close_together_are_one_place():
+    cs = [cand("a", 135.196, 34.699, 0.2), cand("b", 135.195, 34.698, 0.3), cand("c", 135.199, 34.700),
+          cand("d", 132.208, 34.978)]
+    merged = place_hint.merge_near(cs, km=2.0)
+    assert len(merged) == 2
+    kobe = min(merged, key=lambda c: abs(c["lon"] - 135.197))
+    assert kobe["lon"] == pytest.approx((135.196 + 135.195 + 135.199) / 3) and kobe["importance"] == 0.5
+
+
+class FakeClient:
+    def __init__(self, answers):
+        self.answers, self.asked = answers, []
+
+    def search(self, q, limit=10, countrycodes=None, namedetails=False):
+        self.asked.append(q)
+        return self.answers.get(q, [])
+
+
+def test_lookup_retries_a_district_by_its_first_block():
+    kano3 = {"name": "加納町三丁目", "lon": "135.19", "lat": "34.69", "namedetails": {"name:en": "Kanocho 3-chome"}}
+    kano1 = {"name": "加納町一丁目", "lon": "135.19", "lat": "34.70", "namedetails": {"name:en": "Kanocho 1-chome"}}
+    other = {"name": "神納町", "lon": "136.48", "lat": "34.72", "namedetails": {"name:en": "Kanocho"}}
+    c = FakeClient({"KANOCHO": [other], "KANOCHO 1-chome": [kano1, kano3]})
+    hits = place_hint.lookup(c, "KANOCHO", "jp")
+    assert {h["name"] for h in hits} == {"神納町", "加納町一丁目", "加納町三丁目"}
+    assert c.asked == ["KANOCHO", "KANOCHO 1-chome"]
+    c2 = FakeClient({"KANOCHO 3-CHOME": [kano3]})
+    assert place_hint.lookup(c2, "KANOCHO 3-CHOME", "jp") == [kano3] and c2.asked == ["KANOCHO 3-CHOME"]
+    c3 = FakeClient({"門前": []})
+    assert place_hint.lookup(c3, "門前", "jp") == [] and c3.asked == ["門前"]
+
+
+def test_bbox_widens_with_the_name_residuals():
+    tight = place_hint.scale_from_names(names_on_map(4.78, 0, (139.75, 35.68), seed=4), 900, 700)
+    noisy_pts = names_on_map(4.78, 0, (139.75, 35.68), seed=4)
+    for i, p in enumerate(noisy_pts):  # names printed up to ~40 px off their points
+        p["col"] += 40 if i % 2 else -40
+    noisy = place_hint.scale_from_names(noisy_pts, 900, 700)
+    assert noisy["status"] == "ok" and noisy["median_residual_px"] > 20
+    width = lambda s: s["bbox"][2] - s["bbox"][0]
+    assert width(noisy) > width(tight) * 1.1
+
+
+def test_block_names_are_trusted_more_than_district_names():
+    # four "N-CHOME" labels printed on their points, four district names printed 120 px off theirs
+    pts = names_on_map(4.78, 8.0, (136.90, 35.17), n=8, seed=5)
+    for i, p in enumerate(pts):
+        if i < 4:
+            p["name"] = f"BLOCK{chr(65 + i)} {i + 1}-CHOME"
+        else:
+            p["col"] += 60
+            p["row"] -= 60
+    s = place_hint.scale_from_names(pts, 900, 700)
+    assert s["status"] == "ok" and s["inliers"] == 8
+    assert s["m_per_px"] == pytest.approx(4.78, rel=0.03) and s["rotation_deg"] == pytest.approx(8.0, abs=1.5)

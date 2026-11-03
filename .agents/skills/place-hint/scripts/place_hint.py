@@ -27,10 +27,22 @@ CJK = re.compile(r"^[぀-ヿ㐀-鿿]+$")
 KANA_ONLY = re.compile(r"^[぀-ヿ]+$")
 
 
+CHOME_NAME = re.compile(r"^([A-Za-z][A-Za-z\-]+[A-Za-z]) (\d{1,2}-CHOME)$", re.IGNORECASE)
+
+
 def clean_name(raw):
     """A word worth looking up, or None. Latin: letters and inner hyphens, at least 4 letters, upper case or
-    capitalised (OCR noise is often mixed case), not a generic word. CJK: at least 2 characters with a kanji."""
+    capitalised (OCR noise is often mixed case), not a generic word; or such a name with its block number
+    ("KANOCHO 3-CHOME"). CJK: at least 2 characters with a kanji. A final "!" after capitals is read as I
+    (tesseract reads the italic I of map labels as "!": KAIGANDOR!)."""
     t = raw.strip().strip(".,;:()[]{}'\"")
+    if len(t) > 4 and t.endswith("!") and t[:-1].isupper():
+        t = t[:-1] + "I"
+    m = CHOME_NAME.match(t)
+    if m:
+        name = clean_name(m.group(1))
+        return f"{name} {m.group(2).upper()}" if name else None
+    t = t.strip("!")
     if LATIN.match(t):
         letters = t.replace("-", "")
         if len(letters) < 4 or t.upper() != t and not (t[0].isupper() and t[1:].islower()):
@@ -53,14 +65,56 @@ def norm(t):
 def exact_hits(name, hits):
     """Nominatim matches loosely ("DORI" finds "Showa-dori avenue"); keep a hit only when one of its names
     (namedetails: name, name:en, name:ja-Latn, ...) is the name itself. Seen on 2026-11-03: fragments such
-    as DORI, HOME and ASHI out-voted real names and put an Osaka map 4 degrees east."""
+    as DORI, HOME and ASHI out-voted real names and put an Osaka map 4 degrees east.
+
+    A plain district name also matches its numbered blocks ("NINOMIYACHO" matches "Ninomiyacho 3-chome"):
+    many districts exist in OpenStreetMap only as their chome blocks, and the map prints the name once over
+    several blocks (Kobe, 2026-11-04)."""
     want = norm(name)
+    block = re.compile("^" + re.escape(want) + r"\d{1,2}chome$")
     keep = []
     for h in hits:
         names = list((h.get("namedetails") or {}).values()) + [h.get("name") or ""]
-        if any(norm(v) == want for v in names if isinstance(v, str)):
+        ns = [norm(v) for v in names if isinstance(v, str)]
+        if any(v == want or block.match(v) for v in ns):
             keep.append(h)
     return keep
+
+
+def merge_near(cs, km=2.0):
+    """Candidates of one name lying within km of each other are one place (the chome blocks of one district,
+    or the nodes and areas OpenStreetMap has for one name): their mean position, the largest importance."""
+    groups = []
+    for c in cs:
+        for g in groups:
+            if haversine_km(c["lon"], c["lat"], g[0]["lon"], g[0]["lat"]) <= km:
+                g.append(c)
+                break
+        else:
+            groups.append([c])
+    return [{**g[0], "lon": sum(c["lon"] for c in g) / len(g), "lat": sum(c["lat"] for c in g) / len(g),
+             "importance": max(c.get("importance", 0) for c in g)} for g in groups]
+
+
+def lookup(client, name, countrycodes=None):
+    """Exact hits for a name. A Latin district name is also asked as "<name> 1-chome": districts that exist in
+    OpenStreetMap only as their chome blocks are not returned for the bare name (KANOCHO in Kobe, 2026-11-04,
+    found only as "Kanocho 3-chome"), while the map prints the bare name over the blocks."""
+    # limit 40: Nominatim's ceiling; with 10, a common district name (KAWASAKICHO, seven places) could miss
+    # the one on the map
+    hits = exact_hits(name, client.search(name, limit=40, countrycodes=countrycodes, namedetails=True))
+    if LATIN.match(name):
+        more = exact_hits(name, client.search(f"{name} 1-chome", limit=40, countrycodes=countrycodes, namedetails=True))
+        seen = {(h.get("lat"), h.get("lon")) for h in hits}
+        hits += [h for h in more if (h.get("lat"), h.get("lon")) not in seen]
+    return hits
+
+
+def drop_covered(cands):
+    """A label read both as "KANOCHO" and as "KANOCHO 3-CHOME" is one place: keep only the more specific form,
+    so that one label does not count twice towards the support and the scale fit."""
+    covered = {k.rsplit(" ", 1)[0] for k in cands if CHOME_NAME.match(k)}
+    return {k: v for k, v in cands.items() if k not in covered}
 
 
 def haversine_km(lon1, lat1, lon2, lat2):
@@ -126,35 +180,45 @@ def located_points(words, matches):
     return [pts[k] for k in sorted(pts)]
 
 
-def _fit(pairs):
-    """Least-squares similarity Z = a z + b over (z, Z) pairs of complex numbers."""
-    n = len(pairs)
-    mz = sum(z for z, _ in pairs) / n
-    mZ = sum(Z for _, Z in pairs) / n
-    num = sum((Z - mZ) * (z - mz).conjugate() for z, Z in pairs)
-    den = sum(abs(z - mz) ** 2 for z, _ in pairs)
+def _fit(pairs, weights=None):
+    """Weighted least-squares similarity Z = a z + b over (z, Z) pairs of complex numbers."""
+    w = weights or [1.0] * len(pairs)
+    sw = sum(w)
+    mz = sum(wi * z for wi, (z, _) in zip(w, pairs)) / sw
+    mZ = sum(wi * Z for wi, (_, Z) in zip(w, pairs)) / sw
+    num = sum(wi * (Z - mZ) * (z - mz).conjugate() for wi, (z, Z) in zip(w, pairs))
+    den = sum(wi * abs(z - mz) ** 2 for wi, (z, _) in zip(w, pairs))
     a = num / den
     return a, mZ - a * mz
 
 
-def scale_from_names(points, width, height, tol_frac=0.06, min_inliers=4, min_fraction=0.5, margin_frac=0.25):
+def scale_from_names(points, width, height, tol_frac=0.06, loose_frac=0.10, min_inliers=4, min_fraction=0.5,
+                     min_loose_inliers=5, margin_frac=0.25):
     """The map's scale, rotation and extent from where its names are printed and where they are.
 
     points: [{"name", "col", "row", "lon", "lat"}], col and row the centre of the printed name in the image.
     Fits a similarity (scale, rotation, shift; no mirror) from image pixels to EPSG:3857 metres, trying every pair
-    of names as a hypothesis and keeping the one most names agree with (within tol_frac of the image diagonal; a
-    name is printed near, not on, the point Nominatim returns). Two or three names always fit some similarity, so
-    at least min_inliers names, and min_fraction of them, must agree; otherwise this is a declared failure.
+    of names as a hypothesis and keeping the one most names agree with. A block name ("SAKAE 3-CHOME") is printed
+    on its block, near the point Nominatim returns: it agrees within tol_frac of the image diagonal and weighs
+    (loose_frac / tol_frac)^2 in the fit. A district name is printed somewhere over its district, often far
+    from its point (80 to 290 px on a z15 Nagoya map, 2026-11-04, against 2 px for block names): it agrees
+    within loose_frac. Two or three names always fit some similarity, so at least min_inliers names, and
+    min_fraction of them, must agree, and unless three of them are block names, min_loose_inliers: the wider
+    tolerance lets unrelated names agree by chance more often (eight random names, 2026-11-04: 4 % passed at
+    0.06, 14 % at 0.10 with four required). Otherwise this is a declared failure. With three or more agreeing
+    block names, the final fit uses those only.
 
     Returns m_per_px (mercator metres per image pixel), rotation_deg, zoom (the coarsest web map zoom whose 256 px
     tiles are at least as fine as the map's pixels, so the reference never has less detail than the map; on
     2026-11-04 the estimate came out 7 to 11 % coarse on three Tokyo maps, and rounding put one at z14 for a z15
     map), and bbox: the image's footprint under the fit, widened by margin_frac of its
-    size on each side, as a hint for the reference."""
+    size and by three median name residuals on each side, as a hint for the reference."""
     n = len(points)
     if n < min_inliers:
-        return {"status": "failed", "reason": f"{n} located names (need {min_inliers})"}
+        return {"status": "failed", "reason": f"{n} located names (need {min_inliers})", "points": points}
     zs = [complex(p["col"], -p["row"]) for p in points]
+    tol = [(tol_frac if CHOME_NAME.match(p["name"]) else loose_frac) * math.hypot(width, height) for p in points]
+    wt = [1.0 / t ** 2 for t in tol]
     Zs = [complex(*lonlat_to_mercator(p["lon"], p["lat"])) for p in points]
     diag = math.hypot(width, height)
     best = None
@@ -165,28 +229,38 @@ def scale_from_names(points, width, height, tol_frac=0.06, min_inliers=4, min_fr
             a, b = _fit([(zs[i], Zs[i]), (zs[j], Zs[j])])
             if abs(a) == 0:
                 continue
-            inl = [k for k in range(n) if abs((Zs[k] - b) / a - zs[k]) < tol_frac * diag]
-            if best is None or len(inl) > len(best):
-                best = inl
+            inl = [k for k in range(n) if abs((Zs[k] - b) / a - zs[k]) < tol[k]]
+            score = (sum(1 for k in inl if tol[k] < loose_frac * diag), len(inl))  # block names first
+            if best is None or score > best_score:
+                best, best_score = inl, score
     for _ in range(3):  # refit on the agreeing names, then re-collect them
         if not best or len(best) < 2:
             break
-        a, b = _fit([(zs[k], Zs[k]) for k in best])
-        best = [k for k in range(n) if abs((Zs[k] - b) / a - zs[k]) < tol_frac * diag]
-    if not best or len(best) < min_inliers or len(best) < min_fraction * n:
-        k = 0 if not best else len(best)
-        return {"status": "failed", "reason": f"{k} of {n} names agree on one scale and rotation "
-                f"(need {min_inliers} and {min_fraction:.0%})"}
-    a, b = _fit([(zs[k], Zs[k]) for k in best])
+        a, b = _fit([(zs[k], Zs[k]) for k in best], [wt[k] for k in best])
+        best = [k for k in range(n) if abs((Zs[k] - b) / a - zs[k]) < tol[k]]
+    best = best or []
+    exact = [k for k in best if tol[k] < loose_frac * diag]
+    need = min_inliers if len(exact) >= 3 else max(min_inliers, min_loose_inliers)
+    if len(best) < need or len(best) < min_fraction * n:
+        return {"status": "failed", "reason": f"{len(best)} of {n} names agree on one scale and rotation, "
+                f"{len(exact)} of them block names (need {need} and {min_fraction:.0%})", "points": points}
+    if len(exact) >= 3:  # enough block names to fix the similarity with redundancy: district names only count
+        a, b = _fit([(zs[k], Zs[k]) for k in exact])
+    else:
+        a, b = _fit([(zs[k], Zs[k]) for k in best], [wt[k] for k in best])
     res = sorted(abs((Zs[k] - b) / a - zs[k]) for k in best)
     m_per_px = abs(a)
     zoom_f = math.log2(2 * ORIGIN / (256 * m_per_px))
-    mx, my = margin_frac * width, margin_frac * height
+    # widen by the names' scatter too: a Tokyo map (2026-11-04) with names 36 px off their points got a
+    # rotation a few degrees off, and the 25% margin missed its corner by about 200 m
+    extra = 3 * res[len(res) // 2]
+    mx, my = margin_frac * width + extra, margin_frac * height + extra
     corners = [complex(c, -r) for c in (-mx, width + mx) for r in (-my, height + my)]
     ll = [mercator_to_lonlat((a * z + b).real, (a * z + b).imag) for z in corners]
     return {"status": "ok", "m_per_px": m_per_px, "rotation_deg": math.degrees(math.atan2(a.imag, a.real)),
             "zoom": int(math.ceil(zoom_f - 0.05)), "zoom_float": zoom_f, "inliers": len(best), "names": n,
             "support": sorted(points[k]["name"] for k in best), "median_residual_px": res[len(res) // 2],
+            "points": [{**p, "residual_px": abs((Zs[k] - b) / a - zs[k])} for k, p in enumerate(points)],
             "bbox": [min(x for x, _ in ll), min(y for _, y in ll), max(x for x, _ in ll), max(y for _, y in ll)]}
 
 
@@ -209,8 +283,14 @@ def main():
     ap.add_argument("--scale", type=float, default=3.0)
     ap.add_argument("--angles", type=float, nargs="*", default=[-45, -30, -15, 0, 15, 30, 45],
                     help="also read the image turned by these angles; a map may be rotated")
+    ap.add_argument("--words", default=None, help="keep the OCR words in this JSON file and reuse them if present")
     a = ap.parse_args()
-    words = ocr_words.read_words(a.image, a.langs, a.scale, angles=a.angles)
+    if a.words and Path(a.words).exists():
+        words = json.loads(Path(a.words).read_text(encoding="utf-8"))
+    else:
+        words = ocr_words.read_words(a.image, a.langs, a.scale, angles=a.angles)
+        if a.words:
+            Path(a.words).write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
     names = []
     for w in sorted(words, key=lambda w: -w["conf"]):
         n = clean_name(w["text"])
@@ -220,10 +300,12 @@ def main():
     client = nominatim.Client(a.cache)
     cands = {}
     for n in names:
-        hits = exact_hits(n, client.search(n, countrycodes=a.countrycodes, namedetails=True))
+        hits = lookup(client, n, a.countrycodes)
         if hits:
-            cands[n] = [{"lon": float(h["lon"]), "lat": float(h["lat"]), "importance": float(h.get("importance") or 0),
-                         "display_name": h.get("display_name")} for h in hits]
+            cands[n] = merge_near([{"lon": float(h["lon"]), "lat": float(h["lat"]),
+                                    "importance": float(h.get("importance") or 0),
+                                    "display_name": h.get("display_name")} for h in hits])
+    cands = drop_covered(cands)
     hint = cluster(cands, a.radius_km, a.min_support, a.margin_km, a.min_weight)
     if hint["status"] == "ok":
         import cv2

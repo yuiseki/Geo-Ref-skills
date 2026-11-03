@@ -6,12 +6,14 @@ Prints JSON lines {"text", "conf", "col", "row", "w", "h", "angle", "kind"}: col
 original image's pixels (corner convention). The image is enlarged by --scale first, which helps small map labels;
 positions are divided back. With --angles, the image is also read turned by each angle (a map may be rotated and
 tesseract reads level text only) and positions are turned back. tesseract's sparse mode returns Japanese one
-character at a time, so characters on one tesseract line that touch are also joined into "kind": "joined" items. tesseract must be installed with the languages asked for; if it is missing or
+character at a time, so characters on one tesseract line that touch are also joined into "kind": "joined" items, and a name with
+a "N-CHOME" line under it into a "kind": "chome" item. The image is read both in grey and in colour, since tesseract finds different names in each. tesseract must be installed with the languages asked for; if it is missing or
 fails, this raises instead of returning no words.
 """
 
 import argparse
 import csv
+import re
 import io
 import json
 import shutil
@@ -68,6 +70,32 @@ def join_cjk(words, gap=0.6):
     return out
 
 
+CHOME = re.compile(r"^\d{1,2}-CHOME$", re.IGNORECASE)
+
+
+def join_chome(words, max_gap=1.6):
+    """Japanese map labels are often two lines: a district name over its block number ("KANOCHO" over
+    "3-CHOME"). The pair is far more specific than the name alone (Nominatim knows "Kanocho 3-chome" as one
+    place, and "Kanocho" in many). Join a word with a chome line starting below it within max_gap line heights
+    and overlapping it horizontally. Positions are those of the image tesseract read (before turning back)."""
+    out = []
+    names = [w for w in words if w["text"].isalpha() and not is_cjk(w["text"])]
+    for c in (w for w in words if CHOME.match(w["text"])):
+        best = None
+        for n in names:
+            dy = (c["row"] - c["h"] / 2) - (n["row"] + n["h"] / 2)
+            overlap = min(n["col"] + n["w"] / 2, c["col"] + c["w"] / 2) - max(n["col"] - n["w"] / 2, c["col"] - c["w"] / 2)
+            if -0.3 * n["h"] <= dy <= max_gap * max(n["h"], 1.0) and overlap > 0.3 * min(n["w"], c["w"]):
+                if best is None or dy < best[0]:
+                    best = (dy, n)
+        if best:
+            m = _merge([best[1], c])
+            m["text"] = f"{best[1]['text']} {c['text']}"
+            m["kind"] = "chome"
+            out.append(m)
+    return out
+
+
 def _merge(run):
     x0 = min(w["col"] - w["w"] / 2 for w in run)
     x1 = max(w["col"] + w["w"] / 2 for w in run)
@@ -88,12 +116,24 @@ def _tesseract(img, langs, psm):
     return r.stdout
 
 
-def read_words(image_path, langs="jpn+eng", scale=2.0, psm=11, angles=(0.0,)):
+def read_words(image_path, langs="jpn+eng", scale=2.0, psm=11, angles=(0.0,), modes=("grey", "colour")):
+    """Read the image in each mode (grey, colour) at each angle; all readings are returned, tagged "mode"."""
+    words = []
+    for mode in modes:
+        for x in _read_words(image_path, langs, scale, psm, angles, mode == "grey"):
+            x["mode"] = mode
+            words.append(x)
+    return words
+
+
+def _read_words(image_path, langs, scale, psm, angles, grey):
     if shutil.which("tesseract") is None:
         raise FileNotFoundError("tesseract is not installed")
-    img = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+    img = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE if grey else cv2.IMREAD_COLOR)
     if img is None:
         raise FileNotFoundError(image_path)
+    # both grey and colour by default: on a Kobe osm-liberty map (2026-11-04) tesseract read different names
+    # in each (colour: KANOCHO, KAIGANDOR; grey: NINOMIYACHO, KAWASAKICHO, ONOHAMACHO), 22 and 11 names, 31 together
     if scale != 1.0:
         img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
     h, w = img.shape[:2]
@@ -104,12 +144,12 @@ def read_words(image_path, langs="jpn+eng", scale=2.0, psm=11, angles=(0.0,)):
             c = np.array([[0, 0, 1], [w, 0, 1], [w, h, 1], [0, h, 1]], float) @ M.T
             M[:, 2] -= c.min(axis=0)
             size = np.ceil(c.max(axis=0) - c.min(axis=0)).astype(int)
-            view = cv2.warpAffine(img, M, (int(size[0]), int(size[1])), borderValue=(255, 255, 255))
+            view = cv2.warpAffine(img, M, (int(size[0]), int(size[1])), borderValue=255 if img.ndim == 2 else (255, 255, 255))
             Mi = cv2.invertAffineTransform(M)
         else:
             view, Mi = img, None
         found = parse_tsv(_tesseract(view, langs, psm))
-        found += join_cjk(found)
+        found += join_cjk(found) + join_chome(found)
         for x in found:
             if Mi is not None:
                 x["col"], x["row"] = (Mi @ np.array([x["col"], x["row"], 1.0])).tolist()
