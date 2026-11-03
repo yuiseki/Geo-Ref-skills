@@ -49,3 +49,23 @@
 
 - 所在: https://nominatim.yuiseki.net/ (作者のセルフホストの Nominatim)。
 - 地名から位置のあたりを付けるのに使う。公開の nominatim.openstreetmap.org は、動作確認でもテストでも呼ばない。
+
+## レベル 5 用の文書: 国連の PKO ミッションの地図 (PDF)
+
+国連 Geospatial (https://www.un.org/geospatial/) が公開している、平和維持活動のミッションの地図の PDF。2026-11-04 に 5 件を取得し、`tmp/pdfs/` に置いた (`tmp/` は git に入れない)。
+
+中身は見ていない (開かず、描かず、画像も文字も取り出していない)。確かめたのは、HTTP の応答 (200、`application/pdf`)、大きさ、SHA-256、`file` コマンドの表示 (PDF の版と、どれも 1 ページ) だけ。
+
+| ファイル | 大きさ (バイト) | SHA-256 | 取得元 |
+|---|---:|---|---|
+| `unmiss_4456_r67_jan26_120.pdf` | 790,790 | `c9ca0510e6b866fb7de85aa3c857b9e4f50cb4025208aa4152ce9659060517ce` | https://www.un.org/geospatial/sites/default/files/files/documents/2026/Jan/unmiss_4456_r67_jan26_120.pdf |
+| `unisfa_4467_r64_jan26_120.pdf` | 1,524,833 | `b64d46db8733c9342b834a16665e0b42bc614406a83ce8919b8aaf4c6140b587` | https://www.un.org/geospatial/sites/default/files/files/documents/2025/Nov/unisfa_4467_r64_jan26_120.pdf |
+| `monusco_4412_r65_jun26_120.pdf` | 1,098,888 | `faaec7ddd1daef78bc330357cfd57eca64299aa26e7936a45cbe458af037b696` | https://www.un.org/geospatial/sites/default/files/files/documents/2026/Jan/monusco_4412_r65_jun26_120.pdf |
+| `unmik_4133_r98_jan26_120.pdf` | 1,002,602 | `b2eeb28bf9be10075a096b6f6aba1625ae4f981f83a0068c0e5bc922441c1d97` | https://www.un.org/geospatial/sites/default/files/files/documents/2025/Apr/unmik_4133_r98_jan26_120.pdf |
+| `minusca_4522_r31_jun24_120.pdf` | 3,384,224 | `201fa285c8a1e61ff98bd08846e3b05241883225fb2acc6c240547b14e1d5221` | https://www.un.org/geospatial/sites/default/files/files/documents/2024/Sep/minusca_4522_r31_jun24_120.pdf |
+
+扱い:
+
+- 開発中に中身を見ない。レベル 5 の道具ができてから、初めて流す課題として使う。見てから直すと、効果の評価に使えなくなる。
+- 取り直したときは、SHA-256 で同じ版かを確かめる。ファイル名の `r67` などは版、`jan26` などは時期を表すと思われる (未確認)。
+- 利用条件は未確認。リポジトリには入れず、再配布しない。
