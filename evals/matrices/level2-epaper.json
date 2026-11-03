@@ -1,21 +1,71 @@
 {
   "level": 2,
   "zoom": 15,
-  "size": [900, 700],
+  "size": [
+    900,
+    700
+  ],
   "ref_style": "osm-liberty",
-  "registrars": ["feature-registration", "cross-style-registration"],
   "places": {
-    "fukuoka": [130.4017, 33.5904],
-    "sendai": [140.8719, 38.2682]
+    "fukuoka": [
+      130.4017,
+      33.5904
+    ],
+    "sendai": [
+      140.8719,
+      38.2682
+    ]
   },
-  "styles": ["e-paper-ez-sign"],
-  "kinds": ["similarity", "projective"],
-  "strengths": [0.5, 1.0],
-  "seeds": [10, 11],
+  "styles": [
+    "e-paper-ez-sign"
+  ],
+  "kinds": [
+    "similarity",
+    "projective"
+  ],
+  "strengths": [
+    0.5,
+    1.0
+  ],
+  "seeds": [
+    10,
+    11
+  ],
   "negatives": {
-    "pairs": [["fukuoka", "sendai"], ["sendai", "fukuoka"]],
-    "kinds": ["projective"],
-    "strengths": [0.5],
-    "seeds": [10]
-  }
+    "pairs": [
+      [
+        "fukuoka",
+        "sendai"
+      ],
+      [
+        "sendai",
+        "fukuoka"
+      ]
+    ],
+    "kinds": [
+      "projective"
+    ],
+    "strengths": [
+      0.5
+    ],
+    "seeds": [
+      10
+    ]
+  },
+  "attempts": [
+    {
+      "registrar": "feature-registration"
+    },
+    {
+      "registrar": "cross-style-registration"
+    },
+    {
+      "registrar": "cross-style-registration",
+      "ref_style": "roads-minimal",
+      "args": [
+        "--mask",
+        "lines"
+      ]
+    }
+  ]
 }

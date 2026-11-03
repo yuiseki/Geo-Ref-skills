@@ -55,6 +55,17 @@ def tasks(m):
                "strength": strength, "seed": seed}
 
 
+def attempts(m):
+    """The registration attempts, in order. "attempts": [{"registrar", "ref_style"?, "args"?}, ...]; without it,
+    "registrars" with "registrar_args". The next attempt runs only when the previous one declared failure; an
+    answer that comes back is not swapped for another attempt's answer because the gates disliked it, since every
+    extra try is another chance to pass the gates by luck."""
+    if "attempts" in m:
+        return m["attempts"]
+    return [{"registrar": n, "args": m.get("registrar_args", {}).get(n, [])}
+            for n in m.get("registrars", ["feature-registration"])]
+
+
 def negatives(m):
     n = m.get("negatives")
     if not n:
@@ -109,18 +120,30 @@ def run_one(t, m, work, cache, accurate_pct):
         hint_path = run / "wrong_hint.json"
         hint_path.write_text(json.dumps(hint, indent=2), encoding="utf-8")
     ref_style = m.get("ref_style_for", {}).get(t["style"], m["ref_style"])
-    step(UVX + [str(SKILLS / "tile-reference" / "scripts" / "fetch_reference.py"), "--style", ref_style,
-                "--zoom", str(hint["zoom"]), "--bbox", *map(str, hint["bbox"]), "--cache", str(cache),
-                "--out", str(run / "ref")], run / "ref" / "reference.json", d / "fetch.log")
+
+    def fetch(style, out):
+        step(UVX + [str(SKILLS / "tile-reference" / "scripts" / "fetch_reference.py"), "--style", style,
+                    "--zoom", str(hint["zoom"]), "--bbox", *map(str, hint["bbox"]), "--cache", str(cache),
+                    "--out", str(out)], out / "reference.json", d / f"fetch.{style}.log")
+
+    fetch(ref_style, run / "ref")
     # registrars in order: the first that does not declare failure gives the answer; every attempt is kept
     if not (run / "answer.json").exists():
         last = None
-        for name in m.get("registrars", ["feature-registration"]):
+        for att in attempts(m):
+            name = att["registrar"]
             script = REGISTRARS[name]
-            out = run / f"answer.{name}.json"
-            extra = m.get("registrar_args", {}).get(name, [])
-            code = step(UVX + [str(SKILLS / name / "scripts" / script), str(task / "image.png"), str(run / "ref"),
-                               "--out", str(out)] + extra, out, d / f"register.{name}.log")
+            ref_dir = run / "ref"
+            tag = name
+            if att.get("ref_style") and att["ref_style"] != ref_style:
+                ref_dir = run / f"ref-{att['ref_style']}"
+                fetch(att["ref_style"], ref_dir)
+                tag = f"{name}.{att['ref_style']}"
+            if att.get("args"):
+                tag += "." + "-".join(a.strip("-") for a in att["args"])
+            out = run / f"answer.{tag}.json"
+            step(UVX + [str(SKILLS / name / "scripts" / script), str(task / "image.png"), str(ref_dir),
+                        "--out", str(out)] + att.get("args", []), out, d / f"register.{tag}.log")
             last = out
             if json.loads(out.read_text(encoding="utf-8"))["status"] == "ok":
                 break

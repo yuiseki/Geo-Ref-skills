@@ -39,3 +39,12 @@ def test_photometrics_are_an_axis_and_default_to_none():
     ts = list(run_matrix.tasks(m))
     assert [t["photometric"] for t in ts] == ["none", "gray", "binary"]
     assert len({t["id"] for t in ts}) == 3
+
+
+def test_attempts_from_either_form():
+    assert run_matrix.attempts({}) == [{"registrar": "feature-registration", "args": []}]
+    m = {"registrars": ["feature-registration", "cross-style-registration"],
+         "registrar_args": {"cross-style-registration": ["--mask", "lines"]}}
+    assert run_matrix.attempts(m)[1] == {"registrar": "cross-style-registration", "args": ["--mask", "lines"]}
+    a = [{"registrar": "cross-style-registration", "ref_style": "roads-minimal", "args": ["--mask", "lines"]}]
+    assert run_matrix.attempts({"attempts": a}) == a
