@@ -157,3 +157,29 @@ def test_removed_fraction():
     assert "removed_fraction" in failed(check_gcps.check(a))
     a["refinement"] = {"n_input": 44, "removed": [{}] * 3}  # counts do not add up
     assert "removed_fraction" in failed(check_gcps.check(a))
+
+
+def test_edge_std_matches_monte_carlo():
+    import transforms as tf
+    r = np.random.default_rng(11)
+    src = np.column_stack([r.uniform(300, 700, 25), r.uniform(250, 450, 25)])  # a narrow middle band
+    A = np.array([[2.4, 0.2], [0.1, -2.4]])
+    clean = src @ A.T + [1.5e7, 4.2e6]
+    E = check_gcps.edge_points(W, H)
+    sigma = 2.0
+    preds = []
+    for _ in range(400):
+        dst = clean + r.normal(0, sigma, clean.shape)
+        preds.append(tf.fit("projective", src, dst).predict(E))
+    mc = float(np.sqrt(np.array(preds).var(axis=0).sum(axis=1)).max())
+    dst = clean + r.normal(0, sigma, clean.shape)
+    est = check_gcps.edge_std(tf.fit("projective", src, dst), src, dst, E)
+    assert 0.6 * mc < est < 1.6 * mc, (est, mc)
+
+
+def test_narrow_band_fails_edge_uncertainty_wide_spread_passes():
+    band = np.column_stack([rng.uniform(250, 750, 20), rng.uniform(300, 420, 20)])
+    r = check_gcps.check(answer(band, noise_px=1.5), min_hull_fraction=0.0, min_quadrants=0, min_axis_ratio=0.0)
+    assert "edge_uncertainty" in failed(r)
+    r = check_gcps.check(answer(spread(60), noise_px=0.3))
+    assert "edge_uncertainty" not in failed(r)

@@ -31,6 +31,7 @@ DEFAULTS = {
     "max_loo_px": 3.0,                  # largest leave-one-out residual, in image pixels
     "max_anisotropy": 2.0,              # larger / smaller singular value of the local Jacobian
     "max_removed_fraction": 0.1,        # control points an earlier step removed / points it was given
+    "max_edge_std_px": 3.0,             # 1-sigma uncertainty of where the image edge lands, in image pixels
 }
 
 
@@ -54,6 +55,46 @@ def hull_area(p):
     h = np.array(lower[:-1] + upper[:-1])
     x, y = h[:, 0], h[:, 1]
     return 0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+
+
+def edge_points(W, H, k=9):
+    t = np.linspace(0, 1, k)
+    return np.vstack([np.column_stack([t * W, np.zeros(k)]), np.column_stack([t * W, np.full(k, H)]),
+                      np.column_stack([np.zeros(k), t * H]), np.column_stack([np.full(k, W), t * H])])
+
+
+def edge_std(model, src, dst, points):
+    """1-sigma uncertainty of model.predict(points), propagated from the control points' scatter: sigma^2 from
+    the fit residuals (degrees of freedom corrected), parameter covariance sigma^2 (J'J)^-1, then through the
+    prediction Jacobian. Returns the largest standard deviation over points, in dst units.
+
+    Leave-one-out residuals only look at the control points; this looks at where there are none. Few points in
+    a narrow band let a projective fit swing at the image edge: in level 2 two answers with every control point
+    within 4.7 pixels of the truth were 40 m and 61 m off at the edges and passed every other gate (2026-11-03)."""
+    method = model.method
+    shape = model.params.shape
+    p0 = model.params.ravel()[:8].copy() if method == "projective" else model.params.ravel().copy()
+
+    def with_params(p):
+        P = np.append(p, 1.0).reshape(3, 3) if method == "projective" else p.reshape(shape)
+        return tf.Fit(method, model.Ts, model.Td, P)
+
+    res = (model.predict(src) - dst).ravel()
+    dof = len(res) - len(p0)
+    if dof <= 0:
+        return float("inf")
+    sigma2 = float((res ** 2).sum() / dof)
+    Jr = np.zeros((len(res), len(p0)))
+    Je = np.zeros((points.size, len(p0)))
+    for j in range(len(p0)):
+        d = np.zeros_like(p0)
+        d[j] = 1e-6
+        mp, mm = with_params(p0 + d), with_params(p0 - d)
+        Jr[:, j] = (mp.predict(src) - mm.predict(src)).ravel() / 2e-6
+        Je[:, j] = (mp.predict(points) - mm.predict(points)).ravel() / 2e-6
+    cov = sigma2 * np.linalg.pinv(Jr.T @ Jr)
+    var = np.einsum("ij,jk,ik->i", Je, cov, Je).reshape(-1, 2).sum(axis=1)
+    return float(np.sqrt(var.max()))
 
 
 def gate(name, passed, **detail):
@@ -106,7 +147,7 @@ def check(answer, hint=None, **opts):
                       and quads >= o["min_quadrants"], axis_ratio=ratio, hull_fraction=hull, quadrants=quads))
 
     if not in_range:
-        for name in ("loo_residual", "geometry", "inside_hint"):
+        for name in ("loo_residual", "edge_uncertainty", "geometry", "inside_hint"):
             gates.append(gate(name, False, error="coordinates out of range"))
         return report
 
@@ -116,7 +157,7 @@ def check(answer, hint=None, **opts):
         model = tf.fit(method, cr, dst)
         loo = tf.loo_residuals(method, cr, dst)
     except ValueError as e:
-        for name in ("loo_residual", "geometry", "inside_hint"):
+        for name in ("loo_residual", "edge_uncertainty", "geometry", "inside_hint"):
             gates.append(gate(name, False, error=f"cannot fit {method}: {e}"))
         return report
 
@@ -131,6 +172,10 @@ def check(answer, hint=None, **opts):
     report["worst_point"] = int(np.argmax(loo_px))
     gates.append(gate("loo_residual", loo_px.max() <= o["max_loo_px"], max_px=float(loo_px.max()),
                       median_px=float(np.median(loo_px)), limit_px=o["max_loo_px"], metres_per_px_mercator=gsd))
+
+    std_px = edge_std(model, cr, dst, edge_points(W, H)) / gsd
+    gates.append(gate("edge_uncertainty", std_px <= o["max_edge_std_px"], std_px=std_px,
+                      limit_px=o["max_edge_std_px"]))
 
     pred = model.predict(grid)
     pred_ok = bool(np.all(np.abs(pred) <= wm.ORIGIN))
