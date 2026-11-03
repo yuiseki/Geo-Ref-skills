@@ -28,6 +28,73 @@ def detector(name):
     raise ValueError(f"unknown detector {name}")
 
 
+def affine_views(tilts=(2 ** 0.5, 2.0)):
+    """ASIFT views (Morel and Yu 2009): for tilt t, longitudes phi every 72/t degrees in [0, 180)."""
+    views = [(1.0, 0.0)]
+    for t in tilts:
+        views += [(t, phi) for phi in np.arange(0.0, 180.0, 72.0 / t)]
+    return views
+
+
+# OpenCV's SIFT doubles the image for its first octave and reports keypoints 0.25 pixel right of and below the
+# pixel-centre position (upsampling maps x to 2x + 0.5). The bias cancels between two unrotated images but not
+# through rotated ASIFT views: measured on rotated copies it predicted 0.18, 0.30 and 0.50 pixel at 30, 50.9 and
+# 90 degrees, observed 0.185, 0.30 and 0.501 (OpenCV 5.0.0, 2026-11-03). ORB is not corrected.
+KEYPOINT_OFFSET = {"sift": 0.25, "orb": 0.0}
+
+
+def detect_view(det, gray, t, phi, offset=0.0):
+    """Keypoints of gray seen through rotation phi then compression 1/t along x, mapped back to gray's pixels."""
+    if t == 1.0 and phi == 0.0:
+        kps, desc = det.detectAndCompute(gray, None)
+        return np.float32([k.pt for k in kps]).reshape(-1, 2) - offset, desc
+    h, w = gray.shape
+    A = cv2.getRotationMatrix2D((w / 2, h / 2), phi, 1.0)
+    corners = np.array([[0, 0, 1], [w, 0, 1], [w, h, 1], [0, h, 1]], float) @ A.T
+    A[:, 2] -= corners.min(axis=0)
+    size = np.ceil(corners.max(axis=0) - corners.min(axis=0)).astype(int)
+    img = cv2.warpAffine(gray, A, (int(size[0]), int(size[1])), flags=cv2.INTER_LINEAR, borderValue=0)
+    mask = cv2.warpAffine(np.full((h, w), 255, np.uint8), A, (int(size[0]), int(size[1])), flags=cv2.INTER_NEAREST)
+    if t > 1.0:
+        img = cv2.GaussianBlur(img, (0, 0), sigmaX=0.8 * np.sqrt(t * t - 1), sigmaY=0.01)
+    img = cv2.resize(img, (max(1, int(size[0] / t)), int(size[1])), interpolation=cv2.INTER_LINEAR)
+    mask = cv2.resize(mask, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
+    mask = cv2.erode(mask, np.ones((5, 5), np.uint8))
+    kps, desc = det.detectAndCompute(img, mask)
+    if desc is None:
+        return np.zeros((0, 2), np.float32), None
+    pts = np.float32([k.pt for k in kps]) - offset
+    # undo the compression with the scale resize really used (the width was rounded to whole pixels, so it is
+    # not exactly t; using t left a 0.6 pixel bias at t = sqrt 2, 2026-11-03). OpenCV coords are pixel centres.
+    sx = size[0] / img.shape[1]
+    pts[:, 0] = (pts[:, 0] + 0.5) * sx - 0.5
+    Ai = cv2.invertAffineTransform(A)
+    back = np.column_stack([pts, np.ones(len(pts))]) @ Ai.T
+    return back.astype(np.float32), desc
+
+
+def detect(det, gray, asift, offset=0.0):
+    views = affine_views() if asift else [(1.0, 0.0)]
+    pts, descs = [], []
+    for t, phi in views:
+        p, d = detect_view(det, gray, t, phi, offset)
+        if d is not None and len(p):
+            pts.append(p)
+            descs.append(d)
+    if not descs:
+        return np.zeros((0, 2), np.float32), None
+    return np.vstack(pts), np.vstack(descs)
+
+
+def distinct(points, mask):
+    """Keep one inlier per whole-pixel position: the same place seen through several ASIFT views is one piece
+    of evidence, not several."""
+    _, first = np.unique(np.round(points[mask]).astype(int), axis=0, return_index=True)
+    out = np.zeros_like(mask)
+    out[np.where(mask)[0][np.sort(first)]] = True
+    return out
+
+
 def thin(points, scores, W, H, bins=10, per_bin=4):
     """Keep the best-scoring points in each cell of a bins x bins grid, so no area dominates."""
     cell = (np.minimum((points[:, 0] / W * bins).astype(int), bins - 1) * bins
@@ -40,33 +107,51 @@ def thin(points, scores, W, H, bins=10, per_bin=4):
 
 
 def register(image, ref_img, ref_meta, detector_name="sift", ratio=0.75, ransac_px=3.0, min_inliers=20,
-             method="projective", bins=10, per_bin=4):
+             method="projective", bins=10, per_bin=4, asift="auto", min_inlier_ratio=0.1):
+    """asift: "off" plain features; "on" affine-simulated views of the image; "auto" plain, then on if it fails."""
+    if asift == "auto":
+        first = register(image, ref_img, ref_meta, detector_name, ratio, ransac_px, min_inliers, method, bins,
+                         per_bin, "off", min_inlier_ratio)
+        if first["status"] == "ok":
+            return first
+        second = register(image, ref_img, ref_meta, detector_name, ratio, ransac_px, min_inliers, method, bins,
+                          per_bin, "on", min_inlier_ratio)
+        second["stats"]["plain_attempt"] = {"reason": first.get("reason"), **first["stats"]}
+        return second
+    if asift not in ("on", "off"):
+        raise ValueError(f"asift must be auto, on or off, got {asift}")
     H, W = image.shape[:2]
     det, norm = detector(detector_name)
     g1 = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     g2 = cv2.cvtColor(ref_img, cv2.COLOR_RGB2GRAY)
-    k1, d1 = det.detectAndCompute(g1, None)
-    k2, d2 = det.detectAndCompute(g2, None)
-    stats = {"keypoints_image": len(k1), "keypoints_reference": len(k2)}
+    off = KEYPOINT_OFFSET[detector_name]
+    p1all, d1 = detect(det, g1, asift == "on", off)
+    p2all, d2 = detect(det, g2, False, off)
+    stats = {"keypoints_image": len(p1all), "keypoints_reference": len(p2all), "asift": asift == "on"}
     base = {"image": {"width": W, "height": H}, "method": method, "crs": "EPSG:4326",
             "tool": {"name": "feature-registration", "detector": detector_name, "ratio": ratio,
-                     "ransac_px": ransac_px}, "stats": stats}
-    if d1 is None or d2 is None or len(k1) < 2 or len(k2) < 2:
+                     "ransac_px": ransac_px, "asift": asift}, "stats": stats}
+    if d1 is None or d2 is None or len(p1all) < 2 or len(p2all) < 2:
         return {**base, "status": "failed", "reason": "no keypoints", "gcps": []}
     pairs = cv2.BFMatcher(norm).knnMatch(d1, d2, k=2)
     good = [p[0] for p in pairs if len(p) == 2 and p[0].distance < ratio * p[1].distance]
     stats["ratio_matches"] = len(good)
     if len(good) < max(min_inliers, 4):
         return {**base, "status": "failed", "reason": f"{len(good)} matches after the ratio test", "gcps": []}
-    p1 = np.float32([k1[m.queryIdx].pt for m in good])
-    p2 = np.float32([k2[m.trainIdx].pt for m in good])
+    p1 = np.float32([p1all[m.queryIdx] for m in good])
+    p2 = np.float32([p2all[m.trainIdx] for m in good])
     Hm, mask = cv2.findHomography(p1, p2, cv2.USAC_MAGSAC, ransac_px)
     if Hm is None:
         return {**base, "status": "failed", "reason": "no consistent homography", "gcps": []}
     inl = mask.ravel().astype(bool)
     stats["inliers"] = int(inl.sum())
-    if inl.sum() < min_inliers:
-        return {**base, "status": "failed", "reason": f"{int(inl.sum())} inliers < {min_inliers}", "gcps": []}
+    inl = distinct(p1, inl)
+    stats["inliers_distinct"] = int(inl.sum())
+    stats["inlier_ratio"] = float(inl.sum() / len(good))
+    if inl.sum() < min_inliers or stats["inlier_ratio"] < min_inlier_ratio:
+        return {**base, "status": "failed", "gcps": [],
+                "reason": f"{int(inl.sum())} distinct inliers (need {min_inliers}), inlier ratio "
+                          f"{stats['inlier_ratio']:.3f} (need {min_inlier_ratio})"}
     # OpenCV keypoints are pixel-centre based; +0.5 gives corner coordinates
     c1 = p1[inl].astype(float) + 0.5
     c2 = p2[inl].astype(float) + 0.5
@@ -98,14 +183,17 @@ def main():
     ap.add_argument("--method", default="projective")
     ap.add_argument("--ratio", type=float, default=0.75)
     ap.add_argument("--ransac-px", type=float, default=3.0)
-    ap.add_argument("--min-inliers", type=int, default=20)
+    ap.add_argument("--min-inliers", type=int, default=20, help="distinct inlier positions needed")
+    ap.add_argument("--min-inlier-ratio", type=float, default=0.1, help="inliers / ratio-test matches needed")
+    ap.add_argument("--asift", default="auto", choices=["auto", "on", "off"],
+                    help="affine-simulated views of the image (ASIFT); auto tries plain features first")
     a = ap.parse_args()
     ref = Path(a.ref)
     meta = json.loads((ref / "reference.json").read_text(encoding="utf-8"))
     if meta.get("crs") != "EPSG:3857":
         raise ValueError(f"reference must be EPSG:3857, got {meta.get('crs')}")
     ans = register(read_rgb(a.image), read_rgb(ref / "reference.png"), meta, a.detector, a.ratio, a.ransac_px,
-                   a.min_inliers, a.method)
+                   a.min_inliers, a.method, asift=a.asift, min_inlier_ratio=a.min_inlier_ratio)
     Path(a.out).write_text(json.dumps(ans, indent=2), encoding="utf-8")
     print(json.dumps({"status": ans["status"], "reason": ans.get("reason"), **ans["stats"]}))
     sys.exit(0 if ans["status"] == "ok" else 1)

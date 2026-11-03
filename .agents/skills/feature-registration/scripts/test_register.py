@@ -84,3 +84,69 @@ def test_thin_spreads_points():
     crowded = (pts[keep] < 100).all(axis=1).sum()
     assert crowded <= 4
     assert len(keep) > 30
+
+
+def sparse_scene(w=1400, h=1100, seed=0, n_lines=40, n_rect=25):
+    """Few features, like a map of farmland."""
+    rng = np.random.default_rng(seed)
+    img = np.full((h, w, 3), 240, np.uint8)
+    for _ in range(n_lines):
+        p1 = tuple(int(v) for v in rng.integers(0, [w, h]))
+        p2 = tuple(int(v) for v in rng.integers(0, [w, h]))
+        cv2.line(img, p1, p2, tuple(int(c) for c in rng.integers(0, 255, 3)), int(rng.integers(2, 6)))
+    for _ in range(n_rect):
+        p = tuple(int(v) for v in rng.integers(0, [w, h]))
+        s = tuple(int(v) for v in rng.integers(6, 30, 2))
+        cv2.rectangle(img, p, (p[0] + s[0], p[1] + s[1]), tuple(int(c) for c in rng.integers(0, 255, 3)), -1)
+    return img
+
+
+def test_asift_solves_a_sparse_affine_case_that_plain_sift_cannot():
+    # measured 2026-11-03: plain SIFT 4 distinct inliers, ASIFT 58 (aspect 1.6, shear 0.3)
+    ref = sparse_scene()
+    D = np.array([[1.6, 0.3, 250], [0, 1 / 1.6, 250], [0, 0, 1.0]])
+    task = warp(ref, D, 800, 600)
+    assert register.register(task, ref, meta(), "sift", asift="off")["status"] == "failed"
+    ans = register.register(task, ref, meta(), "sift", asift="auto")
+    assert ans["tool"]["asift"] == "on"
+    assert ans["stats"]["plain_attempt"]["reason"]
+    err = check_answer(ans, D)
+    assert np.median(err) < 1.0
+    assert err.max() < 3.0
+
+
+def test_asift_on_unrelated_images_still_fails():
+    ref = scene(seed=1)
+    task = warp(scene(seed=2), np.eye(3), 800, 600)
+    ans = register.register(task, ref, meta(), "sift", asift="on")
+    assert ans["status"] == "failed"
+    assert ans["stats"]["inlier_ratio"] < 0.1
+
+
+def test_affine_views_follow_asift():
+    v = register.affine_views()
+    assert v[0] == (1.0, 0.0)
+    assert sum(1 for t, _ in v if t == 2.0) == 5  # 72 / 2 = 36 degrees: 0, 36, ..., 144
+
+
+@pytest.mark.parametrize("t,phi", [(1.0, 90.0), (1.0, 50.9), (2 ** 0.5, 50.9)])
+def test_view_keypoints_map_back_without_bias(t, phi):
+    # OpenCV SIFT reports keypoints 0.25 px off; through a rotated view the bias showed as 0.5 px at 90 degrees
+    img = cv2.cvtColor(scene(), cv2.COLOR_RGB2GRAY)
+    det = cv2.SIFT_create(nfeatures=20000)
+    off = register.KEYPOINT_OFFSET["sift"]
+    p0, d0 = register.detect_view(det, img, 1.0, 0.0, off)
+    p, d = register.detect_view(det, img, t, phi, off)
+    pairs = cv2.BFMatcher(cv2.NORM_L2).knnMatch(d, d0, k=2)
+    good = [a for a, b in pairs if a.distance < 0.6 * b.distance]
+    dv = np.array([p[g.queryIdx] - p0[g.trainIdx] for g in good])
+    dv = dv[np.hypot(*dv.T) < 5]
+    assert len(dv) > 500
+    assert np.abs(dv.mean(axis=0)).max() < 0.06
+
+
+def test_distinct_counts_one_inlier_per_place():
+    pts = np.array([[10.2, 5.1], [10.4, 4.9], [30.0, 7.0], [10.1, 5.2], [50.0, 50.0]])
+    mask = np.array([True, True, True, True, False])
+    out = register.distinct(pts, mask)
+    assert out.tolist() == [True, False, True, False, False]
