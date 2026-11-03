@@ -60,6 +60,23 @@ def water_mask(img):
     return cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
 
 
+def line_mask(img, width=5, min_diff=40):
+    """For maps of lines only (rivers, railways, roads on a plain background): pixels away from the most
+    common colour, thinned to centre lines and widened to the same width, so lines drawn 1 and 4 pixels wide
+    look alike."""
+    from skimage.morphology import skeletonize
+
+    q = (img // 8).reshape(-1, 3)
+    vals, counts = np.unique(q, axis=0, return_counts=True)
+    bg = (vals[counts.argmax()].astype(int) * 8 + 4)
+    fg = np.abs(img.astype(int) - bg).sum(axis=-1) > min_diff
+    sk = skeletonize(fg)
+    return cv2.dilate(sk.astype(np.uint8), np.ones((width, width), np.uint8))
+
+
+MASKS = {"water": water_mask, "lines": line_mask}
+
+
 def coarse_similarity(task_mask, ref_mask, o=DEFAULTS):
     """Search a similarity task -> ref on masks shrunk o["down"] times. Returns (score, 2x3 corner affine in full
     pixels, rotation, scale)."""
@@ -213,23 +230,33 @@ def refine_patches(task, ref, A, o=DEFAULTS, search=None, la_task=None, lb=None)
     return pts, info, la_task, lb
 
 
-def register(image, ref_img, ref_meta, **opts):
+def register(image, ref_img, ref_meta, mask="water", **opts):
+    """mask: "water" (blue water, for full map styles) or "lines" (centre lines of everything that is not the
+    background, for maps of rivers or railways only; the reference should then show the same kind of line)."""
     o = {**DEFAULTS, **opts}
+    if mask == "lines":
+        o = {**o, "water_min": opts.get("water_min", 0.002), "k": opts.get("k", 2)}
     H, W = image.shape[:2]
     base = {"image": {"width": W, "height": H}, "method": "projective", "crs": "EPSG:4326",
-            "tool": {"name": "cross-style-registration", **{k: (list(v) if isinstance(v, tuple) else v)
-                                                            for k, v in o.items()}}}
-    wa, wb = water_mask(image), water_mask(ref_img)
+            "tool": {"name": "cross-style-registration", "mask": mask,
+                     **{k: (list(v) if isinstance(v, tuple) else v) for k, v in o.items()}}}
+    if mask not in MASKS:
+        raise ValueError(f"mask must be one of {sorted(MASKS)}")
+    wa, wb = MASKS[mask](image), MASKS[mask](ref_img)
     stats = {"water_image": float(wa.mean()), "water_reference": float(wb.mean())}
     base["stats"] = stats
     for name, frac in (("image", wa.mean()), ("reference", wb.mean())):
         if not (o["water_min"] <= frac <= o["water_max"]):
             return {**base, "status": "failed", "gcps": [],
-                    "reason": f"water covers {frac:.3f} of the {name} (need {o['water_min']}-{o['water_max']})"}
+                    "reason": f"{mask} covers {frac:.3f} of the {name} (need {o['water_min']}-{o['water_max']})"}
     score, A, th, sc = coarse_similarity(wa, wb, o)
     stats.update(coarse_score=score, coarse_rotation=th, coarse_scale=sc)
     if A is None or score < o["min_coarse_score"]:
         return {**base, "status": "failed", "gcps": [], "reason": f"coarse match {score:.3f} < {o['min_coarse_score']}"}
+    if mask == "lines":
+        # match the line masks themselves: colours of a lines-only map carry nothing else
+        image = np.stack([wa * 255] * 3, axis=-1).astype(np.uint8)
+        ref_img = np.stack([wb * 255] * 3, axis=-1).astype(np.uint8)
     pts, info, la_task, lb = refine_patches(image, ref_img, A, o)
     stats.update(patches_pass1=len(info), gcps_pass1=len(pts))
     # second pass: a homography from the first pass's points takes out most of the local scale and shear, so
@@ -267,12 +294,14 @@ def main():
     ap.add_argument("image")
     ap.add_argument("ref", help="directory with reference.png and reference.json")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--mask", default="water", choices=["water", "lines"],
+                    help="water for full map styles, lines for maps of rivers, railways or roads only")
     a = ap.parse_args()
     ref = Path(a.ref)
     meta = json.loads((ref / "reference.json").read_text(encoding="utf-8"))
     if meta.get("crs") != "EPSG:3857":
         raise ValueError(f"reference must be EPSG:3857, got {meta.get('crs')}")
-    ans = register(read_rgb(a.image), read_rgb(ref / "reference.png"), meta)
+    ans = register(read_rgb(a.image), read_rgb(ref / "reference.png"), meta, mask=a.mask)
     Path(a.out).write_text(json.dumps(ans, indent=2), encoding="utf-8")
     print(json.dumps({"status": ans["status"], "reason": ans.get("reason"), **ans["stats"]}))
     sys.exit(0 if ans["status"] == "ok" else 1)

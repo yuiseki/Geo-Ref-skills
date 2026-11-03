@@ -5,7 +5,8 @@
 matrix.json: {"level": 1, "zoom": 15, "registrars": ["feature-registration", "cross-style-registration"], "size": [900, 700], "ref_style": "osm-liberty", "photometrics": ["none", "gray"],
               "places": {"tokyo": [139.7528, 35.6852], ...}, "styles": ["osm-liberty"],
               "kinds": ["similarity", ...], "strengths": [0.25, ...], "seeds": [1, 2]}
-ref_style is the style of the reference the solver matches against; styles are the task images' styles
+ref_style is the style of the reference the solver matches against (ref_style_for: {task style: ref style}
+overrides it per task style; registrar_args: {registrar: [extra arguments]}); styles are the task images' styles
 (level 1 uses the same one, level 2 others).
 
 Each task runs make_task -> fetch_reference -> register -> refine_gcps -> check_gcps -> score_task, each step a separate
@@ -34,7 +35,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SKILLS = ROOT / ".agents" / "skills"
 EVALS = Path(__file__).resolve().parent
-UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-python-headless", "--with", "pyproj", "python"]
+UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-python-headless", "--with", "pyproj",
+       "--with", "scikit-image", "python"]
 # one BLAS thread per step: many threads under a CPU quota fight each other (a 386-point gate check took
 # over a minute with all threads and 11 s with one, 2026-11-03)
 ENV = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
@@ -106,7 +108,8 @@ def run_one(t, m, work, cache, accurate_pct):
         hint = {**hint, "bbox": shifted_bbox(hint["bbox"], t["wrong_center"])}
         hint_path = run / "wrong_hint.json"
         hint_path.write_text(json.dumps(hint, indent=2), encoding="utf-8")
-    step(UVX + [str(SKILLS / "tile-reference" / "scripts" / "fetch_reference.py"), "--style", m["ref_style"],
+    ref_style = m.get("ref_style_for", {}).get(t["style"], m["ref_style"])
+    step(UVX + [str(SKILLS / "tile-reference" / "scripts" / "fetch_reference.py"), "--style", ref_style,
                 "--zoom", str(hint["zoom"]), "--bbox", *map(str, hint["bbox"]), "--cache", str(cache),
                 "--out", str(run / "ref")], run / "ref" / "reference.json", d / "fetch.log")
     # registrars in order: the first that does not declare failure gives the answer; every attempt is kept
@@ -115,8 +118,9 @@ def run_one(t, m, work, cache, accurate_pct):
         for name in m.get("registrars", ["feature-registration"]):
             script = REGISTRARS[name]
             out = run / f"answer.{name}.json"
+            extra = m.get("registrar_args", {}).get(name, [])
             code = step(UVX + [str(SKILLS / name / "scripts" / script), str(task / "image.png"), str(run / "ref"),
-                               "--out", str(out)], out, d / f"register.{name}.log")
+                               "--out", str(out)] + extra, out, d / f"register.{name}.log")
             last = out
             if json.loads(out.read_text(encoding="utf-8"))["status"] == "ok":
                 break

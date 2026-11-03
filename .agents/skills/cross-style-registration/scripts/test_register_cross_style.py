@@ -1,4 +1,4 @@
-# uvx --with numpy --with opencv-python-headless --with pytest pytest scripts/test_register_cross_style.py
+# uvx --with numpy --with opencv-python-headless --with scikit-image --with pytest pytest scripts/test_register_cross_style.py
 import cv2
 import numpy as np
 import pytest
@@ -115,3 +115,30 @@ def test_another_place_is_a_declared_failure():
     task = warp(scene(STYLE_B, seed=5), D, 900, 700)
     ans = rcs.register(task, ref, meta())
     assert ans["status"] == "failed", ans["stats"]
+
+
+def lines_scene(width, seed=0, w=1600, h=1200, bg=(68, 80, 110), fg=(30, 30, 255)):
+    """A map of lines only (like the railways style), drawn at a given line width."""
+    g = np.random.default_rng(seed)
+    img = np.full((h, w, 3), bg, np.uint8)
+    for _ in range(35):
+        pts = np.cumsum(g.normal(0, 60, (6, 2)), axis=0) + g.integers(0, [w, h])
+        cv2.polylines(img, [pts.astype(np.int32)], False, fg, width)
+    return img
+
+
+def test_lines_mode_matches_lines_of_another_width():
+    ref = lines_scene(1)
+    task = warp(lines_scene(4, fg=(70, 130, 200)), D, 900, 700)
+    ans = rcs.register(task, ref, meta(), mask="lines")
+    assert ans["status"] == "ok", ans.get("reason")
+    e = gcp_errors(ans, D)
+    d = np.hypot(e[:, 0], e[:, 1])
+    assert len(d) >= 12 and np.median(d) < 1.5 and np.abs(e.mean(axis=0)).max() < 0.7
+
+
+def test_line_mask_is_width_independent():
+    a = rcs.line_mask(lines_scene(1))
+    b = rcs.line_mask(lines_scene(5))
+    inter = (a & b).sum() / max(1, (a | b).sum())
+    assert inter > 0.5

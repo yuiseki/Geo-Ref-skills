@@ -37,6 +37,14 @@ description: 参照の地図と描き方 (配色、線の太さ、文字の位�
 - 大阪の osm-carto の課題 (projective 0.5、種 3) で、GCP の真の位置からの誤差は、8 x 6 の升で 1 回だけのとき中央値 2.2 画素 (19 点)、地図の内側だけで測る 10 x 8 の升で中央値 1.9 画素、上位 10% で 5.0 画素 (56 点)、2 回目を足して中央値 0.97 画素、最大 3.5 画素 (73 点) になった。osm-bright では中央値 0.15 画素。外れた点を除く段と関門を通して、正解との最大誤差 6.6 m (画像の半径の 0.31%)。この課題を見ながら直したので、効果の評価には使わない。
 - `corner_to_index` を使わずに写しても、上の合成の例のテストは通る (縮尺が 1 に近いと、ずれは 0.1 画素ほどで許容の内側)。関数そのものは単体テストで確かめている。
 
+## 線だけの地図 (`--mask lines`)
+
+川だけ、鉄道だけの地図には、水の面も色の手がかりも無い。`--mask lines` は、最も多い色を背景とし、背景から離れた画素を細線化して中心線にし、5 画素に太らせたマスクで、粗い探索と升ごとの合わせ込みをする。線幅の違う描き方 (1 画素と 4 画素) が同じマスクになる。参照は、同じ種類の線を描いたスタイル (川なら rivers、鉄道なら railways) にする。
+
+- 大阪で、railways-w4 の課題を railways の参照に合わせた試し (projective 0.5、種 5) では、GCP 59 点、真の位置からの誤差の中央値 0.54 画素、最大 8.0 画素。rivers-w4 を rivers に合わせると、GCP 20 点、中央値 1.49 画素、最大 2.6 画素 (2026-11-03)。
+- 合成の線の地図 (線幅 1 と 4、色も違う) で、GCP の誤差の中央値 1.5 画素未満、偏り 0.7 画素未満をテストしている。
+- 細線化に scikit-image を使う。
+
 ## 使えない条件
 
 - 水の無い地図、水の少ない地図 (内陸の畑など)。水の他の手がかり (緑地、道路の密度) は、まだ使っていない。
@@ -54,6 +62,6 @@ description: 参照の地図と描き方 (配色、線の太さ、文字の位�
 テスト (1 分半ほどかかる):
 
 ```sh
-uvx --with numpy --with opencv-python-headless --with pytest pytest scripts/test_register_cross_style.py
+uvx --with numpy --with opencv-python-headless --with scikit-image --with pytest pytest scripts/test_register_cross_style.py
 uvx --with numpy --with pyproj --with pytest pytest scripts/test_webmercator.py
 ```
