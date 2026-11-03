@@ -8,7 +8,7 @@ matrix.json: {"level": 1, "zoom": 15, "size": [900, 700], "ref_style": "osm-libe
 ref_style is the style of the reference the solver matches against; styles are the task images' styles
 (level 1 uses the same one, level 2 others).
 
-Each task runs make_task -> fetch_reference -> register -> check_gcps -> score_task, each step a separate
+Each task runs make_task -> fetch_reference -> register -> refine_gcps -> check_gcps -> score_task, each step a separate
 process that writes a file; a step whose output exists is skipped, so an interrupted run resumes.
 Outcomes (accurate means max error <= --accurate-pct of the image radius):
     ok              gates passed and accurate
@@ -34,7 +34,7 @@ UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-python-he
 # over a minute with all threads and 11 s with one, 2026-11-03)
 ENV = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
 COLUMNS = ["id", "place", "style", "kind", "strength", "seed", "outcome", "register", "gates_passed",
-           "failed_gates", "max_m", "median_m", "max_pct_radius", "n_gcps", "loo_max_px", "error"]
+           "failed_gates", "max_m", "median_m", "max_pct_radius", "n_gcps", "n_removed", "asift", "loo_max_px", "error"]
 
 
 def tasks(m):
@@ -81,19 +81,21 @@ def run_one(t, m, work, cache, accurate_pct):
                 "--out", str(run / "ref")], run / "ref" / "reference.json", d / "fetch.log")
     step(UVX + [str(SKILLS / "feature-registration" / "scripts" / "register.py"), str(task / "image.png"),
                 str(run / "ref"), "--out", str(run / "answer.json")], run / "answer.json", d / "register.log")
+    step(UVX + [str(SKILLS / "gcp-refinement" / "scripts" / "refine_gcps.py"), str(run / "answer.json"),
+                "--out", str(run / "refined.json")], run / "refined.json", d / "refine.log")
     gates_out = run / "gates.json"
     if not gates_out.exists():
-        r = subprocess.run(UVX + [str(SKILLS / "georef-gates" / "scripts" / "check_gcps.py"), str(run / "answer.json"),
+        r = subprocess.run(UVX + [str(SKILLS / "georef-gates" / "scripts" / "check_gcps.py"), str(run / "refined.json"),
                                   "--hint", str(task / "hint.json")], capture_output=True, text=True, cwd=ROOT, env=ENV)
         if r.returncode not in (0, 1):
             raise RuntimeError(f"check_gcps exited {r.returncode}: {r.stderr[-800:]}")
         gates_out.write_text(r.stdout, encoding="utf-8")
     score_out = run / "score.json"
     if not score_out.exists():
-        r = subprocess.run(UVX + [str(EVALS / "score_task.py"), str(run / "answer.json"), str(truth / "truth.json")],
+        r = subprocess.run(UVX + [str(EVALS / "score_task.py"), str(run / "refined.json"), str(truth / "truth.json")],
                            capture_output=True, text=True, cwd=ROOT, env=ENV, check=True)
         score_out.write_text(r.stdout, encoding="utf-8")
-    ans = json.loads((run / "answer.json").read_text(encoding="utf-8"))
+    ans = json.loads((run / "refined.json").read_text(encoding="utf-8"))
     gates = json.loads(gates_out.read_text(encoding="utf-8"))
     sc = json.loads(score_out.read_text(encoding="utf-8"))
     loo = next((g.get("max_px") for g in gates["gates"] if g["name"] == "loo_residual"), None)
@@ -102,7 +104,8 @@ def run_one(t, m, work, cache, accurate_pct):
             "register": ans["status"], "gates_passed": gates["passed"],
             "failed_gates": ",".join(g["name"] for g in gates["gates"] if not g["passed"]),
             "max_m": sc.get("max_m"), "median_m": sc.get("median_m"), "max_pct_radius": pct,
-            "n_gcps": len(ans["gcps"]), "loo_max_px": loo, "error": ""}
+            "n_gcps": len(ans["gcps"]), "n_removed": len(ans.get("refinement", {}).get("removed", [])),
+            "asift": ans.get("stats", {}).get("asift"), "loo_max_px": loo, "error": ""}
 
 
 def fmt(v):

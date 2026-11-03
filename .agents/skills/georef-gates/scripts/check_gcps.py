@@ -7,6 +7,7 @@ answer.json:
      "crs": "EPSG:4326", "gcps": [{"col": c, "row": r, "lon": x, "lat": y}, ...]}
 col and row are image pixel coordinates with (0, 0) at the top-left corner of the top-left pixel.
 hint.json (optional): {"bbox": [west, south, east, north], ...}, the area the map is known to lie in.
+If an earlier step removed control points, the answer carries "refinement": {"n_input": N, "removed": [...]}.
 
 Prints a JSON report and exits 0 when every gate passes, 1 otherwise. An answer whose status is
 "failed" is reported as a declared failure (exit 1), not checked. No gate repairs the answer: a gate
@@ -29,6 +30,7 @@ DEFAULTS = {
     "min_quadrants": 3,                 # image quadrants holding at least one point
     "max_loo_px": 3.0,                  # largest leave-one-out residual, in image pixels
     "max_anisotropy": 2.0,              # larger / smaller singular value of the local Jacobian
+    "max_removed_fraction": 0.1,        # control points an earlier step removed / points it was given
 }
 
 
@@ -78,6 +80,16 @@ def check(answer, hint=None, **opts):
     inside_image = bool(np.all((cr[:, 0] >= 0) & (cr[:, 0] <= W) & (cr[:, 1] >= 0) & (cr[:, 1] <= H)))
     gates.append(gate("coordinates_in_range", in_range and inside_image,
                       lonlat_in_range=in_range, pixels_inside_image=inside_image))
+
+    ref = answer.get("refinement")
+    if ref is None:
+        gates.append(gate("removed_fraction", True, removed=0, note="no refinement recorded"))
+    else:
+        n_in, n_rm = int(ref["n_input"]), len(ref["removed"])
+        consistent = n_in - n_rm == len(cr)
+        frac = n_rm / n_in if n_in else 1.0
+        gates.append(gate("removed_fraction", consistent and frac <= o["max_removed_fraction"], removed=n_rm,
+                          n_input=n_in, fraction=frac, limit=o["max_removed_fraction"], counts_consistent=consistent))
 
     need = int(np.ceil(tf.MIN_POINTS[method] * o["points_per_parameter_point"]))
     gates.append(gate("enough_points", len(cr) >= need, n=len(cr), need=need))

@@ -1,6 +1,6 @@
 ---
 name: georef-gates
-description: ジオリファレンスの答え (GCP と変換の方法) を、返す前に検査する関門。GCP の数、広がり、leave-one-out の残差、変換の形 (裏返し、折り返し、縦横の比)、座標の範囲、手がかりの枠との整合を確かめ、どれかが落ちたら止める。どの方法で GCP を作ったときも、答えを返す前に必ず使う。
+description: ジオリファレンスの答え (GCP と変換の方法) を、返す前に検査する関門。GCP の数、広がり、leave-one-out の残差、変換の形 (裏返し、折り返し、縦横の比)、座標の範囲、手がかりの枠との整合、前の段で除いた点の割合を確かめ、どれかが落ちたら止める。どの方法で GCP を作ったときも、答えを返す前に必ず使う。
 ---
 
 # georef-gates
@@ -22,6 +22,7 @@ description: ジオリファレンスの答え (GCP と変換の方法) を、�
 | 関門 | 何を見るか | 落ちたら |
 |---|---|---|
 | `coordinates_in_range` | 経緯度が範囲の中か、GCP の画素が画像の中か | 経度と緯度の取り違え、画素の座標の取り違え |
+| `removed_fraction` | 前の段で除いた GCP が、渡された点の 10% 以下か。記録 (`refinement`) の数と残りの点の数が合うか | 1 つの変換で説明できない点が多い。除く割合を上げて通さない |
 | `enough_points` | GCP の数が、方法の最少の数の 2 倍以上か (affine 3、projective 4、poly2 6、poly3 10) | GCP を増やすか、自由度の低い方法にする |
 | `spread` | 一直線でないか (縦横の広がりの比 0.15 以上)、凸包が画像の 25% 以上か、4 象限のうち 3 つ以上に点があるか | 点の無い所の外挿になる。点を足す |
 | `loo_residual` | 1 点ずつ外して当て直したときの、外した点のずれの最大 (画像の画素で 3 以下) | `worst_point` の点を疑う。取り違えた対応か、方法の次数が足りない |
@@ -45,7 +46,7 @@ description: ジオリファレンスの答え (GCP と変換の方法) を、�
 
 ## まだ無いこと
 
-- 方法の次数を leave-one-out の最大で選ぶこと、外れた GCP を 1 つずつ除くこと。
+- 方法の次数を leave-one-out の最大で選ぶこと。
 - 合わせた後の画像と参照の画像の重なりの検査。
 - 測地系の根拠の検査。
 
@@ -64,5 +65,7 @@ uvx --with numpy --with pytest pytest scripts/test_check_gcps.py
 uvx --with numpy --with scikit-image --with pytest pytest scripts/test_transforms.py
 uvx --with numpy --with pyproj --with pytest pytest scripts/test_webmercator.py
 ```
+
+GCP が数百点あると、雑音の分布の端だけで leave-one-out の最大が 3 画素を超えることがある (レベル 1 の行列で 3.07〜3.39 画素、答えは正確だった)。閾値を緩めず、外れた点を上限付きで除く段を前に置き、除いた割合をこの関門で確かめる。
 
 関門は 1 つずつ無効にして、どれもテストが落ちることを確かめてある。射影変換は scikit-image の `ProjectiveTransform` と照合している。

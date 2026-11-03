@@ -147,3 +147,13 @@ def test_cli_exit_codes(tmp_path):
     assert json.loads(g.stdout)["passed"]
     assert b.returncode == 1
     assert not json.loads(b.stdout)["passed"]
+
+
+def test_removed_fraction():
+    a = answer(spread(40))
+    a["refinement"] = {"n_input": 44, "removed": [{}] * 4}
+    assert "removed_fraction" not in failed(check_gcps.check(a))
+    a["refinement"] = {"n_input": 50, "removed": [{}] * 10}
+    assert "removed_fraction" in failed(check_gcps.check(a))
+    a["refinement"] = {"n_input": 44, "removed": [{}] * 3}  # counts do not add up
+    assert "removed_fraction" in failed(check_gcps.check(a))
