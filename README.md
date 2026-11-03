@@ -29,31 +29,31 @@
 
 ### レベルごとの実例
 
-どの例も、左が道具に渡した歪んだ地図 (赤い丸は見つけた GCP)、右が答えの変換で地上に戻した地図を、参照の地図に半透明で重ねたもの。位置が合っていれば道路や線は 1 本に重なり、ずれていれば二重に見える。描き方が違う例では、2 つの描き方の線が同じ所に重なっているのが見える。赤い枠は、入力の画像の範囲を地上に写したもの。誤差は、正解の変換と比べた値。
+どの例も、左が道具に渡した歪んだ地図 (赤い丸は見つけた GCP)、右は、答えの変換で地上に戻した地図の道路、線、文字を赤紫で、参照の地図 (淡く表示) の上に重ねたもの。位置が合っていれば、赤紫は参照の道路や文字にぴったり乗り、ずれていれば横に並んで二重に見える。赤い枠は、入力の画像の範囲を地上に写したもの。誤差は、正解の変換と比べた値。
 
 レベル 2a: 白黒にした地図を、色付きの参照に合わせる (大阪、GCP 163 点、誤差は最大 0.94 m)
 
 | 入力 | 結果 |
 |---|---|
-| ![レベル 2a の入力](docs/examples/level2a-binary-input.jpg) | ![レベル 2a の結果](docs/examples/level2a-binary-overlay.jpg) |
+| ![レベル 2a の入力](docs/examples/level2a-binary-input.jpg) | ![レベル 2a の結果](docs/examples/level2a-binary-magenta.jpg) |
 
 レベル 2: osm-carto で描いた地図を、osm-liberty の参照に合わせる (大阪、GCP 75 点、誤差は最大 2.16 m)。局所の特徴では合わず、水の青で粗く合わせてから、升ごとに合わせ込んだ。
 
 | 入力 | 結果 |
 |---|---|
-| ![レベル 2 の入力](docs/examples/level2-carto-input.jpg) | ![レベル 2 の結果](docs/examples/level2-carto-overlay.jpg) |
+| ![レベル 2 の入力](docs/examples/level2-carto-input.jpg) | ![レベル 2 の結果](docs/examples/level2-carto-magenta.jpg) |
 
 レベル 2: 開発中に見ていない e-paper (黒、白、赤、黄の 4 色、水も白) の地図に、透視の歪みを掛けたもの (福岡、GCP 80 点、誤差は最大 1.83 m)。水の手がかりが無いので、道路の中心線どうしで合わせた。
 
 | 入力 | 結果 |
 |---|---|
-| ![e-paper の入力](docs/examples/level2-epaper-projective-input.jpg) | ![e-paper の結果](docs/examples/level2-epaper-projective-overlay.jpg) |
+| ![e-paper の入力](docs/examples/level2-epaper-projective-input.jpg) | ![e-paper の結果](docs/examples/level2-epaper-projective-magenta.jpg) |
 
 レベル 3: 鉄道だけの地図 (大阪、GCP 55 点、誤差は最大 2.48 m)。文字も色の手がかりも無く、線の形だけで合わせた。
 
 | 入力 | 結果 |
 |---|---|
-| ![レベル 3 の入力](docs/examples/level3-railways-input.jpg) | ![レベル 3 の結果](docs/examples/level3-railways-overlay.jpg) |
+| ![レベル 3 の入力](docs/examples/level3-railways-input.jpg) | ![レベル 3 の結果](docs/examples/level3-railways-magenta.jpg) |
 
 レベル 3 で、道具が「解けない」と宣言して止まった例 (金沢の鉄道)。線が 2 本ほどしか無く、場所を決める手がかりが足りない。升ごとの照合で 1 つの変換に乗った升は 4 個で、下限の 12 に届かなかった。もっともらしい答えを作らず、理由を付けて止まるのが、ここでの正しい振る舞い。
 
@@ -67,17 +67,17 @@
 
 ### 東京の都心 (射影の歪み)
 
-| 入力: 歪んだ地図と、見つけた GCP (赤い丸) | 結果: 地上に戻した地図を、元の地図に半透明で重ねたもの |
+| 入力: 歪んだ地図と、見つけた GCP (赤い丸) | 結果: 地上に戻した地図 (赤紫) を、元の地図に重ねたもの |
 |---|---|
-| ![東京の入力](docs/examples/tokyo-projective-input.jpg) | ![東京の結果](docs/examples/tokyo-projective-overlay.jpg) |
+| ![東京の入力](docs/examples/tokyo-projective-input.jpg) | ![東京の結果](docs/examples/tokyo-projective-magenta.jpg) |
 
-GCP 268 点、関門は全て通過。正解との誤差は最大 1.63 m、中央値 0.43 m (画像の範囲は地上で約 5.4 km x 3.2 km)。同じ描き方なので、位置が合っていると重ねた跡が見えないほど一致する (ずれていれば文字や道路が二重になる)。赤い枠は、入力の画像の範囲を地上に写したもの。
+GCP 268 点、関門は全て通過。正解との誤差は最大 1.63 m、中央値 0.43 m (画像の範囲は地上で約 5.4 km x 3.2 km)。赤紫の道路と文字が、下の地図の道路と文字にずれずに乗っているのが、位置が合っている印。赤い枠は、入力の画像の範囲を地上に写したもの。
 
 ### 十勝の畑 (地物がまばらで、強いアフィンの歪み)
 
 | 入力 | 結果 |
 |---|---|
-| ![十勝の入力](docs/examples/tokachi-asift-input.jpg) | ![十勝の結果](docs/examples/tokachi-asift-overlay.jpg) |
+| ![十勝の入力](docs/examples/tokachi-asift-input.jpg) | ![十勝の結果](docs/examples/tokachi-asift-magenta.jpg) |
 
 普通の SIFT では対応が足りず、最初は失敗を宣言していた例。失敗を記録し、崩れた前提 (SIFT は縦横比やせん断に強くない) を確かめて、傾きを模した見え方からも特徴を取る ASIFT をスキルに足した後に解けた。GCP 36 点、誤差は最大 2.66 m、中央値 0.76 m (範囲は約 4.9 km x 2.7 km)。
 
