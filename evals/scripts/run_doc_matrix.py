@@ -36,15 +36,18 @@ def embedded_candidates(man, min_px=64):
         dpi = im["px"][0] * 72.0 / (x1 - x0)
         hpt = im["page_size_pt"][1]
         k = dpi / 72.0
+        wpt = im["page_size_pt"][0]
         out.append({"file": im["file"], "dpi": dpi, "box": [x0 * k, (hpt - y1) * k, x1 * k, (hpt - y0) * k],
-                    "area": im["px"][0] * im["px"][1]})
+                    "area": im["px"][0] * im["px"][1], "page_sized": (x1 - x0) * (y1 - y0) >= 0.9 * wpt * hpt})
     return sorted(out, key=lambda c: -c["area"])
 
 
 def image_candidates(man, min_px=64):
-    """Stitched pictures (stitch_images) and image objects together, largest first; a stitched picture is
-    larger than any of its strips, so it comes before them."""
-    return embedded_candidates({"images": list(man.get("stitched", [])) + list(man["images"])}, min_px)
+    """Stitched pictures (stitch_images) and image objects together, largest first (a stitched picture is
+    larger than any of its strips, so it comes before them), except that images covering 90 % of their page or
+    more (a scanned page, a page background) go last."""
+    c = embedded_candidates({"images": list(man.get("stitched", [])) + list(man["images"])}, min_px)
+    return [x for x in c if not x["page_sized"]] + [x for x in c if x["page_sized"]]
 
 
 def page_candidates(cands, dpi, max_n=3):

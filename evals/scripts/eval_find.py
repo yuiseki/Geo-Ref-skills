@@ -3,13 +3,12 @@
     python scripts/eval_find.py --maps 'tmp/matrix/level*/*/task/image.png' --n 60 --seed 0 --work tmp/find --out find.tsv
 
 Takes a uniform random sample of map images (task images of earlier levels), puts each on an A4 page with
-make_doc_task (scan, paper, embedded, tiled), runs the document-maps tools as run_doc_matrix does, and scores
-the candidate list against the placement:
+make_doc_task (scan, paper, embedded, tiled), runs document-maps/map_candidates.py on each PDF, and scores the
+candidate list (bbox_pt) against the placement:
     rank   1-based position of the first candidate whose box overlaps the map with IoU >= 0.9 (0 = none)
     iou    that candidate's IoU (or the best IoU over all candidates when none reaches 0.9)
     n      number of candidates
-For embedded and tiled the candidate boxes are the image objects (stitched first), for scan and paper the
-rectangles from find_map_rectangles on the one page image.
+    via    the kind of the candidate that matched (image, stitched, rectangle, rendered)
 """
 
 import argparse
@@ -25,11 +24,8 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parents[1] / ".agents/skills/document-maps/scripts"))
 
-import extract_images  # noqa: E402
-import find_map_rectangles  # noqa: E402
 import make_doc_task  # noqa: E402
-import run_doc_matrix  # noqa: E402
-import stitch_images  # noqa: E402
+import map_candidates  # noqa: E402
 
 
 def iou(a, b):
@@ -50,23 +46,15 @@ def score(boxes, truth):
 def one(map_path, work, seed, dpi=150):
     pl = make_doc_task.make_documents(map_path, work / "doc", seed=seed, dpi=dpi)
     left, top, w, h = pl["map_pt"]
+    H = pl["page_size_pt"][1]
+    truth = [left, H - top - h, left + w, H - top]  # PDF points, origin bottom left, as bbox_pt
     rows = []
     for kind in ("scan", "paper", "embedded", "tiled"):
-        ex = work / f"extract-{kind}"
-        man = extract_images.extract(work / "doc" / f"{kind}.pdf", ex)
-        man["stitched"] = stitch_images.stitch(man, ex)
-        cands = run_doc_matrix.image_candidates(man)
-        if kind in ("scan", "paper"):
-            page = cands[0]
-            k = page["dpi"] / 72.0
-            img = cv2.imread(str(ex / page["file"]), cv2.IMREAD_COLOR)
-            boxes = [c["box"] for c in find_map_rectangles.find(img)]
-        else:
-            k = dpi / 72.0
-            boxes = [[v * dpi / c["dpi"] for v in c["box"]] for c in cands]
-        truth = [left * k, top * k, (left + w) * k, (top + h) * k]
+        res = map_candidates.collect(work / "doc" / f"{kind}.pdf", work / f"cands-{kind}", render_dpi=dpi)
+        boxes = [c.get("bbox_pt", [0, 0, 0, 0]) for c in res["candidates"]]
         r, v = score(boxes, truth)
-        rows.append({"kind": kind, "rank": r, "iou": round(v, 3), "n": len(boxes)})
+        first = res["candidates"][r - 1]["from"]["kind"] if r else ""
+        rows.append({"kind": kind, "rank": r, "iou": round(v, 3), "n": len(boxes), "via": first})
     return rows
 
 
@@ -86,11 +74,11 @@ def main():
         name = "/".join(Path(p).parts[-4:-2])
         for r in one(p, Path(a.work) / f"{i:03d}", seed=a.seed * 1000 + i):
             out.append({"map": name, **r})
-            print(f"{name}\t{r['kind']}\t{r['rank']}\t{r['iou']}\t{r['n']}", flush=True)
+            print(f"{name}\t{r['kind']}\t{r['rank']}\t{r['iou']}\t{r['n']}\t{r['via']}", flush=True)
     with open(a.out, "w", encoding="utf-8") as fh:
-        fh.write("map\tkind\trank\tiou\tn\n")
+        fh.write("map\tkind\trank\tiou\tn\tvia\n")
         for r in out:
-            fh.write(f"{r['map']}\t{r['kind']}\t{r['rank']}\t{r['iou']}\t{r['n']}\n")
+            fh.write(f"{r['map']}\t{r['kind']}\t{r['rank']}\t{r['iou']}\t{r['n']}\t{r['via']}\n")
     summary = {}
     for r in out:
         s = summary.setdefault(r["kind"], {"first": 0, "top3": 0, "missed": 0, "all": 0})

@@ -37,5 +37,6 @@ def test_a_stitched_picture_comes_before_its_strips():
     s = {"id": "s1", "file": "p001-s001.png", "px": [900, 300], "page": 1, "page_size_pt": [595, 842],
          "bbox_pt": [100, 350, 550, 500], "parts": [2, 3, 4]}
     c = rdm.image_candidates({"images": [bg] + strips, "stitched": [s]})
-    assert [x["file"] for x in c[:3]] == ["p001-i001.png", "p001-s001.png", "p001-i002.png"]
+    # the page-sized image (a scanned page or the page background) goes last: a map is a part of a page
+    assert [x["file"] for x in c] == ["p001-s001.png", "p001-i002.png", "p001-i003.png", "p001-i004.png", "p001-i001.png"]
     assert rdm.image_candidates({"images": [bg]}) == rdm.embedded_candidates({"images": [bg]})
