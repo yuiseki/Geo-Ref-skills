@@ -209,3 +209,12 @@ def test_one_symbol_gives_one_control_point():
     out = ng.one_per_symbol(pts)
     assert len(out) == 2
     assert {p["name"] for p in out} >= {"Tetovo"}
+
+
+def test_ocr_scales_that_would_blow_memory_are_dropped():
+    # a 5110 x 3910 crop at 5 times is 500 Mpx: tesseract and the resize took over 8 GB (2026-11-04)
+    assert ng.ocr_scales(1000, 800, [2, 3, 4, 5]) == [2, 3, 4, 5]
+    assert ng.ocr_scales(5110, 3910, [2, 3, 4, 5]) == [2]
+    # nothing fits: one reading at the largest scale that does, never none
+    s = ng.ocr_scales(20000, 15000, [2, 3])
+    assert len(s) == 1 and 20000 * 15000 * s[0] ** 2 <= ng.OCR_MAX_PX and s[0] <= 1

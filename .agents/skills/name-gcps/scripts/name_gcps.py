@@ -467,6 +467,16 @@ def solve(gray, words, cands, method="affine", tol_frac=0.03, tol_px=2.0, min_na
     return {"status": "ok", "method": method, "crs": "EPSG:4326", "gcps": gcps, **info}
 
 
+OCR_MAX_PX = 100e6  # enlarged image size OCR is run on; a 5110 x 3910 crop at 5 times (500 Mpx) took over 8 GB
+
+
+def ocr_scales(w, h, scales, max_px=None):
+    """The enlargements of a w x h image small enough to read; when none is, one reading at the largest that is."""
+    max_px = OCR_MAX_PX if max_px is None else max_px
+    ok = [s for s in scales if w * h * s * s <= max_px]
+    return ok or [math.floor(math.sqrt(max_px / (w * h)) * 100) / 100]
+
+
 def main():
     import nominatim
     import ocr_words
@@ -514,7 +524,9 @@ def main():
     else:
         # one enlargement reads some names and misses others: on a Congo map (2026-11-04) 2, 3, 4 and 5 times
         # read 110 to 122 names each, 157 together
-        words = [w for sc in a.scales for w in ocr_words.read_words(a.image, a.langs, sc, angles=[0.0])]
+        a.scales = ocr_scales(gray.shape[1], gray.shape[0], a.scales)
+        words = [w for sc in a.scales
+                 for w in ocr_words.read_words(a.image, a.langs, sc, angles=[0.0])]
         if a.words:
             Path(a.words).write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
     client = nominatim.Client(a.cache)
