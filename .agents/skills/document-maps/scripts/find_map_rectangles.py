@@ -5,11 +5,12 @@
 Candidates come from two cues, both classical:
     regions  content on the paper, closed over small gaps, as connected blocks. The paper's colour and noise
              are measured on the page's outer margin, so a scan on off-white paper works like a white page
-    cores    the largest rectangle of 16 px blocks at least half filled (lone empty
+    cores    with blank areas enclosed by the region filled in (a legend box on the map), the largest
+             rectangle of 16 px blocks at least half filled (lone empty
              blocks closed) inside each region, its sides then
              moved to the last mostly-filled row or column (a chart, a caption or a
              legend touching the map widens its region but not this rectangle)
-    frames   long horizontal and vertical lines (a map's neat line) and the rectangles they enclose
+    frames   long, thin (under 0.6 % of the page width) horizontal and vertical lines (a map's neat line) and the rectangles they enclose
 Boxes overlapping more than 80 % are one candidate. Each gets features and a ranking score:
     fill          share of the box that is not paper (a map is drawn all over; a paragraph is mostly paper)
     colours       number of distinct colours (quantised to 8 levels a channel) covering 0.2 % of the box or more
@@ -98,6 +99,15 @@ def largest_filled_rectangle(mask):
     return box
 
 
+def fill_holes(mask):
+    """mask with every blank area that it encloses filled in (a legend box or a white lake inside a map)."""
+    m = np.pad(mask.astype(np.uint8), 1)
+    seen = m.copy()
+    ff = np.zeros((m.shape[0] + 2, m.shape[1] + 2), np.uint8)
+    cv2.floodFill(seen, ff, (0, 0), 2)
+    return (seen != 2)[1:-1, 1:-1]
+
+
 def _refine(mask, box, step, frac=0.5):
     """Move each side of a block-aligned box to the pixel where the row or column stops being mostly content."""
     x0, y0, x1, y1 = box
@@ -129,7 +139,7 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
     colour, noise = paper(page)
     content = content_mask(page, colour, noise).astype(np.uint8)
     boxes = []
-    k = max(3, int(close_frac * W))
+    k = max(3, int(close_frac * W)) | 1
     closed = cv2.morphologyEx(content, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (k, k)))
     n, labels, stats, _ = cv2.connectedComponentsWithStats(closed, connectivity=8)
     raw = content.astype(bool)
@@ -139,7 +149,7 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
         boxes.append(((int(x), int(y), int(x + w), int(y + h)), "region"))
         if w * h < min_area * W * H:
             continue
-        comp = (labels[y:y + h, x:x + w] == i) & raw[y:y + h, x:x + w]
+        comp = fill_holes((labels[y:y + h, x:x + w] == i) & raw[y:y + h, x:x + w])
         hb, wb = h // f, w // f
         if hb == 0 or wb == 0:
             continue
@@ -149,10 +159,13 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
         if r:
             box = _refine(raw, (x + r[0] * f, y + r[1] * f, x + r[2] * f, y + r[3] * f), f)
             boxes.append((box, "core"))
-    L = max(10, int(line_frac * W))
+    L = max(10, int(line_frac * W)) | 1  # odd: an even kernel shifts an opening by one pixel
     dark = (cv2.cvtColor(page, cv2.COLOR_BGR2GRAY) < 128).astype(np.uint8)
+    t = max(5, int(0.006 * W)) | 1  # a neat line is thinner than this; a dark area is not a line
     hl = cv2.morphologyEx(dark, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (L, 1)))
+    hl &= 1 - cv2.morphologyEx(dark, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (1, t)))
     vl = cv2.morphologyEx(dark, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (1, L)))
+    vl &= 1 - cv2.morphologyEx(dark, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (t, 1)))
     lines = cv2.dilate(hl | vl, np.ones((3, 3), np.uint8))
     contours, _ = cv2.findContours(lines, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
     for c in contours:

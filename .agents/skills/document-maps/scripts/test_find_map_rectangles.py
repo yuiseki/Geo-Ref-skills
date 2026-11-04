@@ -124,3 +124,31 @@ def test_largest_filled_rectangle():
     m[0, 0:8] = True
     assert fm.largest_filled_rectangle(m) == (2, 0, 7, 5)  # row 0 extends the block upwards
     assert fm.largest_filled_rectangle(np.zeros((3, 3), bool)) is None
+
+
+def test_a_legend_box_inside_the_map_corner_does_not_shrink_it():
+    p = np.full((1754, 1240, 3), 255, np.uint8)
+    p[600:1100, 200:950] = map_like(750, 500, seed=6)
+    cv2.rectangle(p, (720, 960), (940, 1090), (255, 255, 255), -1)  # white legend box, 10 px in from the corner
+    cv2.rectangle(p, (720, 960), (940, 1090), (0, 0, 0), 2)
+    for k, c in enumerate([(60, 80, 220), (200, 130, 70), (90, 170, 90)]):
+        cv2.rectangle(p, (735, 975 + k * 38), (760, 995 + k * 38), c, -1)
+        cv2.rectangle(p, (770, 980 + k * 38), (920, 990 + k * 38), (60, 60, 60), -1)
+    cands = fm.find(p)
+    assert iou(cands[0]["box"], (200, 600, 950, 1100)) > 0.9, [(c["box"], c["kind"], round(c["score"], 3)) for c in cands[:4]]
+
+
+def test_fill_holes_fills_only_what_is_enclosed():
+    m = np.zeros((7, 9), bool)
+    m[1:6, 1:6] = True
+    m[2:4, 2:4] = False  # enclosed
+    m[4:6, 4:6] = False  # open to the outside through the right edge? no: column 6 is blank, so it is open
+    f = fm.fill_holes(m)
+    assert f[2:4, 2:4].all() and not f[4:6, 4:6].any() and not f[:, 7:].any()
+
+
+def test_a_dark_photograph_makes_no_frame():
+    p = np.full((1754, 1240, 3), 255, np.uint8)
+    ph = photo_like(500, 400, seed=7)
+    p[700:1100, 600:1100] = (ph * 0.4).astype(np.uint8)  # dark all over: no thin lines in it
+    assert all(c["kind"] != "frame" for c in fm.find(p)), [(c["box"], c["kind"]) for c in fm.find(p)]

@@ -1,6 +1,6 @@
 """Level 5, finding only: does document-maps hand on the map first? No georeferencing, no network.
 
-    python scripts/eval_find.py --maps 'tmp/matrix/level*/*/task/image.png' --n 60 --seed 0 --work tmp/find --out find.tsv
+    python scripts/eval_find.py --maps 'tmp/matrix/level*/*/task/image.png' --n 60 --seed 0 --work tmp/find --out find.tsv [--layout report]
 
 Takes a uniform random sample of map images (task images of earlier levels), puts each on an A4 page with
 make_doc_task (scan, paper, embedded, tiled), runs document-maps/map_candidates.py on each PDF, and scores the
@@ -43,8 +43,8 @@ def score(boxes, truth):
     return 0, max(ious, default=0.0)
 
 
-def one(map_path, work, seed, dpi=150):
-    pl = make_doc_task.make_documents(map_path, work / "doc", seed=seed, dpi=dpi)
+def one(map_path, work, seed, dpi=150, layout="plain"):
+    pl = make_doc_task.make_documents(map_path, work / "doc", seed=seed, dpi=dpi, layout=layout)
     left, top, w, h = pl["map_pt"]
     H = pl["page_size_pt"][1]
     truth = [left, H - top - h, left + w, H - top]  # PDF points, origin bottom left, as bbox_pt
@@ -65,6 +65,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--work", default="tmp/find")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--layout", default="plain", choices=["plain", "report"])
     a = ap.parse_args()
     paths = sorted(glob.glob(a.maps))
     rng = np.random.default_rng(a.seed)
@@ -72,7 +73,7 @@ def main():
     out = []
     for i, p in enumerate(pick):
         name = "/".join(Path(p).parts[-4:-2])
-        for r in one(p, Path(a.work) / f"{i:03d}", seed=a.seed * 1000 + i):
+        for r in one(p, Path(a.work) / f"{i:03d}", seed=a.seed * 1000 + i, layout=a.layout):
             out.append({"map": name, **r})
             print(f"{name}\t{r['kind']}\t{r['rank']}\t{r['iou']}\t{r['n']}\t{r['via']}", flush=True)
     with open(a.out, "w", encoding="utf-8") as fh:

@@ -39,7 +39,22 @@ def _filler(draw, W, H, rng, scale):
         draw.rectangle([x, base - hgt, x + int(28 * scale), base], fill=(70, 110, 170))
 
 
-def make_documents(map_path, out, seed=0, dpi=150):
+def _photo(w, h, rng):
+    """Smooth shading and sensor noise, the look of a photograph."""
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    img = np.zeros((h, w, 3), np.float32)
+    for c in range(3):
+        for _ in range(4):
+            cx, cy, sg = rng.uniform(0, w), rng.uniform(0, h), rng.uniform(0.1, 0.4) * max(w, h)
+            img[..., c] += rng.uniform(40, 120) * np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * sg * sg))
+    img += rng.normal(0, 10, img.shape)
+    return np.clip(img + 40, 0, 235).astype(np.uint8)
+
+
+def make_documents(map_path, out, seed=0, dpi=150, layout="plain"):
+    """layout plain: the map across the page among text and a chart. layout report: the map in one column with a
+    photograph of about its size in the other, a caption just under the map, and on the printed page (scan,
+    paper) a legend box over the map's lower corner, as reports print them."""
     from PIL import Image, ImageDraw
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -48,15 +63,45 @@ def make_documents(map_path, out, seed=0, dpi=150):
     W, H = m.size
     s = dpi / 72.0
     pw, ph = int(round(A4[0] * s)), int(round(A4[1] * s))
-    width_pt = float(rng.uniform(300, 500))
-    height_pt = width_pt * H / W
-    left = float(rng.uniform(40, A4[0] - 40 - width_pt))
-    top = float(rng.uniform(260, A4[1] - 140 - height_pt))
+    if layout == "report":
+        width_pt = float(rng.uniform(230, 265))
+        height_pt = min(width_pt * H / W, 330.0)
+        width_pt = height_pt * W / H
+        on_left = bool(rng.random() < 0.5)
+        left = 40.0 if on_left else A4[0] - 40 - width_pt
+        top = float(rng.uniform(290, A4[1] - 160 - height_pt))
+    else:
+        width_pt = float(rng.uniform(300, 500))
+        height_pt = width_pt * H / W
+        left = float(rng.uniform(40, A4[0] - 40 - width_pt))
+        top = float(rng.uniform(260, A4[1] - 140 - height_pt))
     background = Image.new("RGB", (pw, ph), (255, 255, 255))
-    _filler(ImageDraw.Draw(background), pw, ph, rng, s)
-    page = background.copy()
+    draw = ImageDraw.Draw(background)
+    _filler(draw, pw, ph, rng, s)
     box = [int(round(left * s)), int(round(top * s)), int(round((left + width_pt) * s)), int(round((top + height_pt) * s))]
+    if layout == "report":
+        draw.rectangle([0, box[1] - int(10 * s), pw, ph], fill=(255, 255, 255))  # the column row starts clean
+        pw_pt = float(rng.uniform(200, 240))
+        ph_pt = pw_pt * float(rng.uniform(0.6, 0.9))
+        px0 = int(round((A4[0] - 40 - pw_pt if on_left else 40) * s))
+        py0 = int(round((top + rng.uniform(-10, 30)) * s))
+        photo = _photo(int(pw_pt * s), int(ph_pt * s), rng)
+        background.paste(Image.fromarray(photo), (px0, py0))
+        cap_w = int((box[2] - box[0]) * rng.uniform(0.6, 0.9))
+        cy = box[3] + int(4 * s)
+        draw.rectangle([box[0], cy, box[0] + cap_w, cy + int(7 * s)], fill=(50, 50, 50))
+    page = background.copy()
     page.paste(m.resize((box[2] - box[0], box[3] - box[1]), Image.LANCZOS), box[:2])
+    if layout == "report":
+        lw, lh = int((box[2] - box[0]) * rng.uniform(0.2, 0.3)), int((box[3] - box[1]) * rng.uniform(0.15, 0.25))
+        lx0, ly0 = box[2] - lw - int(4 * s), box[3] - lh - int(4 * s)
+        pd = ImageDraw.Draw(page)
+        pd.rectangle([lx0, ly0, lx0 + lw, ly0 + lh], fill=(255, 255, 255), outline=(0, 0, 0), width=max(1, int(s)))
+        for k in range(3):
+            yy = ly0 + int((k + 0.5) * lh / 3) - int(3 * s)
+            pd.rectangle([lx0 + int(5 * s), yy, lx0 + int(13 * s), yy + int(6 * s)],
+                         fill=[(220, 80, 60), (70, 130, 200), (90, 170, 90)][k])
+            pd.rectangle([lx0 + int(17 * s), yy + int(1 * s), lx0 + lw - int(6 * s), yy + int(5 * s)], fill=(60, 60, 60))
     page.save(out / "page.png")
     page.save(out / "scan.pdf", resolution=dpi)
     import pypdfium2 as pdfium
@@ -95,7 +140,7 @@ def make_documents(map_path, out, seed=0, dpi=150):
     scan.save(buf, format="JPEG", quality=75)
     Image.open(buf).save(out / "paper.pdf", resolution=dpi)
     pl = {"map_pt": [left, top, width_pt, height_pt], "page_size_pt": list(A4), "dpi": dpi, "seed": seed,
-          "map_px": [W, H]}
+          "map_px": [W, H], "layout": layout}
     (out / "placement.json").write_text(json.dumps(pl, indent=2), encoding="utf-8")
     return pl
 
