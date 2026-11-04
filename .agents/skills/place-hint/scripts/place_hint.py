@@ -167,7 +167,7 @@ def cluster(cands, radius_km=10.0, min_support=3, margin_km=4.0, min_weight=1.5)
     mlat = margin_km / 111.32
     mlon = margin_km / (111.32 * math.cos(math.radians(sum(lats) / len(lats))))
     return {"status": "ok", "bbox": [min(lons) - mlon, min(lats) - mlat, max(lons) + mlon, max(lats) + mlat],
-            "support": sorted(near), "matches": {k: {kk: d.get(kk) for kk in ("lon", "lat", "display_name")}
+            "support": sorted(near), "matches": {k: {kk: d.get(kk) for kk in ("lon", "lat", "display_name", "osm_name")}
                                                  for k, d in near.items()},
             "weight": best[0][0], "names_looked_up": len(cands), "radius_km": radius_km, "margin_km": margin_km}
 
@@ -184,14 +184,38 @@ def mercator_to_lonlat(x, y):
     return math.degrees(x / 6378137.0), math.degrees(2 * math.atan(math.exp(y / 6378137.0)) - math.pi / 2)
 
 
-def located_points(words, matches):
-    """Each supporting name with where it is printed (its most confident reading) and where Nominatim puts it."""
+def located_points(words, matches, near_px=60):
+    """Each supporting name with where it is printed (its most confident reading) and where Nominatim puts it.
+
+    One printed label must count once: the same name read twice (COVENT GARDEN in grey, Covent Garden in
+    colour) is one, and a name inside a longer name printed at the same place (Horse Guards in Horse Guards
+    Parade) gives way to the longer one. Counted several times, one label inflated the number of names and
+    the share that must agree (London, 2026-11-04)."""
     pts = {}
     for w in sorted(words, key=lambda w: -w["conf"]):
         n = clean_name(w["text"])
         if n in matches and n not in pts:
-            pts[n] = {"name": n, "col": w["col"], "row": w["row"], "lon": matches[n]["lon"], "lat": matches[n]["lat"]}
-    return [pts[k] for k in sorted(pts)]
+            pts[n] = {"name": n, "col": w["col"], "row": w["row"], "lon": matches[n]["lon"], "lat": matches[n]["lat"],
+                      "osm_name": matches[n].get("osm_name")}
+    keep = {}
+    for n in sorted(pts, key=lambda n: -len(norm(n))):
+        p = pts[n]
+        dup = any(norm(n) in norm(k) and math.hypot(p["col"] - q["col"], p["row"] - q["row"]) <= near_px
+                  for k, q in keep.items())
+        if not dup:
+            keep[n] = p
+    return [keep[k] for k in sorted(keep)]
+
+
+def _plain(points):
+    """Points without their shapes, for JSON; the shape's size is kept."""
+    out = []
+    for p in points:
+        q = {k: v for k, v in p.items() if k != "shape"}
+        if p.get("shape") is not None:
+            q["shape_extent_m"] = p["shape"].extent()
+        out.append(q)
+    return out
 
 
 def _fit(pairs, weights=None):
@@ -210,58 +234,98 @@ def scale_from_names(points, width, height, tol_frac=0.06, loose_frac=0.10, min_
                      min_loose_inliers=5, margin_frac=0.25):
     """The map's scale, rotation and extent from where its names are printed and where they are.
 
-    points: [{"name", "col", "row", "lon", "lat"}], col and row the centre of the printed name in the image.
+    points: [{"name", "col", "row", "lon", "lat", "shape"?}], col and row the centre of the printed name in the
+    image, shape (geometry.Shapes, EPSG:3857 metres) the named feature's points, lines and areas when known.
     Fits a similarity (scale, rotation, shift; no mirror) from image pixels to EPSG:3857 metres, trying every pair
-    of names as a hypothesis and keeping the one most names agree with. A block name ("SAKAE 3-CHOME") is printed
-    on its block, near the point Nominatim returns: it agrees within tol_frac of the image diagonal and weighs
-    (loose_frac / tol_frac)^2 in the fit. A district name is printed somewhere over its district, often far
-    from its point (80 to 290 px on a z15 Nagoya map, 2026-11-04, against 2 px for block names): it agrees
-    within loose_frac. Two or three names always fit some similarity, so at least min_inliers names, and
-    min_fraction of them, must agree, and unless three of them are block names, min_loose_inliers: the wider
-    tolerance lets unrelated names agree by chance more often (eight random names, 2026-11-04: 4 % passed at
-    0.06, 14 % at 0.10 with four required). Otherwise this is a declared failure. With three or more agreeing
-    block names, the final fit uses those only.
+    of names (at their gazetteer points) as a hypothesis and keeping the one the most names agree with, precise
+    names first, then refining it against the nearest place on each agreeing name's feature.
+
+    A name agrees when its printed place, mapped to the ground, lies within tol_frac of the image diagonal of its
+    feature (inside an area counts as on it). A street's name is printed somewhere along the street and a
+    district's somewhere inside it, far from the one point a gazetteer returns (80 to 290 px on a z15 Nagoya
+    map, and street names broke the fit on London and Manhattan maps, 2026-11-04); the whole feature is the
+    right measure. A feature wider than the map's diagonal (a ward, a long river) does not count either way.
+    A block name ("SAKAE 3-CHOME") is precise even without geometry; other names without geometry agree within
+    loose_frac. Two or three names always fit some similarity, so at least min_inliers names, and min_fraction
+    of the counted ones, must agree, and unless three of them are precise, min_loose_inliers: a wide tolerance
+    lets unrelated names agree by chance more often (eight random names, 2026-11-04: 4 % passed at 0.06, 14 %
+    at 0.10 with four required). Otherwise this is a declared failure. With three or more agreeing precise
+    names, the final fit uses those only.
 
     Returns m_per_px (mercator metres per image pixel), rotation_deg, zooms (the nearest web map zoom, then the
     other neighbour of the estimate: the estimate missed by up to 0.4 of a zoom on 2026-11-04, so either side
-    can be the right one; try the second only when the first declares failure), zoom (the first of them), and bbox: the image's footprint under the fit, widened by margin_frac of its
-    size and by three median name residuals on each side, as a hint for the reference."""
-    n = len(points)
-    if n < min_inliers:
-        return {"status": "failed", "reason": f"{n} located names (need {min_inliers})", "points": points}
-    zs = [complex(p["col"], -p["row"]) for p in points]
-    tol = [(tol_frac if CHOME_NAME.match(p["name"]) else loose_frac) * math.hypot(width, height) for p in points]
-    wt = [1.0 / t ** 2 for t in tol]
-    Zs = [complex(*lonlat_to_mercator(p["lon"], p["lat"])) for p in points]
+    can be the right one; try the second only when the first declares failure), zoom (the first of them),
+    and bbox: the image's footprint under the fit, widened by margin_frac of its size and by three median name residuals on each side, as a hint for the reference."""
     diag = math.hypot(width, height)
-    best = None
-    for i in range(n):
-        for j in range(i + 1, n):
-            if abs(zs[i] - zs[j]) < 1e-6:
+    zs_all = [complex(p["col"], -p["row"]) for p in points]
+    Zs_all = [complex(*lonlat_to_mercator(p["lon"], p["lat"])) for p in points]
+    shapes = [p.get("shape") for p in points]
+    # a name has a precise place when it is a block ("N-CHOME") or its feature's geometry is known; otherwise
+    # only the gazetteer's point, and a looser tolerance
+    has_shape = [sh is not None and not sh.empty() for sh in shapes]
+    tol = [(tol_frac if (hs or CHOME_NAME.match(p["name"])) else loose_frac) * diag for p, hs in zip(points, has_shape)]
+    # precise: a block name, or a feature with a point or an area (its name sits on the point or near the
+    # area's middle). A street alone is not: its name may sit anywhere along it, so it agrees easily by chance
+    # (random names with 3 km streets passed 10 % of the time, 2026-11-04)
+    precise = [bool(CHOME_NAME.match(p["name"])) or (hs and bool(sh.points or sh.areas))
+               for p, hs, sh in zip(points, has_shape, shapes)]
+
+    def residual(k, a, b):
+        P = a * zs_all[k] + b
+        sh = shapes[k]
+        d = sh.distance((P.real, P.imag)) if sh is not None and not sh.empty() else abs(P - Zs_all[k])
+        return d / abs(a)
+
+    def target(k, a, b):
+        P = a * zs_all[k] + b
+        sh = shapes[k]
+        if sh is not None and not sh.empty():
+            q = sh.closest((P.real, P.imag))
+            return complex(*q)
+        return Zs_all[k]
+
+    def counts(k, a):
+        # a feature wider than the map itself (a ward, a long river) says nothing about the map's scale
+        sh = shapes[k]
+        return sh is None or sh.empty() or sh.extent() / abs(a) <= diag
+
+    n_all = len(points)
+    best, best_score, best_ab = None, None, None
+    for i in range(n_all):
+        for j in range(i + 1, n_all):
+            if abs(zs_all[i] - zs_all[j]) < 1e-6:
                 continue
-            a, b = _fit([(zs[i], Zs[i]), (zs[j], Zs[j])])
+            a, b = _fit([(zs_all[i], Zs_all[i]), (zs_all[j], Zs_all[j])])
             if abs(a) == 0:
                 continue
-            inl = [k for k in range(n) if abs((Zs[k] - b) / a - zs[k]) < tol[k]]
-            score = (sum(1 for k in inl if tol[k] < loose_frac * diag), len(inl))  # block names first
+            inl = [k for k in range(n_all) if counts(k, a) and residual(k, a, b) < tol[k]]
+            score = (sum(1 for k in inl if precise[k]), len(inl))  # precise names first
             if best is None or score > best_score:
-                best, best_score = inl, score
-    for _ in range(3):  # refit on the agreeing names, then re-collect them
+                best, best_score, best_ab = inl, score, (a, b)
+    if best_ab is None:
+        return {"status": "failed", "reason": f"{n_all} located names (need {min_inliers})",
+                "points": _plain(points)}
+    a, b = best_ab
+    for _ in range(6):  # refit to the nearest place on each agreeing name's feature, then re-collect them
         if not best or len(best) < 2:
             break
-        a, b = _fit([(zs[k], Zs[k]) for k in best], [wt[k] for k in best])
-        best = [k for k in range(n) if abs((Zs[k] - b) / a - zs[k]) < tol[k]]
+        a, b = _fit([(zs_all[k], target(k, a, b)) for k in best],
+                    [1.0 / tol[k] ** 2 for k in best])
+        best = [k for k in range(n_all) if counts(k, a) and residual(k, a, b) < tol[k]]
+    counted = [k for k in range(n_all) if counts(k, a)]
     best = best or []
-    exact = [k for k in best if tol[k] < loose_frac * diag]
+
+    exact = [k for k in best if precise[k]]
     need = min_inliers if len(exact) >= 3 else max(min_inliers, min_loose_inliers)
-    if len(best) < need or len(best) < min_fraction * n:
-        return {"status": "failed", "reason": f"{len(best)} of {n} names agree on one scale and rotation, "
-                f"{len(exact)} of them block names (need {need} and {min_fraction:.0%})", "points": points}
-    if len(exact) >= 3:  # enough block names to fix the similarity with redundancy: district names only count
-        a, b = _fit([(zs[k], Zs[k]) for k in exact])
-    else:
-        a, b = _fit([(zs[k], Zs[k]) for k in best], [wt[k] for k in best])
-    res = sorted(abs((Zs[k] - b) / a - zs[k]) for k in best)
+    if len(best) < need or len(best) < min_fraction * len(counted):
+        return {"status": "failed", "reason": f"{len(best)} of {len(counted)} names agree on one scale and "
+                f"rotation, {len(exact)} of them precise (need {need} and {min_fraction:.0%})",
+                "points": _plain(points)}
+    n = len(counted)
+    if len(exact) >= 3:  # enough precise names to fix the similarity with redundancy: the others only count
+        for _ in range(3):
+            a, b = _fit([(zs_all[k], target(k, a, b)) for k in exact])
+    res = sorted(residual(k, a, b) for k in best)
     m_per_px = abs(a)
     zoom_f = math.log2(2 * ORIGIN / (256 * m_per_px))
     near = int(round(zoom_f))
@@ -274,8 +338,10 @@ def scale_from_names(points, width, height, tol_frac=0.06, loose_frac=0.10, min_
     ll = [mercator_to_lonlat((a * z + b).real, (a * z + b).imag) for z in corners]
     return {"status": "ok", "m_per_px": m_per_px, "rotation_deg": math.degrees(math.atan2(a.imag, a.real)),
             "zoom": zooms[0], "zooms": zooms, "zoom_float": zoom_f, "inliers": len(best), "names": n,
+
             "support": sorted(points[k]["name"] for k in best), "median_residual_px": res[len(res) // 2],
-            "points": [{**p, "residual_px": abs((Zs[k] - b) / a - zs[k])} for k, p in enumerate(points)],
+            "points": [{**q, "residual_px": residual(k, a, b), "counted": counts(k, a), "precise": precise[k]}
+                       for k, q in enumerate(_plain(points))],
             "bbox": [min(x for x, _ in ll), min(y for _, y in ll), max(x for x, _ in ll), max(y for _, y in ll)]}
 
 
@@ -298,6 +364,9 @@ def main():
     ap.add_argument("--scale", type=float, default=3.0)
     ap.add_argument("--angles", type=float, nargs="*", default=[-45, -30, -15, 0, 15, 30, 45],
                     help="also read the image turned by these angles; a map may be rotated")
+    ap.add_argument("--overpass-cache", default="tmp/overpass")
+    ap.add_argument("--geometry-radius-m", type=float, default=3000)
+    ap.add_argument("--no-geometry", action="store_true", help="measure names against gazetteer points only")
     ap.add_argument("--words", default=None, help="keep the OCR words in this JSON file and reuse them if present")
     a = ap.parse_args()
     if a.words and Path(a.words).exists():
@@ -318,14 +387,24 @@ def main():
         hits = lookup(client, n, a.countrycodes)
         if hits:
             cands[n] = merge_near([{"lon": float(h["lon"]), "lat": float(h["lat"]),
-                                    "importance": float(h.get("importance") or 0),
+                                    "importance": float(h.get("importance") or 0), "osm_name": h.get("name"),
                                     "display_name": h.get("display_name")} for h in hits])
     cands = drop_covered(cands)
     hint = cluster(cands, a.radius_km, a.min_support, a.margin_km, a.min_weight)
     if hint["status"] == "ok":
         import cv2
         h, w = cv2.imread(a.image, cv2.IMREAD_GRAYSCALE).shape
-        hint["scale"] = scale_from_names(located_points(words, hint["matches"]), w, h)
+        pts = located_points(words, hint["matches"])
+        if not a.no_geometry:
+            import geometry
+            import overpass
+            op = overpass.Client(a.overpass_cache)
+            for p in pts:
+                if p.get("osm_name"):
+                    els = op.named_near(p["osm_name"], p["lat"], p["lon"], a.geometry_radius_m)
+                    p["shape"] = geometry.Shapes.from_overpass(els, lonlat_to_mercator)
+            hint["overpass"] = {"base": op.base, "requests": op.requests, "cached": op.cached}
+        hint["scale"] = scale_from_names(pts, w, h)
     hint["ocr_words"] = len(words)
     hint["names"] = names
     hint["nominatim"] = {"base": client.base, "requests": client.requests, "cached": client.cached}

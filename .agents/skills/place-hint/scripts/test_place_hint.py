@@ -267,3 +267,51 @@ def test_zoom_candidates_are_the_nearest_then_the_other_neighbour():
     assert s["zooms"] == [15, 16] and s["zoom"] == 15
     s = place_hint.scale_from_names(names_on_map(4.78 * 2 ** 0.4, 0, (139.75, 35.68)), 900, 700)  # z 14.6
     assert s["zooms"] == [15, 14]
+
+
+def test_street_names_agree_with_their_whole_street():
+    import geometry
+    pts = names_on_map(4.78, 5.0, (-0.139, 51.511), n=4, seed=6)
+    for i, p in enumerate(pts):
+        p["name"] = f"BLOCK{chr(65 + i)} {i + 1}-CHOME"
+    # two streets: the name is printed at one place along the street, the gazetteer point is elsewhere on it
+    a, b = names_on_map(4.78, 5.0, (-0.139, 51.511), n=2, seed=7)
+    a2, b2 = names_on_map(4.78, 5.0, (-0.139, 51.511), n=2, seed=8)
+    for printed, other, name in ((a, a2, "Long Street"), (b, b2, "Far Road")):
+        pa = place_hint.lonlat_to_mercator(printed["lon"], printed["lat"])
+        pb = place_hint.lonlat_to_mercator(other["lon"], other["lat"])
+        # the street runs through both; the gazetteer point is the far end
+        far = (pa[0] + 1.0 * (pb[0] - pa[0]), pa[1] + 1.0 * (pb[1] - pa[1]))
+        lon, lat = place_hint.mercator_to_lonlat(*far)
+        pts.append({"name": name, "col": printed["col"], "row": printed["row"], "lon": lon, "lat": lat,
+                    "shape": geometry.Shapes(lines=[[pa, pb]])})
+    s = place_hint.scale_from_names(pts, 900, 700)
+    assert s["status"] == "ok" and s["inliers"] == 6, s.get("reason")
+    assert s["m_per_px"] == pytest.approx(4.78, rel=0.01)
+    no_shape = [{k: v for k, v in p.items() if k != "shape"} for p in pts]
+    assert place_hint.scale_from_names(no_shape, 900, 700).get("inliers", 0) < 6
+
+
+def test_a_feature_larger_than_the_map_does_not_count():
+    import geometry
+    pts = names_on_map(4.78, 0, (139.75, 35.68), n=5)
+    big = place_hint.lonlat_to_mercator(139.75, 35.68)
+    ward = [(big[0] - 20000, big[1] - 20000), (big[0] + 20000, big[1] - 20000), (big[0] + 20000, big[1] + 20000),
+            (big[0] - 20000, big[1] + 20000), (big[0] - 20000, big[1] - 20000)]
+    pts.append({"name": "NAKA", "col": 450, "row": 350, "lon": 139.75, "lat": 35.68,
+                "shape": geometry.Shapes(areas=[ward])})
+    s = place_hint.scale_from_names(pts, 900, 700)
+    assert s["status"] == "ok" and "NAKA" not in s["support"] and s["names"] == 5
+
+
+def test_one_label_read_several_ways_is_one_name():
+    words = [{"text": "COVENT GARDEN", "conf": 90, "col": 100, "row": 100},
+             {"text": "Covent Garden", "conf": 80, "col": 102, "row": 101},
+             {"text": "Horse Guards", "conf": 85, "col": 400, "row": 300},
+             {"text": "Horse Guards Parade", "conf": 84, "col": 420, "row": 300},
+             {"text": "Soho", "conf": 90, "col": 700, "row": 500}]
+    matches = {"COVENT GARDEN": {"lon": 0, "lat": 0}, "Covent Garden": {"lon": 0, "lat": 0},
+               "Horse Guards": {"lon": 1, "lat": 1}, "Horse Guards Parade": {"lon": 1, "lat": 1},
+               "Soho": {"lon": 2, "lat": 2}}
+    names = [p["name"] for p in place_hint.located_points(words, matches)]
+    assert sorted(names) == ["COVENT GARDEN", "Horse Guards Parade", "Soho"]
