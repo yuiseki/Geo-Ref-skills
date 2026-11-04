@@ -310,7 +310,7 @@ PDF、PowerPoint、Word、Excel の中から地図らしい画像を切り出し
 |---|---|
 | ![UNMISS の取り出した地図](docs/examples/level5-un-unmiss-input.jpg) | ![UNMISS の結果](docs/examples/level5-un-unmiss-magenta.jpg) |
 
-地図: based on United Nations map。国連の利用条件 ([Geospatial Information Section](https://www.un.org/geospatial/en/mandates/public)) に従い、図から国連の名称と地図の参照番号を消しています (`docs/examples/mask_un_marks.py`)。右の図の背景: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。PDF そのものはリポジトリに入れていません。
+地図: based on United Nations map。国連の利用条件 ([Geospatial Information Section](https://www.un.org/geospatial/en/mandates/public)) に従い、図から国連の名称と地図の参照番号を消しています (`docs/examples/mask_un_marks.py`)。ミッションと部隊の略称 (UNMISS、UNMO など) は地図の記号の一部として残しています。右の図の背景: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。PDF そのものはリポジトリに入れていません。
 
 ## レベル 6: 地図の中身を地理空間情報に戻す (マイルストーン)
 

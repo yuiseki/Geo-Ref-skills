@@ -69,7 +69,7 @@
 
 - 2026-11-04 に、レベル 5 の道具で初めて流した (全て失敗の宣言、[記録](failures/2026-11-04-un-pko-maps.md))。その後、この 5 件を見ながら name-gcps を作ったので、これ以降は開発用の集合で、効果の評価には使えない。
 - 取り直したときは、SHA-256 で同じ版かを確かめる。ファイル名の `r67` などは版、`jan26` などは時期を表すと思われる (未確認)。
-- 利用条件 (https://www.un.org/geospatial/en/mandates/public): 改変した地図は派生物の土台にしてよく、そのときは国連の名称と地図の参照番号を消す。出典は "based on United Nations map" と書ける。未改変のまま載せるには許可が要る。PDF はリポジトリに入れず、再配布しない。README の図は、名称と参照番号を消してから作った (`docs/examples/mask_un_marks.py`)。
+- 利用条件 (https://www.un.org/geospatial/en/mandates/public): 改変した地図は派生物の土台にしてよく、そのときは国連の名称と地図の参照番号を消す。出典は "based on United Nations map" と書ける。未改変のまま載せるには許可が要る。PDF はリポジトリに入れず、再配布しない。README の図は、名称と参照番号を消してから作った (`docs/examples/mask_un_marks.py`)。ミッションと部隊の略称 (UNMISS、UNMO など) は、地図の記号の一部として残すと決めた (2026-11-04)。
 
 ## Wikimedia Commons の地図を含む PDF 20 件 (レベル 5 の開発用)
 
