@@ -24,6 +24,15 @@ def test_a_ring_scores_high_and_a_filled_square_low():
     assert s[105, 125] < 0.4
 
 
+def test_a_filled_dot_scores_high_and_a_larger_filled_square_low():
+    img = np.full((160, 200), 255, np.uint8)
+    cv2.circle(img, (50, 40), 3, 100, -1, lineType=cv2.LINE_AA)
+    cv2.rectangle(img, (120, 100), (134, 114), 0, -1)
+    s = ng.ring_score(img)
+    assert s[40, 50] > 0.6
+    assert s[107, 127] < 0.4
+
+
 def test_peaks_inside_a_word_are_dropped():
     img = ring_image([(50, 40), (150, 120)])
     words = [{"text": "Obilic", "conf": 90, "col": 150, "row": 120, "w": 40, "h": 14}]
@@ -46,6 +55,11 @@ def test_letter_boxes_leave_out_a_symbol_read_as_a_letter():
     assert inside(35, 40)
     assert inside(85, 80)           # the final o of Kosovo is a letter
     assert not inside(60, 120)
+
+
+def test_labels_take_three_letter_town_names_in_title_case():
+    words = [{"text": t, "conf": 90, "col": 1, "row": 1, "w": 5, "h": 5} for t in ("Wau", "Bor", "WAU", "the", "Wa")]
+    assert sorted(ng.labels(words)) == ["Bor", "Wau"]
 
 
 def test_labels_keep_the_most_confident_reading_of_each_name():
@@ -149,8 +163,22 @@ def test_fit_symbols_picks_the_right_symbol_of_each_name():
     options["X"] = [complex(700, -500)]
     fa, fb, chosen = ng.fit_symbols(options, places, diag=1830, tol_px=3.0, iters=5000, seed=0)
     assert sorted(chosen) == sorted(f"N{k}" for k in range(12))
-    for n, s in chosen.items():
+    for n, (s, q) in chosen.items():
+        assert q == places[n]
         assert abs(fa * s + fb - places[n]) / abs(fa) < 1e-6
+
+
+def test_fit_symbols_picks_the_right_place_among_several():
+    a, b = 1000.0 + 0j, complex(1e6, 1e6)
+    options = {f"N{k}": [complex(100 * k + 50, -(37 * k % 500) - 50)] for k in range(8)}
+    rnd = random.Random(2)
+    # the town, and a county centre some way off in a direction of its own
+    places = {n: [a * o[0] + b, a * o[0] + b + 40e3 * cmath.exp(1j * rnd.uniform(0, 2 * math.pi))]
+              for n, o in options.items()}
+    fa, fb, chosen = ng.fit_symbols(options, places, diag=1000, tol_px=3.0, iters=3000, seed=1)
+    assert len(chosen) == 8
+    for n, (s, q) in chosen.items():
+        assert q == places[n][0]
 
 
 def test_names_in_capitals_are_areas_not_towns():

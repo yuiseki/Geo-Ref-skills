@@ -29,6 +29,7 @@ import cmath
 import json
 import math
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -39,13 +40,21 @@ import place_hint as ph
 import transforms as tf
 
 
+SHORT_NAME = re.compile(r"^[A-Z][a-z]{2}$")
+
+
 def labels(words, min_conf=60.0):
-    """{name: word} for words that look like place names, each at its most confident reading."""
+    """{name: word} for words that look like place names, each at its most confident reading.
+
+    Besides place_hint.clean_name (four letters or more), a three-letter word in title case: towns such as Wau,
+    Bor and Yei are printed so on country maps (South Sudan, 2026-11-04). Such a name has candidates in many
+    places, but only those that agree with the other names count."""
     out = {}
     for w in sorted(words, key=lambda w: -w["conf"]):
         if w["conf"] < min_conf:
             continue
-        n = ph.clean_name(w["text"])
+        t = w["text"].strip().strip(".,;:()")
+        n = t if SHORT_NAME.match(t) else ph.clean_name(w["text"])
         if n and n not in out:
             out[n] = w
     return out
@@ -68,7 +77,15 @@ def _band(r0, r1, c):
     return K / K.sum()
 
 
-def ring_score(gray, radii=(3.0, 3.5, 4.0, 4.5, 5.0, 6.0), dot_radii=(4.0, 5.0, 6.0, 7.0, 8.0), min_contrast=40.0):
+def _disc(r, pad=3):
+    c = int(r + pad)
+    yy, xx = np.mgrid[:2 * c + 1, :2 * c + 1]
+    d = np.hypot(xx - c, yy - c)
+    return (255 * np.clip(d - r + 0.5, 0, 1)).astype(np.float32)
+
+
+def ring_score(gray, radii=(3.0, 3.5, 4.0, 4.5, 5.0, 6.0), dot_radii=(4.0, 5.0, 6.0, 7.0, 8.0),
+               disc_radii=(2.5, 3.0, 3.5, 4.0), min_contrast=40.0):
     """How much each pixel looks like the centre of a small dark ring (normalised cross-correlation, -1..1).
 
     The ring must be hollow: a band inside it (between the ring and the centre, or between the ring and the
@@ -85,6 +102,17 @@ def ring_score(gray, radii=(3.0, 3.5, 4.0, 4.5, 5.0, 6.0), dot_radii=(4.0, 5.0, 
         lo, hi = (0.55 * r, 0.75 * r) if dot else (0.0, 0.5 * r)
         band_mean = cv2.filter2D(g, -1, _band(lo, hi, c), borderType=cv2.BORDER_REPLICATE)
         R[band_mean - ring_mean < min_contrast] = -1
+        best = np.maximum(best, R)
+    # a filled dot (a town, or a UN site, on the South Sudan map, 2026-11-04): its edge must be lighter than its
+    # centre all round, so the inside of a larger filled shape does not count
+    for r in disc_radii:
+        T = _disc(r)
+        c = T.shape[0] // 2
+        R = cv2.matchTemplate(g, T, cv2.TM_CCOEFF_NORMED)
+        R = cv2.copyMakeBorder(R, c, c, c, c, cv2.BORDER_CONSTANT, value=-1)
+        inner = cv2.filter2D(g, -1, _band(0, 0.6 * r, c), borderType=cv2.BORDER_REPLICATE)
+        outer = cv2.filter2D(g, -1, _band(r + 1.0, r + 2.0, c), borderType=cv2.BORDER_REPLICATE)
+        R[outer - inner < min_contrast] = -1
         best = np.maximum(best, R)
     return best
 
@@ -235,36 +263,40 @@ def anchor(label, peaks, predicted, reach=1.2):
 
 def fit_symbols(options, places, diag, tol_px=8.0, iters=20000, seed=0, max_angle_deg=30.0, min_pair_frac=0.1):
     """The similarity Z = a s + b from symbols (s = col - i row) to places that the most names agree with,
-    choosing one of each name's symbol options. A label often has several ring-like marks within reach (an
-    airport, a railway tick, the next town), and the label's own position predicts its town only to 20 to 40 px
-    on a country map (Democratic Republic of the Congo, 2026-11-04), too loosely to choose among them.
+    choosing one of each name's symbol options and one of its places. A label often has several ring-like marks
+    within reach (an airport, a railway tick, the next town), and the label's own position predicts its town
+    only to 20 to 40 px on a country map (Democratic Republic of the Congo, 2026-11-04), too loosely to choose
+    among them. A name may also have several places near where the label says (Wau the town and Wau the
+    county, South Sudan, 2026-11-04).
 
-    options: {name: [complex, ...]}, places: {name: complex}. Returns a, b and {name: the chosen symbol}."""
-    names = [n for n in options if options[n] and n in places]
+    options: {name: [complex, ...]}, places: {name: complex or [complex, ...]}.
+    Returns a, b and {name: (the chosen symbol, the chosen place)}."""
+    pl = {n: (list(v) if isinstance(v, (list, tuple)) else [v]) for n, v in places.items()}
+    names = [n for n in options if options[n] and pl.get(n)]
     if len(names) < 2:
         return None, None, {}
-    flat = np.array([o for n in names for o in options[n]])
-    owner = np.array([k for k, n in enumerate(names) for _ in options[n]])
-    starts = np.r_[0, np.cumsum([len(options[n]) for n in names])[:-1]]
-    Zs = np.array([places[n] for n in names])
+    combos = {n: [(o, q) for o in options[n] for q in pl[n]] for n in names}
+    S = np.array([o for n in names for o, _ in combos[n]])
+    Z = np.array([q for n in names for _, q in combos[n]])
+    starts = np.r_[0, np.cumsum([len(combos[n]) for n in names])[:-1]]
     rnd = random.Random(seed)
 
     def agree(a, b):
-        d = np.abs(a * flat + b - Zs[owner]) / abs(a)
+        d = np.abs(a * S + b - Z) / abs(a)
         best = np.minimum.reduceat(d, starts)
         return best < tol_px, best
 
     best_key, best_ab = None, None
     for _ in range(iters):
         k1, k2 = rnd.sample(range(len(names)), 2)
-        s1, s2 = rnd.choice(options[names[k1]]), rnd.choice(options[names[k2]])
+        (s1, q1), (s2, q2) = rnd.choice(combos[names[k1]]), rnd.choice(combos[names[k2]])
         ds = s1 - s2
         if abs(ds) < min_pair_frac * diag:
             continue
-        a = (Zs[k1] - Zs[k2]) / ds
+        a = (q1 - q2) / ds
         if a == 0 or abs(math.degrees(cmath.phase(a))) > max_angle_deg:
             continue
-        b = Zs[k1] - a * s1
+        b = q1 - a * s1
         ok, d = agree(a, b)
         key = (int(ok.sum()), -float(d[ok].sum()))
         if best_key is None or key > best_key:
@@ -275,8 +307,9 @@ def fit_symbols(options, places, diag, tol_px=8.0, iters=20000, seed=0, max_angl
     ok, _ = agree(a, b)
     out = {}
     for k in np.where(ok)[0]:
-        sl = slice(starts[k], starts[k] + len(options[names[k]]))
-        out[names[k]] = complex(flat[sl][np.argmin(np.abs(a * flat[sl] + b - Zs[k]))])
+        c = combos[names[k]]
+        j = int(np.argmin([abs(a * o + b - q) for o, q in c]))
+        out[names[k]] = (complex(c[j][0]), complex(c[j][1]))
     return complex(a), complex(b), out
 
 
@@ -361,17 +394,25 @@ def solve(gray, words, cands, method="affine", tol_frac=0.03, tol_px=2.0, min_na
                for n in agreeing if is_town_label(n)}
     options = {n: o for n, o in options.items() if o}
     info["names_with_symbol"] = len(options)
-    sa, sb, chosen = fit_symbols(options, agreeing, diag, sym_tol_frac * diag, iters // 3, seed, max_angle_deg)
-    pts = [{"name": n, "col": s.real, "row": -s.imag, "x": agreeing[n].real, "y": agreeing[n].imag}
-           for n, s in sorted(chosen.items())]
+    # every place of a name that the label fit allows, not only the nearest
+    near = {n: [q for q in cands[n] if abs(a * z[n] + b - q) / abs(a) < tol_frac * diag] for n in options}
+    sa, sb, chosen = fit_symbols(options, near, diag, sym_tol_frac * diag, iters // 3, seed, max_angle_deg)
+    pts = [{"name": n, "col": s.real, "row": -s.imag, "x": q.real, "y": q.imag} for n, (s, q) in sorted(chosen.items())]
     kept, model = robust_fit(one_per_symbol(pts), method, tol_px)
     if model is not None:  # choose each name's symbol again from the fit, then fit again
         inv = tf.fit(method, np.array([[p["x"], p["y"]] for p in kept]), np.array([[p["col"], p["row"]] for p in kept]))
         pts = []
         for n in sorted(options):
-            c, r = inv.predict([[agreeing[n].real, agreeing[n].imag]])[0]
-            s = min(options[n], key=lambda o: abs(o - complex(c, -r)))
-            pts.append({"name": n, "col": s.real, "row": -s.imag, "x": agreeing[n].real, "y": agreeing[n].imag})
+            best = None
+            for q in near[n]:
+                c, r = inv.predict([[q.real, q.imag]])[0]
+                for o in options[n]:
+                    d = abs(o - complex(c, -r))
+                    if best is None or d < best[0]:
+                        best = (d, o, q)
+            if best is not None:
+                _, o, q = best
+                pts.append({"name": n, "col": o.real, "row": -o.imag, "x": q.real, "y": q.imag})
         kept, model = robust_fit(one_per_symbol(pts), method, tol_px)
     info["symbols_agreeing"] = len(chosen)
     if model is None or len(kept) < min_gcps:
