@@ -31,6 +31,7 @@ import math
 import random
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
 import cv2
@@ -41,6 +42,16 @@ import transforms as tf
 
 
 SHORT_NAME = re.compile(r"^[A-Z][a-z]{2}$")
+
+
+FOLD = str.maketrans({"đ": "d", "Đ": "D", "ð": "d", "Ð": "D", "ł": "l", "Ł": "L", "ø": "o", "Ø": "O", "ı": "i"})
+
+
+def _ascii(t):
+    """The letters without their diacritics (Štimlje: Stimlje), for judging whether a word looks like a name: the
+    text layer of a PDF has them, and clean_name takes Latin letters only."""
+    t = unicodedata.normalize("NFKD", t.translate(FOLD))
+    return "".join(ch for ch in t if not unicodedata.combining(ch))
 
 
 def _trimmed(w):
@@ -54,7 +65,10 @@ def _trimmed(w):
     while j > i and not t[j - 1].isalpha():
         j -= 1
     core = t[i:j]
-    n = core if SHORT_NAME.match(core) else ph.clean_name(core)
+    a = _ascii(core)
+    n = a if SHORT_NAME.match(a) else ph.clean_name(a)
+    if n == a:  # judged on the letters without their marks, kept as printed: Nominatim finds Dračevo as such
+        n = core
     if not n or (i == 0 and j == len(t)):
         return n, w
     cw = w["w"] / len(t)
@@ -398,7 +412,7 @@ def place_candidates(client, name, countrycodes=None):
 
 
 def solve(gray, words, cands, method="affine", tol_frac=0.03, tol_px=2.0, min_names=6, min_gcps=12,
-          max_angle_deg=30.0, iters=60000, seed=0, sym_tol_frac=0.005):
+          max_angle_deg=30.0, iters=60000, seed=0, sym_tol_frac=0.005, extra_peaks=()):
     H, W = gray.shape
     diag = math.hypot(W, H)
     lab = labels(words)
@@ -409,6 +423,9 @@ def solve(gray, words, cands, method="affine", tol_frac=0.03, tol_px=2.0, min_na
         return {"status": "failed", "reason": f"{len(agreeing)} names agree on one similarity (need {min_names})",
                 **info}
     peaks = symbol_peaks(ring_score(gray), words)
+    # symbols known exactly (a symbol font's characters in a PDF) replace any ring found within 2 px of them
+    peaks = [p for p in peaks if all(math.hypot(p["col"] - q["col"], p["row"] - q["row"]) > 2 for q in extra_peaks)]
+    peaks += [{"col": q["col"], "row": q["row"], "score": 1.0} for q in extra_peaks]
     options = {n: [complex(p["col"], -p["row"]) for p in symbol_options(lab[n], peaks)]
                for n in agreeing if is_town_label(n)}
     options = {n: o for n, o in options.items() if o}
@@ -468,8 +485,31 @@ def main():
     ap.add_argument("--scales", type=float, nargs="+", default=[2.0, 3.0, 4.0, 5.0],
                     help="read the image enlarged by each factor; each finds names the others miss")
     ap.add_argument("--words", default=None, help="keep the OCR words in this JSON file and reuse them if present")
+    ap.add_argument("--pdf", default=None, help="the PDF the image was rendered from: read its text layer instead of OCR")
+    ap.add_argument("--page", type=int, default=1)
+    ap.add_argument("--dpi", type=float, default=150.0, help="the dpi the image was rendered at from --pdf")
+    ap.add_argument("--box-px", type=float, nargs=4, default=None,
+                    help="where the image was cut from the page rendering, in its pixels (x0 y0 x1 y1)")
+    ap.add_argument("--min-pdf-words", type=int, default=30,
+                    help="fall back to OCR when the text layer has fewer words in the image (text drawn as outlines)")
     a = ap.parse_args()
-    if a.words and Path(a.words).exists():
+    gray = cv2.imread(a.image, cv2.IMREAD_GRAYSCALE)
+    H, W = gray.shape
+    extra, source = [], "ocr"
+    words = None
+    if a.pdf:
+        import pdf_words
+        cs = pdf_words.chars(a.pdf, a.page)
+        o = (a.box_px[0], a.box_px[1]) if a.box_px else (0, 0)
+        inside = lambda w: 0 <= w["col"] <= W and 0 <= w["row"] <= H
+        pw = [w for w in (pdf_words.to_pixels(x, a.dpi, o) for x in pdf_words.words(cs)) if inside(w)]
+        mk = [m for m in (pdf_words.to_pixels({"text": m["ch"], "x": m["x"], "y": m["y"], "w": 0, "h": 0}, a.dpi, o)
+                          for m in pdf_words.markers(cs)) if inside(m)]
+        if sum(1 for w in pw if w["kind"] == "word") >= a.min_pdf_words:
+            words, extra, source = pw, mk, "pdf"
+    if words is not None:
+        pass
+    elif a.words and Path(a.words).exists():
         words = json.loads(Path(a.words).read_text(encoding="utf-8"))
     else:
         # one enlargement reads some names and misses others: on a Congo map (2026-11-04) 2, 3, 4 and 5 times
@@ -477,12 +517,11 @@ def main():
         words = [w for sc in a.scales for w in ocr_words.read_words(a.image, a.langs, sc, angles=[0.0])]
         if a.words:
             Path(a.words).write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
-    gray = cv2.imread(a.image, cv2.IMREAD_GRAYSCALE)
     client = nominatim.Client(a.cache)
     cands = {n: place_candidates(client, n, a.countrycodes) for n in labels(words)}
-    ans = solve(gray, words, cands, a.method, a.tol_frac, a.tol_px, a.min_names, a.min_gcps)
+    ans = solve(gray, words, cands, a.method, a.tol_frac, a.tol_px, a.min_names, a.min_gcps, extra_peaks=extra)
     ans = {"image": {"width": gray.shape[1], "height": gray.shape[0]},
-           "tool": {"name": "name-gcps", "langs": a.langs, "scales": a.scales, "tol_frac": a.tol_frac, "tol_px": a.tol_px},
+           "tool": {"name": "name-gcps", "words_from": source, "symbols_from_pdf": len(extra), "langs": a.langs, "scales": a.scales, "tol_frac": a.tol_frac, "tol_px": a.tol_px},
            "nominatim": {"base": client.base, "requests": client.requests, "cached": client.cached}, **ans}
     Path(a.out).write_text(json.dumps(ans, indent=2, ensure_ascii=False), encoding="utf-8")
     print(json.dumps({k: ans.get(k) for k in ("status", "reason", "names_found")} | {"gcps": len(ans.get("gcps", []))}))

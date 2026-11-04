@@ -71,6 +71,11 @@ def test_labels_drop_marks_read_with_the_name_and_shrink_the_box():
     assert abs(lab["Juba"]["w"] - 40) < 1e-9 and abs(lab["Juba"]["col"] - 30) < 1e-9
 
 
+def test_labels_keep_names_with_diacritics_as_printed():
+    words = [{"text": t, "conf": 100, "col": 1, "row": 1, "w": 5, "h": 5} for t in ("Dračevo", "Štimlje", "Ðakovica", "Peć")]
+    assert sorted(ng.labels(words)) == ["Dračevo", "Peć", "Ðakovica", "Štimlje"]
+
+
 def test_labels_keep_the_most_confident_reading_of_each_name():
     words = [{"text": "Prizren", "conf": 70, "col": 1, "row": 1, "w": 5, "h": 5},
              {"text": "Prizren", "conf": 95, "col": 9, "row": 9, "w": 5, "h": 5},

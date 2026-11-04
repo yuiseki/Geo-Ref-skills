@@ -16,6 +16,7 @@ uvx --with numpy --with opencv-python-headless python scripts/name_gcps.py image
 
 - `--countrycodes` には、地図の国と、地図に写る隣の国を渡す。
 - 終了コードが 0 なら、`answer.json` は登録の道具と同じ形の答え。georef-gates の関門に通す。1 なら失敗の宣言 (`status: failed`)。
+- 地図が文字を持つ PDF (GIS や Illustrator の書き出し) なら、`--pdf map.pdf --page 1 --dpi 150 --box-px x0 y0 x1 y1` を足す (`box-px` は document-maps の候補の `from.box_px`)。OCR の代わりに文字の層を使い、記号フォント (ESRIDefaultMarker など) の字を町の記号として正確な位置で使う (`scripts/pdf_words.py`)。文字の層の語が 30 未満なら OCR に戻る。国連の 5 件では、通ったのが OCR の 3 件から 4 件 (MONUSCO も) に増え、GCP も増えた (UNMIK 18 から 34、MINUSCA 26 から 40)。
 - 変換は既定で affine。関門で落ちたら、`--method projective` で流し直してよい (国全体の地図では投影の歪みが効くことがある)。
 
 ## 中身
@@ -50,11 +51,12 @@ uvx --with numpy --with opencv-python-headless python scripts/name_gcps.py image
 | スクリプト | 役割 |
 |---|---|
 | `scripts/name_gcps.py` | 記号の検出、名前の当てはめ、記号の選択、基準点 |
+| `scripts/pdf_words.py` | PDF の文字の層から語、句、記号フォントの字を取り出す。フォントの大きさは字のゆるい箱の高さから取る (書き出しによっては 1 と返る) |
 | `scripts/ocr_words.py`、`scripts/nominatim.py`、`scripts/place_hint.py`、`scripts/geometry.py` | place-hint と同じもの (写し) |
 | `scripts/transforms.py` | georef-gates と同じもの (写し) |
 
 テスト:
 
 ```sh
-uvx --with numpy --with opencv-python-headless --with scikit-image --with pytest pytest scripts/
+uvx --with numpy --with opencv-python-headless --with scikit-image --with pypdfium2 --with pytest pytest scripts/
 ```
