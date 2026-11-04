@@ -197,7 +197,12 @@ def run_one(t, m, work, cache, accurate_pct):
                 if att.get("ref_style") and att["ref_style"] != ref_style:
                     ref_dir = run / f"ref-{att['ref_style']}{zt}"
                     tag = f"{name}.{att['ref_style']}"
-                fetch(att.get("ref_style") or ref_style, ref_dir, zoom)
+                try:
+                    fetch(att.get("ref_style") or ref_style, ref_dir, zoom)
+                except RuntimeError as e:
+                    if reference_refusal(str(e)) is None:
+                        raise
+                    continue  # this reference cannot be built: a declared failure of this attempt
                 if att.get("args"):
                     tag += "." + "-".join(a.strip("-") for a in att["args"])
                 out = run / f"answer.{tag}{zt}.json"
@@ -209,6 +214,10 @@ def run_one(t, m, work, cache, accurate_pct):
             else:
                 continue
             break
+        if last is None:
+            return {**{k: v for k, v in t.items() if k != "wrong_center"}, "outcome": "refused",
+                    "register": "not run", "gates_passed": False, "failed_gates": "reference",
+                    "error": "reference: no reference could be built"}
         (run / "answer.json").write_text(last.read_text(encoding="utf-8"), encoding="utf-8")
     step(UVX + [str(SKILLS / "gcp-refinement" / "scripts" / "refine_gcps.py"), str(run / "answer.json"),
                 "--out", str(run / "refined.json")], run / "refined.json", d / "refine.log")
