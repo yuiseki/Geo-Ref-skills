@@ -3,14 +3,18 @@
     python scripts/map_candidates.py report.pdf --out tmp/doc/cands [--render-dpi 150] [--per-page 3]
     python scripts/map_candidates.py poster.jpg --out tmp/doc/cands
 
-One command over the other tools of this skill. The order:
-    1. image objects that are part of a page, largest first, with tiles joined back (stitch_images) and
-       the joined picture before its tiles                                               kind image / stitched
-    2. inside each image that covers 90 % of its page or more (a scanned page, a page background), the
-       map-like rectangles (find_map_rectangles, best --per-page), then that image whole kind rectangle / image
-    3. PDF only: each page drawn at --render-dpi, its map-like rectangles, for maps drawn as vectors; pages
-       already covered by a page-sized image are not drawn again                         kind rendered
-For a picture (png, jpg, tif, ...): its rectangles, then the picture whole.
+One command over the other tools of this skill. Candidates come from:
+    image / stitched  image objects that are part of a page, tiles joined back first (stitch_images)
+    rectangle         map-like rectangles (find_map_rectangles, best --per-page) inside each image that covers
+                      90 % of its page or more (a scanned page, a page background)
+    rendered          PDF only: map-like rectangles on each page drawn at --render-dpi, for maps drawn as
+                      vectors; pages covered by a page-sized image are not drawn again, and a rectangle that is
+                      an image object already listed is dropped in favour of the image (its own pixels)
+All of them are ordered by one rank: how map-like the crop looks (find_map_rectangles.appearance: fill,
+orientations, colours, palette) times its share of the page, full weight from a quarter of the page up. On
+Wikimedia Commons PDFs most maps are vector drawings, and the image objects are logos, photographs, insets and
+pieces of the map, so no source is put first by kind. Last come the page-sized images whole, and for a picture
+(png, jpg, tif, ...) the picture whole.
 
 Nothing is thrown away for looking unlike a map. Hand the crops on in this order and stop at the first one the
 georeferencing accepts; a crop that is not a map fails to register and the gates say so.
@@ -61,42 +65,48 @@ def _rect_pt(im_bbox, im_px, box):
     return [round(x0 + box[0] * sx, 3), round(y1 - box[3] * sy, 3), round(x0 + box[2] * sx, 3), round(y1 - box[1] * sy, 3)]
 
 
-def _rectangles(img, per_page):
-    return find_map_rectangles.find(img)[:per_page]
+def _share(bbox_pt, page_size_pt):
+    x0, y0, x1, y1 = bbox_pt
+    return (x1 - x0) * (y1 - y0) / float(page_size_pt[0] * page_size_pt[1])
+
+
+def rank(score, share, full=0.25):
+    """A map in a document is usually a large part of its page: the look score, times the share of the page,
+    full weight from a quarter of the page up."""
+    return score * min(1.0, share / full)
+
+
+def _iou(a, b):
+    x0, y0, x1, y1 = max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])
+    inter = max(0.0, x1 - x0) * max(0.0, y1 - y0)
+    area = lambda r: (r[2] - r[0]) * (r[3] - r[1])
+    return inter / float(area(a) + area(b) - inter)
 
 
 def collect(src, out, render_dpi=150, per_page=3, min_px=64):
     src, out = Path(src), Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    cands = []
+    ranked, last = [], []  # (rank, record, pixels) to sort; whole pages and pictures, kept for the end
 
-    def add(img_or_path, rec):
-        rec["file"] = f"cand-{len(cands) + 1:03d}.png"
-        if isinstance(img_or_path, Path):
-            shutil.copyfile(img_or_path, out / rec["file"])
-            h, w = cv2.imread(str(img_or_path), cv2.IMREAD_UNCHANGED).shape[:2]
-        else:
-            cv2.imwrite(str(out / rec["file"]), img_or_path)
-            h, w = img_or_path.shape[:2]
-        rec["px"] = [w, h]
-        cands.append(rec)
-
-    def rects_of(img, base):
-        for r in _rectangles(img, per_page):
+    def rects_of(img, base, page_size_pt=None):
+        for r in find_map_rectangles.find(img)[:per_page]:
             x0, y0, x1, y1 = r["box"]
             rec = {**{k: v for k, v in base.items() if k != "from"}, "score": round(r["score"], 4),
                    "from": {**base["from"], "box_px": [x0, y0, x1, y1]}}
             if "bbox_pt" in base:
                 rec["bbox_pt"] = _rect_pt(base["bbox_pt"], [img.shape[1], img.shape[0]], r["box"])
-            add(img[y0:y1, x0:x1], rec)
+                share = _share(rec["bbox_pt"], page_size_pt)
+            else:
+                share = (x1 - x0) * (y1 - y0) / float(img.shape[0] * img.shape[1])
+            ranked.append((rank(r["score"], share), rec, img[y0:y1, x0:x1]))
 
     if src.suffix.lower() in PICTURE:
         img = cv2.imread(str(src), cv2.IMREAD_COLOR)
         if img is None:
             raise FileNotFoundError(src)
         rects_of(img, {"from": {"kind": "rectangle", "image": src.name}})
-        add(src if src.suffix.lower() == ".png" else img,
-            {"from": {"kind": "image", "image": src.name, "box_px": [0, 0, img.shape[1], img.shape[0]]}})
+        last.append(({"from": {"kind": "image", "image": src.name, "box_px": [0, 0, img.shape[1], img.shape[0]]}},
+                     src if src.suffix.lower() == ".png" else img))
     else:
         ex = out / "extract"
         man = extract_images.extract(src, ex)
@@ -104,22 +114,30 @@ def collect(src, out, render_dpi=150, per_page=3, min_px=64):
         (ex / "manifest.json").write_text(json.dumps(man, indent=2, ensure_ascii=False), encoding="utf-8")
         pics = [dict(s, kind="stitched") for s in man["stitched"]] + [dict(i, kind="image") for i in man["images"]]
         pics = [p for p in pics if min(p["px"]) >= min_px]
-        parts = [p for p in pics if not _page_sized(p)]
         pages = [p for p in pics if _page_sized(p)]
-        for p in sorted(parts, key=lambda p: -p["px"][0] * p["px"][1]):
+        for p in pics:
+            if _page_sized(p):
+                continue
+            img = cv2.imread(str(ex / p["file"]), cv2.IMREAD_COLOR)
+            if img is None:
+                continue
             rec = {"from": {"kind": p["kind"], "image": p["file"], "box_px": [0, 0, *p["px"]]}}
             for k in ("page", "bbox_pt"):
                 if k in p:
                     rec[k] = p[k]
             if _dpi(p):
                 rec["dpi"] = round(_dpi(p), 3)
-            add(ex / p["file"], rec)
+            sc, _ = find_map_rectangles.appearance(img)
+            rec["score"] = round(sc, 4)
+            share = _share(p["bbox_pt"], p["page_size_pt"]) if "bbox_pt" in p and p.get("page_size_pt") else 0.0
+            ranked.append((rank(sc, share), rec, ex / p["file"]))
         for p in pages:
             img = cv2.imread(str(ex / p["file"]), cv2.IMREAD_COLOR)
             base = {"page": p["page"], "dpi": round(_dpi(p), 3), "bbox_pt": p["bbox_pt"],
                     "from": {"kind": "rectangle", "image": p["file"]}}
-            rects_of(img, base)
-            add(ex / p["file"], {**base, "from": {"kind": "image", "image": p["file"], "box_px": [0, 0, *p["px"]]}})
+            rects_of(img, base, p["page_size_pt"])
+            last.append(({**base, "from": {"kind": "image", "image": p["file"], "box_px": [0, 0, *p["px"]]}},
+                         ex / p["file"]))
         if src.suffix.lower() == ".pdf":
             import render_pages
             covered = {p["page"] for p in pages}
@@ -129,8 +147,29 @@ def collect(src, out, render_dpi=150, per_page=3, min_px=64):
                     continue
                 img = cv2.imread(str(out / "pages" / pg["file"]), cv2.IMREAD_COLOR)
                 w, h = pg["page_size_pt"]
+                n0 = len(ranked)
                 rects_of(img, {"page": pg["page"], "dpi": render_dpi, "bbox_pt": [0, 0, w, h],
-                               "from": {"kind": "rendered", "image": f"pages/{pg['file']}"}})
+                               "from": {"kind": "rendered", "image": f"pages/{pg['file']}"}}, [w, h])
+                # a drawn rectangle that is an image object already listed: keep the image (its own pixels)
+                for k in range(len(ranked) - 1, n0 - 1, -1):
+                    rr, rec, _ = ranked[k]
+                    for m in range(n0):
+                        r2, rec2, px2 = ranked[m]
+                        if rec2.get("page") == rec["page"] and "bbox_pt" in rec2 and _iou(rec2["bbox_pt"], rec["bbox_pt"]) > 0.9:
+                            ranked[m] = (max(r2, rr), rec2, px2)
+                            del ranked[k]
+                            break
+    cands = []
+    for _, rec, px in sorted(ranked, key=lambda t: -t[0]) + [(None, r, p) for r, p in last]:
+        rec["file"] = f"cand-{len(cands) + 1:03d}.png"
+        if isinstance(px, Path):
+            shutil.copyfile(px, out / rec["file"])
+            h, w = cv2.imread(str(px), cv2.IMREAD_UNCHANGED).shape[:2]
+        else:
+            cv2.imwrite(str(out / rec["file"]), px)
+            h, w = px.shape[:2]
+        rec["px"] = [w, h]
+        cands.append(rec)
     res = {"source": {"path": str(src), "sha256": hashlib.sha256(src.read_bytes()).hexdigest()},
            "tool": "document-maps/map_candidates.py", "candidates": cands}
     (out / "candidates.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")

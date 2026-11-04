@@ -209,3 +209,15 @@ def test_a_sparse_binary_map_is_one_candidate_in_the_top_three():
     p[600:1100, 150:1050] = sparse_map_like(900, 500, seed=8)
     boxes = [c["box"] for c in fm.find(p)[:3]]
     assert any(iou(b, (150, 600, 1050, 1100)) > 0.9 for b in boxes), boxes
+
+
+def test_a_text_block_on_a_coloured_box_scores_below_a_map_of_its_size():
+    box = np.full((500, 900, 3), (200, 230, 245), np.uint8)  # a beige panel
+    for i in range(14):
+        y = 20 + i * 34
+        for x in range(20, 880, 26):
+            cv2.rectangle(box, (x, y), (x + 18, y + 14), (40, 40, 120), -1)
+    s_text, f_text = fm.appearance(box)
+    s_map, f_map = fm.appearance(map_like(900, 500))
+    assert f_text["gaps"] > 0.3 and f_map["gaps"] < 0.05
+    assert s_map > s_text

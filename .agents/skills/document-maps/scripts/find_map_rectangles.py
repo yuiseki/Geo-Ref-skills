@@ -20,7 +20,10 @@ Boxes overlapping more than 80 % are one candidate. Each gets features and a ran
     palette       share of the box covered by its 8 commonest colours (after a 3x3 median, 8 levels a channel).
                   A map is a few flat fills; a photograph spreads over many shades (maps 0.77-1.0 and
                   photographs 0.36-0.44 on the synthetic and tile pictures it was set on)
-    score         fill * orientations * min(1, colours / 8) * palette
+    gaps          share of rows with almost no ink (under 0.5 %) against the box's own commonest colour. Lines of
+                  text and tables leave blank rows between them, on white or on a coloured panel; a map does not
+                  (maps 0.0-0.18, text pages and tables 0.38-0.81 on Wikimedia Commons PDFs)
+    score         fill * orientations * min(1, colours / 8) * palette * (1 - gaps)
 The score only orders the candidates. Whether a candidate is a map is decided downstream: a picture that is
 not a map does not register against any reference, and the gates say so. Keep every candidate above the size
 floor (--min-area, a share of the page), and pass them on in this order.
@@ -78,7 +81,20 @@ def _features(crop, colour, noise):
         h = np.histogram(ang, bins=12, range=(0, 180), weights=mag[strong])[0]
         p = h / h.sum()
         ent = float(-(p[p > 0] * np.log(p[p > 0])).sum() / np.log(12))
-    return {"fill": fill, "colours": colours, "orientations": ent, "palette": palette}
+    dom = np.bincount(qm[:, 0] * 64 + qm[:, 1] * 8 + qm[:, 2]).argmax()
+    ink = ((qm[:, 0] * 64 + qm[:, 1] * 8 + qm[:, 2]) != dom).reshape(crop.shape[:2])
+    gaps = float((ink.mean(axis=1) < 0.005).mean())
+    return {"fill": fill, "colours": colours, "orientations": ent, "palette": palette, "gaps": gaps}
+
+
+def _score(f):
+    return f["fill"] * f["orientations"] * min(1.0, f["colours"] / 8.0) * f["palette"] * (1.0 - f["gaps"])
+
+
+def appearance(crop, colour=(255, 255, 255), noise=0.0):
+    """(score, features) of any crop, on paper of the given colour (white by default)."""
+    f = _features(crop, np.asarray(colour, np.float32), noise)
+    return _score(f), f
 
 
 def largest_filled_rectangle(mask):
@@ -228,7 +244,7 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
         if any(_iou(box, c["box"]) > 0.8 for c in out):
             continue
         f = _features(page[y0:y1, x0:x1], colour, noise)
-        score = f["fill"] * f["orientations"] * min(1.0, f["colours"] / 8.0) * f["palette"]
+        score = _score(f)
         out.append({"box": [x0, y0, x1, y1], "kind": kind, "score": score, "features": f})
     return sorted(out, key=lambda c: -c["score"])
 
