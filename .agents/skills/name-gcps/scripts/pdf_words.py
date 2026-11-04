@@ -47,9 +47,12 @@ def chars(path, page=1):
         loose = R.FS_RECTF()
         R.FPDFText_GetLooseCharBox(tp.raw, i, ctypes.byref(loose))
         size = abs(loose.top - loose.bottom) / 1.15
+        cr, cg, cb, ca = (ctypes.c_uint() for _ in range(4))
+        colour = ((cr.value, cg.value, cb.value) if R.FPDFText_GetFillColor(
+            tp.raw, i, ctypes.byref(cr), ctypes.byref(cg), ctypes.byref(cb), ctypes.byref(ca)) else None)
         out.append({"ch": chr(u) if u else "", "font": buf.value.decode(errors="replace").split("+")[-1],
                     "size": size, "l": l.value, "r": r.value, "t": H - t.value, "b": H - b.value,
-                    "base": H - loose.bottom})
+                    "base": H - loose.bottom, "colour": colour})
     return out
 
 
@@ -74,7 +77,7 @@ def words(cs, gap=0.3, kern=0.6, phrase_gap=0.6):
                          and abs(c["size"] - p["size"]) < 0.1 * c["size"])
             g = c["l"] - p["r"]
             limit = (kern if p["ch"].isupper() and len(last) == 1 else gap) * c["size"]
-            if same_line and c["font"] == p["font"] and -0.2 * c["size"] < g < limit:
+            if same_line and c["font"] == p["font"] and c.get("colour") == p.get("colour") and -0.2 * c["size"] < g < limit:
                 last.append(c)
                 continue
         runs.append([c])
@@ -83,7 +86,7 @@ def words(cs, gap=0.3, kern=0.6, phrase_gap=0.6):
         if r:
             t = "".join(c["ch"] for c in r)
             ws.append({"text": t, "kind": "word", "size": r[0]["size"], "font": r[0]["font"], **_box(r),
-                       "_b": r[-1].get("base", r[-1]["b"])})
+                       "colour": r[0].get("colour"), "_b": r[-1].get("base", r[-1]["b"])})
     out = list(ws)
     # phrases: up to four neighbouring words of one line, size and font
     for i in range(len(ws)):
@@ -95,6 +98,7 @@ def words(cs, gap=0.3, kern=0.6, phrase_gap=0.6):
                 break
             group.append(b)
             out.append({"text": " ".join(g["text"] for g in group), "kind": "phrase", "size": a["size"], "font": a["font"],
+                        "colour": a.get("colour"),
                         **_box([{"l": g["l"], "r": g["r"], "t": g["y"] - g["h"] / 2, "b": g["y"] + g["h"] / 2} for g in group]),
                         "_b": b["_b"]})
     for w in out:
