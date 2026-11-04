@@ -25,7 +25,15 @@ description: PDF、Word、PowerPoint、Excel の文書から、埋め込まれ�
 
    dpi は結果と一緒に必ず記録する。画素が地上で何 m かは、dpi と印刷された縮尺が分かって初めて決まる。
 
-3. 取り出した画像や描いたページを、場所の手がかり (place-hint) とジオリファレンスの道具に渡す。
+3. 描いたページから、地図らしい矩形の候補を探す。
+
+   ```sh
+   uvx --with numpy --with opencv-python-headless python scripts/find_map_rectangles.py tmp/doc/pages/p001.png --out tmp/doc/cands
+   ```
+
+   白地の上のひとまとまりの領域と、長い直線で囲まれた枠 (図郭) を、全て候補にする。候補には、塗られている割合、色の数、線の向きの散らばりと、それらの積の順位付けの値が付く。値は並べ替えにだけ使い、候補を捨てない。地図でない候補は、後段の照合と関門が拒否する。
+
+4. 取り出した画像や候補を、場所の手がかり (place-hint) とジオリファレンスの道具に、順位の順に渡す。
 
 ## 使えない条件 (2026-11-04)
 
@@ -41,10 +49,14 @@ description: PDF、Word、PowerPoint、Excel の文書から、埋め込まれ�
 |---|---|
 | `scripts/extract_images.py` | 埋め込まれた画像と、出どころの記録 |
 | `scripts/render_pages.py` | PDF のページを決まった dpi で描く。PDF の pt から画素への換算 (`pt_to_px`) |
+| `scripts/find_map_rectangles.py` | 描いたページの中の、地図らしい矩形の候補と順位 |
 
 テスト (文書はテストの中で作る):
 
 ```sh
 uvx --with pypdfium2==5.14.0 --with pillow --with pytest pytest scripts/test_extract_images.py
 uvx --with pypdfium2==5.14.0 --with pillow --with numpy --with pytest pytest scripts/test_render_pages.py
+uvx --with numpy --with opencv-python-headless --with pytest pytest scripts/test_find_map_rectangles.py
 ```
+
+候補探しは、合成したページ (地図に似せた絵、本文の文字の行、棒グラフ、枠の有無) でしか確かめていない (2026-11-04)。実際の文書での取りこぼしと誤った順位は未確認。
