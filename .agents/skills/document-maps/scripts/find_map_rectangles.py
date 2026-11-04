@@ -3,13 +3,17 @@
     python scripts/find_map_rectangles.py tmp/doc/pages/p001.png --out tmp/doc/cands [--min-area 0.02]
 
 Candidates come from two cues, both classical:
-    regions  content on a white page (any channel below 245), closed over small gaps, as connected blocks
+    regions  content on the paper, closed over small gaps, as connected blocks. The paper's colour and noise
+             are measured on the page's outer margin, so a scan on off-white paper works like a white page
     frames   long horizontal and vertical lines (a map's neat line) and the rectangles they enclose
 Boxes overlapping more than 80 % are one candidate. Each gets features and a ranking score:
-    fill          share of the box that is not white (a map is drawn all over; a paragraph is mostly white)
+    fill          share of the box that is not paper (a map is drawn all over; a paragraph is mostly paper)
     colours       number of distinct colours (quantised to 8 levels a channel) covering 0.2 % of the box or more
     orientations  entropy of gradient directions, 0..1 (a map's lines run every way; text and tables run two)
-    score         fill * orientations * min(1, colours / 8)
+    palette       share of the box covered by its 8 commonest colours (after a 3x3 median, 8 levels a channel).
+                  A map is a few flat fills; a photograph spreads over many shades (maps 0.77-1.0 and
+                  photographs 0.36-0.44 on the synthetic and tile pictures it was set on)
+    score         fill * orientations * min(1, colours / 8) * palette
 The score only orders the candidates. Whether a candidate is a map is decided downstream: a picture that is
 not a map does not register against any reference, and the gates say so. Keep every candidate above the size
 floor (--min-area, a share of the page), and pass them on in this order.
@@ -27,9 +31,31 @@ import cv2
 import numpy as np
 
 
-def _features(crop):
-    nonwhite = (crop < 245).any(axis=2)
-    fill = float(nonwhite.mean())
+def paper(page, margin_frac=0.02):
+    """Colour (BGR) and noise (grey levels, robust sigma) of the page's outer margin."""
+    H, W = page.shape[:2]
+    m = max(2, int(margin_frac * min(H, W)))
+    border = np.concatenate([page[:m].reshape(-1, 3), page[-m:].reshape(-1, 3),
+                             page[:, :m].reshape(-1, 3), page[:, -m:].reshape(-1, 3)]).astype(np.float32)
+    colour = np.median(border, axis=0)
+    grey = border.mean(axis=1)
+    noise = float(1.4826 * np.median(np.abs(grey - np.median(grey))))
+    return colour, noise
+
+
+def content_mask(page, colour, noise):
+    """Pixels that differ from the paper by more than the paper's own noise (10 levels at least)."""
+    smooth = cv2.medianBlur(page, 3)
+    diff = np.abs(smooth.astype(np.int16) - colour.astype(np.int16)).max(axis=2)
+    return diff > max(10.0, 5.0 * noise)
+
+
+def _features(crop, colour, noise):
+    fill = float(content_mask(crop, colour, noise).mean())
+    m = cv2.medianBlur(crop, 3)
+    qm = (m // 32).reshape(-1, 3).astype(np.int32)
+    top = np.sort(np.bincount(qm[:, 0] * 64 + qm[:, 1] * 8 + qm[:, 2], minlength=512))[::-1]
+    palette = float(top[:8].sum() / len(qm))
     q = (crop // 32).reshape(-1, 3).astype(np.int32)
     codes = q[:, 0] * 64 + q[:, 1] * 8 + q[:, 2]
     counts = np.bincount(codes, minlength=512)
@@ -45,7 +71,7 @@ def _features(crop):
         h = np.histogram(ang, bins=12, range=(0, 180), weights=mag[strong])[0]
         p = h / h.sum()
         ent = float(-(p[p > 0] * np.log(p[p > 0])).sum() / np.log(12))
-    return {"fill": fill, "colours": colours, "orientations": ent}
+    return {"fill": fill, "colours": colours, "orientations": ent, "palette": palette}
 
 
 def _iou(a, b):
@@ -59,7 +85,8 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
     H, W = page.shape[:2]
     if page.ndim == 2:
         page = cv2.cvtColor(page, cv2.COLOR_GRAY2BGR)
-    content = (page < 245).any(axis=2).astype(np.uint8)
+    colour, noise = paper(page)
+    content = content_mask(page, colour, noise).astype(np.uint8)
     boxes = []
     k = max(3, int(close_frac * W))
     closed = cv2.morphologyEx(content, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (k, k)))
@@ -85,8 +112,8 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
             continue
         if any(_iou(box, c["box"]) > 0.8 for c in out):
             continue
-        f = _features(page[y0:y1, x0:x1])
-        score = f["fill"] * f["orientations"] * min(1.0, f["colours"] / 8.0)
+        f = _features(page[y0:y1, x0:x1], colour, noise)
+        score = f["fill"] * f["orientations"] * min(1.0, f["colours"] / 8.0) * f["palette"]
         out.append({"box": [x0, y0, x1, y1], "kind": kind, "score": score, "features": f})
     return sorted(out, key=lambda c: -c["score"])
 
