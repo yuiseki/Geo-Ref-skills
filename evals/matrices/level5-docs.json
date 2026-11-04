@@ -1,0 +1,22 @@
+{
+  "level": 5,
+  "hint": "place-hint",
+  "countrycodes_for": {"shizuoka": "jp", "sendai": "jp", "melbourne": "au", "seattle": "us"},
+  "zooms": [15, 16],
+  "size": [900, 700],
+  "ref_style": "osm-liberty",
+  "documents": ["embedded", "scan"],
+  "places": {
+    "shizuoka": [138.3831, 34.9756],
+    "sendai": [140.8719, 38.2682],
+    "melbourne": [144.9631, -37.8136],
+    "seattle": [-122.3321, 47.6062]
+  },
+  "styles": ["osm-liberty"],
+  "kinds": ["similarity", "projective"],
+  "strengths": [0.5, 1.0],
+  "seeds": [40],
+  "attempts": [
+    {"registrar": "feature-registration"}
+  ]
+}
