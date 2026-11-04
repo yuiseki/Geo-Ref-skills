@@ -152,3 +152,60 @@ def test_a_dark_photograph_makes_no_frame():
     ph = photo_like(500, 400, seed=7)
     p[700:1100, 600:1100] = (ph * 0.4).astype(np.uint8)  # dark all over: no thin lines in it
     assert all(c["kind"] != "frame" for c in fm.find(p)), [(c["box"], c["kind"]) for c in fm.find(p)]
+
+
+@pytest.mark.parametrize("gap", [12, 24])
+def test_a_panel_of_four_maps_with_a_narrow_gap_gives_each_map(gap):
+    p = np.full((1754, 1240, 3), 255, np.uint8)
+    want = []
+    for r in range(2):
+        for c in range(2):
+            x0, y0 = 120 + c * (480 + gap), 500 + r * (400 + gap)
+            p[y0:y0 + 400, x0:x0 + 480] = map_like(480, 400, seed=10 + 2 * r + c)
+            want.append((x0, y0, x0 + 480, y0 + 400))
+    cands = fm.find(p)
+    import json
+    json.dumps(cands)  # candidates.json is written from these
+    boxes = [c["box"] for c in cands]
+    for w in want:
+        assert any(iou(b, w) > 0.9 for b in boxes), (w, boxes)
+
+
+def test_xy_cut():
+    m = np.zeros((40, 50), bool)
+    m[2:18, 2:23] = m[2:18, 27:48] = m[22:38, 2:48] = True
+    got = sorted(fm.xy_cut(m, min_side=5))
+    assert got == sorted([(2, 2, 23, 18), (27, 2, 48, 18), (2, 22, 48, 38)])
+    assert fm.xy_cut(np.ones((20, 20), bool)) == []
+
+
+def sparse_map_like(w, h, seed=0):
+    """Black labels and a few thin lines on white, like a binarised map: little ink, gaps wider than a word."""
+    g = np.random.default_rng(seed)
+    img = np.full((h, w, 3), 255, np.uint8)
+    for _ in range(int(w * h / 4000)):
+        x, y = int(g.integers(0, w - 60)), int(g.integers(0, h - 12))
+        ang = float(g.choice([0, 0, 0, 30, -30, 60, 90]))
+        box = cv2.boxPoints(((x + 25, y + 5), (int(g.integers(20, 55)), 7), ang)).astype(np.int32)
+        cv2.fillPoly(img, [box], (0, 0, 0))
+    for _ in range(4):
+        a = tuple(int(v) for v in g.integers(0, [w, h]))
+        b = tuple(int(v) for v in g.integers(0, [w, h]))
+        cv2.line(img, a, b, (0, 0, 0), 3)
+    for x in (0, w - 1):  # labels reach the edges, as a cropped map's do
+        for y in range(10, h - 10, 60):
+            cv2.rectangle(img, (max(0, x - 20), y), (min(w - 1, x + 20), y + 6), (0, 0, 0), -1)
+    for y in (0, h - 1):
+        for x in range(10, w - 10, 70):
+            cv2.rectangle(img, (x, max(0, y - 6)), (x + 30, min(h - 1, y + 6)), (0, 0, 0), -1)
+    return img
+
+
+@pytest.mark.xfail(strict=True, reason="known limit (2026-11-04): an unframed map of labels on white paper is "
+                   "the same colour as the paper between its labels; closing at 1.2 % or 3 % of the page leaves it "
+                   "in pieces")
+def test_a_sparse_binary_map_is_one_candidate_in_the_top_three():
+    p = page(with_frame=False)
+    p[600:1100, 150:1050] = sparse_map_like(900, 500, seed=8)
+    boxes = [c["box"] for c in fm.find(p)[:3]]
+    assert any(iou(b, (150, 600, 1050, 1100)) > 0.9 for b in boxes), boxes

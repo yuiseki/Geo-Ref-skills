@@ -2,7 +2,8 @@
 
     python scripts/eval_find.py --maps 'tmp/matrix/level*/*/task/image.png' --n 60 --seed 0 --work tmp/find --out find.tsv [--layout report]
 
-Takes a uniform random sample of map images (task images of earlier levels), puts each on an A4 page with
+--maps is a glob, or @file with one path a line (freeze the pool: a glob over a growing folder draws a
+different sample with the same seed). Takes a uniform random sample of map images (task images of earlier levels), puts each on an A4 page with
 make_doc_task (scan, paper, embedded, tiled), runs document-maps/map_candidates.py on each PDF, and scores the
 candidate list (bbox_pt) against the placement:
     rank   1-based position of the first candidate whose box overlaps the map with IoU >= 0.9 (0 = none)
@@ -67,7 +68,10 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--layout", default="plain", choices=["plain", "report"])
     a = ap.parse_args()
-    paths = sorted(glob.glob(a.maps))
+    if a.maps.startswith("@"):  # a frozen list, one path a line, so that samples stay comparable
+        paths = sorted(l.strip() for l in Path(a.maps[1:]).read_text(encoding="utf-8").splitlines() if l.strip())
+    else:
+        paths = sorted(glob.glob(a.maps))
     rng = np.random.default_rng(a.seed)
     pick = [paths[i] for i in sorted(rng.choice(len(paths), size=min(a.n, len(paths)), replace=False))]
     out = []

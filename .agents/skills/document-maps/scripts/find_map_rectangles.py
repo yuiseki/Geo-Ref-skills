@@ -10,6 +10,8 @@ Candidates come from two cues, both classical:
              blocks closed) inside each region, its sides then
              moved to the last mostly-filled row or column (a chart, a caption or a
              legend touching the map widens its region but not this rectangle)
+    cuts     the blocks a region splits into along blank gutters running right through it (XY-cut), for
+             panels of maps set close together
     frames   long, thin (under 0.6 % of the page width) horizontal and vertical lines (a map's neat line) and the rectangles they enclose
 Boxes overlapping more than 80 % are one candidate. Each gets features and a ranking score:
     fill          share of the box that is not paper (a map is drawn all over; a paragraph is mostly paper)
@@ -99,6 +101,48 @@ def largest_filled_rectangle(mask):
     return box
 
 
+def xy_cut(mask, min_gap=3, max_frac=0.01, min_side=32):
+    """Boxes (x0, y0, x1, y1) of the blocks that blank gutters (rows or columns, min_gap wide, with under
+    max_frac content, running right through) split mask into, recursively; [] when there is no gutter."""
+    def runs(prof):
+        blank = prof <= max_frac
+        out, start = [], None
+        for i, b in enumerate(np.append(blank, False)):
+            if b and start is None:
+                start = i
+            elif not b and start is not None:
+                out.append((start, i))
+                start = None
+        return out
+
+    def trim(x0, y0, x1, y1):
+        sub = mask[y0:y1, x0:x1]
+        ys, xs = np.where(sub.any(axis=1))[0], np.where(sub.any(axis=0))[0]
+        if not len(ys) or not len(xs):
+            return None
+        return x0 + int(xs[0]), y0 + int(ys[0]), x0 + int(xs[-1]) + 1, y0 + int(ys[-1]) + 1
+
+    def cut(box, depth):
+        x0, y0, x1, y1 = box
+        sub = mask[y0:y1, x0:x1]
+        for axis in (0, 1):  # 0: gutters are columns, 1: rows
+            prof = sub.mean(axis=axis)
+            gaps = [(a, b) for a, b in runs(prof) if b - a >= min_gap and a > 0 and b < len(prof)]
+            if not gaps or depth > 6:
+                continue
+            edges = [0] + [v for a, b in gaps for v in (a, b)] + [len(prof)]
+            leaves = []
+            for a, b in zip(edges[::2], edges[1::2]):
+                child = trim(x0 + a, y0, x0 + b, y1) if axis == 0 else trim(x0, y0 + a, x1, y0 + b)
+                if child and min(child[2] - child[0], child[3] - child[1]) >= min_side:
+                    leaves += cut(child, depth + 1) or [child]
+            return leaves
+        return []
+
+    t = trim(0, 0, mask.shape[1], mask.shape[0])
+    return cut(t, 0) if t else []
+
+
 def fill_holes(mask):
     """mask with every blank area that it encloses filled in (a legend box or a white lake inside a map)."""
     m = np.pad(mask.astype(np.uint8), 1)
@@ -159,6 +203,8 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
         if r:
             box = _refine(raw, (x + r[0] * f, y + r[1] * f, x + r[2] * f, y + r[3] * f), f)
             boxes.append((box, "core"))
+        for cx0, cy0, cx1, cy1 in xy_cut(raw[y:y + h, x:x + w] & (labels[y:y + h, x:x + w] == i)):
+            boxes.append(((int(x + cx0), int(y + cy0), int(x + cx1), int(y + cy1)), "cut"))
     L = max(10, int(line_frac * W)) | 1  # odd: an even kernel shifts an opening by one pixel
     dark = (cv2.cvtColor(page, cv2.COLOR_BGR2GRAY) < 128).astype(np.uint8)
     t = max(5, int(0.006 * W)) | 1  # a neat line is thinner than this; a dark area is not a line
@@ -174,7 +220,7 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
             boxes.append(((int(x), int(y), int(x + w), int(y + h)), "frame"))
     floor = min_area * W * H
     out = []
-    order = {"frame": 0, "core": 1, "region": 2}
+    order = {"frame": 0, "core": 1, "cut": 2, "region": 3}
     for box, kind in sorted(boxes, key=lambda b: order[b[1]]):  # frames first, then cores, so they win a merge
         x0, y0, x1, y1 = box
         if (x1 - x0) * (y1 - y0) < floor:
