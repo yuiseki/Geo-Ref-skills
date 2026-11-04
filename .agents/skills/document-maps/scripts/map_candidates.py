@@ -83,6 +83,63 @@ def _iou(a, b):
     return inter / float(area(a) + area(b) - inter)
 
 
+def vector_frames(pdf, page=1, min_side=0.12, max_share=0.9):
+    """Rectangles drawn with a stroke on a PDF page, each side at least min_side of the page's and under max_share
+    of its area (the sheet's border), as bbox_pt (origin bottom left); and what is left of each beside another
+    that runs along one side of it (find_map_rectangles.remainders).
+
+    Maps exported from drawing software frame each panel with a rectangle. An inset (an enlargement of one area at
+    its own scale) beside the main map shares the map's frame; on the rendered page the two look like one
+    picture, and the page gave neither alone (MONUSCO, 2024: three quarters of the units were in the inset)."""
+    import ctypes
+
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as raw
+
+    doc = pdfium.PdfDocument(str(pdf))
+    pg = doc[page - 1]
+    W, H = pg.get_size()  # as shown
+    rot = pg.get_rotation() % 360
+    W0, H0 = (H, W) if rot % 180 else (W, H)  # unturned, the space paths are in
+
+    def shown(x, y):
+        """An unturned page point as shown after /Rotate (clockwise), origin bottom left: pages turned a quarter
+        (UN maps of 2021 and 2022) are rendered turned, and their paths are not."""
+        return {90: (y, W0 - x), 180: (W0 - x, H0 - y), 270: (H0 - y, x)}.get(rot, (x, y))
+
+    out = []
+    for o in pg.get_objects(max_depth=0):
+        if o.type != raw.FPDF_PAGEOBJ_PATH:
+            continue
+        mode, stroke = ctypes.c_int(), ctypes.c_int()
+        raw.FPDFPath_GetDrawMode(o.raw, ctypes.byref(mode), ctypes.byref(stroke))
+        n = raw.FPDFPath_CountSegments(o.raw)
+        if not stroke.value or not 4 <= n <= 6:
+            continue
+        m = o.get_matrix()
+        pts = []
+        for i in range(n):
+            sg = raw.FPDFPath_GetPathSegment(o.raw, i)
+            if raw.FPDFPathSegment_GetType(sg) == raw.FPDF_SEGMENT_BEZIERTO:
+                break
+            x, y = ctypes.c_float(), ctypes.c_float()
+            raw.FPDFPathSegment_GetPoint(sg, ctypes.byref(x), ctypes.byref(y))
+            pts.append(shown(m.a * x.value + m.c * y.value + m.e, m.b * x.value + m.d * y.value + m.f))
+        else:
+            xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+            x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+            if not all(min(abs(x - x0), abs(x - x1)) < 1 and min(abs(y - y0), abs(y - y1)) < 1 for x, y in pts):
+                continue  # not an upright rectangle
+            # a rectangle given by the re operator comes back as moveto and three linetos plus a close
+            if x1 - x0 >= min_side * W and y1 - y0 >= min_side * H and (x1 - x0) * (y1 - y0) < max_share * W * H:
+                box = (round(x0, 2), round(y0, 2), round(x1, 2), round(y1, 2))
+                if all(max(abs(a - b) for a, b in zip(box, q)) > 2 for q in out):
+                    out.append(box)
+    rest = [r for r in find_map_rectangles.remainders(out)
+            if all(max(abs(a - b) for a, b in zip(r, q)) > 2 for q in out)]
+    return out + list(dict.fromkeys(rest))
+
+
 def collect(src, out, render_dpi=150, per_page=3, min_px=64):
     src, out = Path(src), Path(out)
     out.mkdir(parents=True, exist_ok=True)
@@ -150,6 +207,18 @@ def collect(src, out, render_dpi=150, per_page=3, min_px=64):
                 n0 = len(ranked)
                 rects_of(img, {"page": pg["page"], "dpi": render_dpi, "bbox_pt": [0, 0, w, h],
                                "from": {"kind": "rendered", "image": f"pages/{pg['file']}"}}, [w, h])
+                k = render_dpi / 72.0
+                for fb in vector_frames(src, pg["page"]):
+                    x0, y0 = int(round(fb[0] * k)), int(round((h - fb[3]) * k))
+                    x1, y1 = int(round(fb[2] * k)), int(round((h - fb[1]) * k))
+                    crop = img[max(0, y0):y1, max(0, x0):x1]
+                    if min(crop.shape[:2]) < min_px:
+                        continue
+                    sc, _ = find_map_rectangles.appearance(crop)
+                    rec = {"page": pg["page"], "dpi": render_dpi, "bbox_pt": [round(v, 3) for v in fb], "score": round(sc, 4),
+                           "from": {"kind": "rendered", "image": f"pages/{pg['file']}", "box_px": [x0, y0, x1, y1],
+                                    "frame": True}}
+                    ranked.append((rank(sc, _share(rec["bbox_pt"], [w, h])), rec, crop))
                 # a drawn rectangle that is an image object already listed: keep the image (its own pixels)
                 for k in range(len(ranked) - 1, n0 - 1, -1):
                     rr, rec, _ = ranked[k]

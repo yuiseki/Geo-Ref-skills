@@ -48,3 +48,33 @@ def test_to_pixels_puts_page_points_in_a_cropped_rendering():
     p = pw.to_pixels(w, dpi=144, origin_px=(10, 20))
     assert (p["col"], p["row"], p["w"], p["h"]) == (134.0, 268.0, 72.0, 18.0)
     assert p["conf"] == 100.0
+
+
+def text_pdf(path, rotation, x=100.0, y=600.0, text="Bunia"):
+    import ctypes
+    import pypdfium2 as pdfium
+    import pypdfium2.raw as raw
+    doc = pdfium.PdfDocument.new()
+    pg = doc.new_page(612, 792)
+    obj = raw.FPDFPageObj_NewTextObj(doc.raw, b"Helvetica", ctypes.c_float(12.0))
+    ws = (text + "\0").encode("utf-16-le")
+    raw.FPDFText_SetText(obj, ctypes.cast(ctypes.c_char_p(ws), ctypes.POINTER(raw.FPDF_WCHAR)))
+    raw.FPDFPageObj_Transform(obj, 1, 0, 0, 1, x, y)
+    raw.FPDFPage_InsertObject(pg.raw, obj)
+    pg.gen_content()
+    pg.set_rotation(rotation)
+    doc.save(str(path))
+
+
+def test_a_rotated_page_gives_characters_where_they_are_drawn(tmp_path):
+    # many UN maps of 2021 to 2022 are portrait pages turned by /Rotate 90; the text layer is in the unturned
+    # page's space, and the words came out on the wrong side of the map (2026-11-05)
+    text_pdf(tmp_path / "r0.pdf", 0)
+    text_pdf(tmp_path / "r90.pdf", 90)
+    a = pw.chars(tmp_path / "r0.pdf")[0]
+    b = pw.chars(tmp_path / "r90.pdf")[0]
+    # turned a quarter clockwise: top-left page point (x, y) is shown at (792 - y, x)
+    assert abs(b["l"] - (792 - a["b"])) < 0.5 and abs(b["t"] - a["l"]) < 0.5
+    import pypdfium2 as pdfium
+    W, H = pdfium.PdfDocument(str(tmp_path / "r90.pdf"))[0].get_size()
+    assert 0 <= b["l"] <= W and 0 <= b["t"] <= H

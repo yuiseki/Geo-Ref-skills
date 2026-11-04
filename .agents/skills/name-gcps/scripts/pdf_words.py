@@ -26,13 +26,37 @@ from pathlib import Path
 SYMBOL_FONT = re.compile(r"marker|symbol|dingbat|wingding", re.IGNORECASE)
 
 
+def display(x, y, rotation, W0, H0):
+    """A point of the unturned page (origin bottom left, as the text layer and paths give it) where the page is
+    shown: origin top left, after /Rotate (clockwise, in quarter turns), W0 x H0 being the unturned size."""
+    r = rotation % 360
+    if r == 90:
+        return y, x
+    if r == 180:
+        return W0 - x, y
+    if r == 270:
+        return H0 - y, W0 - x
+    return x, H0 - y
+
+
+def display_box(l, b, r, t, rotation, W0, H0):
+    """A box of the unturned page (left, bottom, right, top) as shown: (left, top, right, bottom), origin top left."""
+    xs, ys = zip(display(l, b, rotation, W0, H0), display(r, t, rotation, W0, H0))
+    return min(xs), min(ys), max(xs), max(ys)
+
+
 def chars(path, page=1):
     import pypdfium2 as pdfium
     import pypdfium2.raw as R
 
     doc = pdfium.PdfDocument(str(path))
     p = doc[page - 1]
-    H = p.get_size()[1]
+    # the text layer is in the unturned page's space; a page turned by /Rotate (UN maps of 2021 and 2022: portrait
+    # pages turned a quarter) is shown, rendered and cropped turned, so every box is turned with it (2026-11-05)
+    rot = p.get_rotation()
+    W0, H0 = p.get_size()
+    if rot % 180:
+        W0, H0 = H0, W0
     tp = p.get_textpage()
     buf = ctypes.create_string_buffer(256)
     flags = ctypes.c_int()
@@ -46,13 +70,14 @@ def chars(path, page=1):
         # 2026-11-04); the loose box (ascent to descent) has the same height for every letter of a font and size
         loose = R.FS_RECTF()
         R.FPDFText_GetLooseCharBox(tp.raw, i, ctypes.byref(loose))
-        size = abs(loose.top - loose.bottom) / 1.15
+        L, T, Rr, B = display_box(l.value, b.value, r.value, t.value, rot, W0, H0)
+        _, lt, _, lb = display_box(loose.left, loose.bottom, loose.right, loose.top, rot, W0, H0)
+        size = abs(lb - lt) / 1.15
         cr, cg, cb, ca = (ctypes.c_uint() for _ in range(4))
         colour = ((cr.value, cg.value, cb.value) if R.FPDFText_GetFillColor(
             tp.raw, i, ctypes.byref(cr), ctypes.byref(cg), ctypes.byref(cb), ctypes.byref(ca)) else None)
         out.append({"ch": chr(u) if u else "", "font": buf.value.decode(errors="replace").split("+")[-1],
-                    "size": size, "l": l.value, "r": r.value, "t": H - t.value, "b": H - b.value,
-                    "base": H - loose.bottom, "colour": colour})
+                    "size": size, "l": L, "r": Rr, "t": T, "b": B, "base": lb, "colour": colour})
     return out
 
 

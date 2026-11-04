@@ -16,7 +16,7 @@ uvx --with numpy --with opencv-python-headless python scripts/name_gcps.py image
 
 - `--countrycodes` には、地図の国と、地図に写る隣の国を渡す。
 - 終了コードが 0 なら、`answer.json` は登録の道具と同じ形の答え。georef-gates の関門に通す。1 なら失敗の宣言 (`status: failed`)。
-- 地図が文字を持つ PDF (GIS や Illustrator の書き出し) なら、`--pdf map.pdf --page 1 --dpi 150 --box-px x0 y0 x1 y1` を足す (`box-px` は document-maps の候補の `from.box_px`)。OCR の代わりに文字の層を使い、記号フォント (ESRIDefaultMarker など) の字を町の記号として正確な位置で使う (`scripts/pdf_words.py`)。文字の層の語が 30 未満なら OCR に戻る。国連の 5 件では、通ったのが OCR の 3 件から 4 件 (MONUSCO も) に増え、GCP も増えた (UNMIK 18 から 34、MINUSCA 26 から 40)。
+- 地図が文字を持つ PDF (GIS や Illustrator の書き出し) なら、`--pdf map.pdf --page 1 --dpi 150 --box-px x0 y0 x1 y1` を足す (`box-px` は document-maps の候補の `from.box_px`)。OCR の代わりに文字の層を使い、記号フォント (ESRIDefaultMarker など) の字を町の記号として正確な位置で使う (`scripts/pdf_words.py`)。文字の層の語が 30 未満なら OCR に戻る。`/Rotate` で回したページでは、文字の層の座標は回す前のページのものなので、描いたページと同じ回した後の座標に直す (2026-11-05)。直す前は、国連の 2021〜2022 年の地図 (縦長のページを 90 度回したもの、全 1,310 件中 188 件) の名前が地図の外に散り、「0 names agree」で落ちていた。直したあと、MONUSCO R45 は GCP 20 点で関門を全て通った。国連の 5 件では、通ったのが OCR の 3 件から 4 件 (MONUSCO も) に増え、GCP も増えた (UNMIK 18 から 34、MINUSCA 26 から 40)。
 - 変換は既定で affine。関門で落ちたら、`--method projective` で流し直してよい (国全体の地図では投影の歪みが効くことがある)。
 
 ## 中身

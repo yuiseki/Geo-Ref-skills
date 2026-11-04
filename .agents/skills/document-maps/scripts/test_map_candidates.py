@@ -111,3 +111,46 @@ def test_an_image_file_gives_its_rectangles_then_itself(tmp_path):
     b = got["candidates"][0]["from"]["box_px"]
     assert all(abs(u - v) <= 6 for u, v in zip(b, (x0, y0, x1, y1))), b
     assert "bbox_pt" not in got["candidates"][0]
+
+
+def stroked_rect(pg, x, y, w, h):
+    import pypdfium2.raw as raw
+    obj = raw.FPDFPageObj_CreateNewRect(x, y, w, h)
+    raw.FPDFPageObj_SetStrokeColor(obj, 0, 0, 0, 255)
+    raw.FPDFPageObj_SetStrokeWidth(obj, ctypes_float(1.0))
+    raw.FPDFPath_SetDrawMode(obj, 0, True)
+    raw.FPDFPage_InsertObject(pg.raw, obj)
+
+
+def test_frames_drawn_as_vector_rectangles_are_candidates_and_so_is_the_rest_beside_an_inset(tmp_path):
+    # a deployment map (MONUSCO, 2024): the country on the left, an enlargement of its east in its own frame on the
+    # right, spanning the map's height; the rendered page alone gave neither panel by itself
+    import pypdfium2 as pdfium
+    doc = pdfium.PdfDocument.new()
+    pg = doc.new_page(*A4)
+    stroked_rect(pg, 50, 100, 495, 600)   # the map frame
+    stroked_rect(pg, 350, 100, 195, 600)  # the inset, along its right side
+    stroked_rect(pg, 60, 110, 20, 20)     # a legend box: too small
+    pg.gen_content()
+    doc.save(str(tmp_path / "f.pdf"))
+    got_frames = sorted(mc.vector_frames(tmp_path / "f.pdf", 1))
+    want = sorted([(50, 100, 545, 700), (350, 100, 545, 700), (50, 100, 350, 700)])
+    assert len(got_frames) == 3 and all(list(g) == pytest.approx(list(w), abs=1) for g, w in zip(got_frames, want))
+    got = mc.collect(tmp_path / "f.pdf", tmp_path / "out", render_dpi=72)
+    boxes = [c["bbox_pt"] for c in got["candidates"] if c["from"].get("frame")]
+    for want in ([350, 100, 545, 700], [50, 100, 350, 700]):
+        assert any(b == pytest.approx(want, abs=2) for b in boxes)
+
+
+def test_frames_of_a_turned_page_are_where_the_page_shows_them(tmp_path):
+    # portrait pages turned by /Rotate 90 (UN maps of 2021 and 2022): paths are in the unturned page's space
+    import pypdfium2 as pdfium
+    doc = pdfium.PdfDocument.new()
+    pg = doc.new_page(612, 792)
+    stroked_rect(pg, 100, 200, 300, 400)  # unturned: x 100..400, y 200..600 (bottom-left origin)
+    pg.gen_content()
+    pg.set_rotation(90)
+    doc.save(str(tmp_path / "t.pdf"))
+    # shown 792 wide, 612 high; a quarter turn clockwise puts unturned (x, y) at (y, 612 - x), bottom-left origin
+    (b,) = mc.vector_frames(tmp_path / "t.pdf", 1)
+    assert list(b) == pytest.approx([200, 212, 600, 512], abs=1)
