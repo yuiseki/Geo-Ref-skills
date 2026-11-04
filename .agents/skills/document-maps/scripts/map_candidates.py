@@ -141,7 +141,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("src")
     ap.add_argument("--out", required=True)
-    ap.add_argument("--render-dpi", type=int, default=150)
+    ap.add_argument("--render-dpi", type=float, default=150)
     ap.add_argument("--per-page", type=int, default=3)
     a = ap.parse_args()
     res = collect(a.src, a.out, a.render_dpi, a.per_page)

@@ -2,13 +2,14 @@
 
     python scripts/run_doc_matrix.py matrix.json --work tmp/matrix/level5 --out results.tsv
 
-matrix.json is a level 4 matrix plus "documents": ["scan", "embedded", "tiled", "paper"]. For each task: make_task, then
+matrix.json is a level 4 matrix plus "documents": ["scan", "embedded", "tiled", "paper"] and optionally
+"layout": "plain" (default) or "report" (make_doc_task). For each task: make_task, then
 make_doc_task puts the map on an A4 page among body text and a chart, as a scanned page (scan.pdf, paper.pdf)
-and with the map as its own image (embedded.pdf) or as strips (tiled.pdf). The document-maps skill gives the candidates:
-    embedded  every image object (extract_images), largest first, each at its own dpi
-    tiled     as embedded, with strips joined back first (stitch_images)
-    scan      the one page image, then map-like rectangles on it (find_map_rectangles), in their rank order
-    paper     as scan, the page on yellowish paper with noise and JPEG
+and with the map as its own image (embedded.pdf) or as strips (tiled.pdf). The document-maps skill gives the candidates, in its order (map_candidates.py: image objects that are part of
+a page, strips joined first; rectangles inside page-sized images; rectangles on drawn pages). Candidates with
+no place on the page (bbox_pt) are skipped, since their truth cannot be composed. Documents:
+    embedded  the map as its own image object       tiled  the map as strips
+    scan      the page as one image                 paper  as scan, on yellowish paper with noise and JPEG
 Each candidate becomes a level 4 task (its crop, and the truth composed for that crop) and goes through
 run_matrix.run_one. The next candidate is tried only when the previous one declared failure (place-hint found
 no place or scale, or registration declared failure), never because the gates disliked an answer.
@@ -27,31 +28,13 @@ PDF_UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-pytho
            "pypdfium2==5.14.0", "python"]
 
 
-def embedded_candidates(man, min_px=64):
-    out = []
-    for im in man["images"]:
-        if "bbox_pt" not in im or not im.get("px") or min(im["px"]) < min_px:
-            continue
-        x0, y0, x1, y1 = im["bbox_pt"]
-        dpi = im["px"][0] * 72.0 / (x1 - x0)
-        hpt = im["page_size_pt"][1]
-        k = dpi / 72.0
-        wpt = im["page_size_pt"][0]
-        out.append({"file": im["file"], "dpi": dpi, "box": [x0 * k, (hpt - y1) * k, x1 * k, (hpt - y0) * k],
-                    "area": im["px"][0] * im["px"][1], "page_sized": (x1 - x0) * (y1 - y0) >= 0.9 * wpt * hpt})
-    return sorted(out, key=lambda c: -c["area"])
-
-
-def image_candidates(man, min_px=64):
-    """Stitched pictures (stitch_images) and image objects together, largest first (a stitched picture is
-    larger than any of its strips, so it comes before them), except that images covering 90 % of their page or
-    more (a scanned page, a page background) go last."""
-    c = embedded_candidates({"images": list(man.get("stitched", [])) + list(man["images"])}, min_px)
-    return [x for x in c if not x["page_sized"]] + [x for x in c if x["page_sized"]]
-
-
-def page_candidates(cands, dpi, max_n=3):
-    return [{"box": c["box"], "dpi": dpi, "score": c["score"]} for c in cands[:max_n]]
+def candidate_box(c, page_h_pt):
+    """[x0, y0, x1, y1] in page pixels at the candidate's dpi (rows down), from its bbox_pt; None if unknown."""
+    if "bbox_pt" not in c or not c.get("dpi"):
+        return None
+    k = c["dpi"] / 72.0
+    x0, y0, x1, y1 = c["bbox_pt"]
+    return [x0 * k, (page_h_pt - y1) * k, x1 * k, (page_h_pt - y0) * k]
 
 
 def try_next(row):
@@ -66,31 +49,22 @@ def run_doc(t, m, work, cache, accurate_pct, kind):
     base = Path(work) / t["id"]
     rm.run_one_make(t, m, base, cache)
     truth = json.loads((base / "truth" / "truth.json").read_text(encoding="utf-8"))
-    doc = base / "doc"
+    layout = m.get("layout", "plain")
+    doc = base / ("doc" if layout == "plain" else f"doc-{layout}")
     if not (doc / "placement.json").exists():
         subprocess.run(PDF_UVX + [str(rm.EVALS / "make_doc_task.py"), str(base / "task" / "image.png"), "--out",
-                                  str(doc), "--seed", str(t["seed"])], check=True, cwd=rm.ROOT)
+                                  str(doc), "--seed", str(t["seed"]), "--layout", layout], check=True, cwd=rm.ROOT)
     placement = json.loads((doc / "placement.json").read_text(encoding="utf-8"))
-    ex = doc / f"extract-{kind}"
-    if not (ex / "manifest.json").exists():
-        subprocess.run(PDF_UVX + [str(DOCS / "extract_images.py"), str(doc / f"{kind}.pdf"), "--out", str(ex)],
-                       check=True, cwd=rm.ROOT, capture_output=True)
-        subprocess.run(PDF_UVX + [str(DOCS / "stitch_images.py"), str(ex / "manifest.json")],
-                       check=True, cwd=rm.ROOT, capture_output=True)
-    man = json.loads((ex / "manifest.json").read_text(encoding="utf-8"))
+    cdir = doc / f"cands-{kind}"
+    if not (cdir / "candidates.json").exists():
+        subprocess.run(PDF_UVX + [str(DOCS / "map_candidates.py"), str(doc / f"{kind}.pdf"), "--out", str(cdir),
+                                  "--render-dpi", str(placement["dpi"])], check=True, cwd=rm.ROOT, capture_output=True)
+    found = json.loads((cdir / "candidates.json").read_text(encoding="utf-8"))["candidates"]
     cands = []
-    if kind in ("embedded", "tiled"):
-        for c in image_candidates(man):
-            cands.append({**c, "image": ex / c["file"], "crop": None})
-    else:
-        page = embedded_candidates(man)[0]  # the scanned page
-        fc = doc / "find"
-        if not (fc / "candidates.json").exists():
-            subprocess.run(PDF_UVX + [str(DOCS / "find_map_rectangles.py"), str(ex / page["file"]), "--out", str(fc)],
-                           check=True, cwd=rm.ROOT, capture_output=True)
-        found = json.loads((fc / "candidates.json").read_text(encoding="utf-8"))["candidates"]
-        for c in page_candidates(found, page["dpi"]):
-            cands.append({**c, "image": ex / page["file"], "crop": c["box"]})
+    for c in found:
+        box = candidate_box(c, placement["page_size_pt"][1])
+        if box is not None:
+            cands.append({"image": cdir / c["file"], "box": box, "dpi": c["dpi"], "crop": None})
     tried = []
     row = {**t, "outcome": "refused", "failed_gates": "no_candidate", "register": "not run"}
     for i, c in enumerate(cands[:3]):

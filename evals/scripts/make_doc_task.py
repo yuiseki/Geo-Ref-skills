@@ -164,8 +164,9 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--dpi", type=float, default=150)
+    ap.add_argument("--layout", default="plain", choices=["plain", "report"])
     a = ap.parse_args()
-    print(json.dumps(make_documents(a.map, a.out, a.seed, a.dpi)))
+    print(json.dumps(make_documents(a.map, a.out, a.seed, a.dpi, a.layout)))
 
 
 if __name__ == "__main__":

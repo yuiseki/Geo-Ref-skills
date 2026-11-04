@@ -46,6 +46,8 @@ def _touch(a, b):
 
 
 def _groups(imgs):
+    """Groups of touching images. Candidates are looked up by edge coordinate (2 pt buckets), so a page of tens
+    of thousands of tiles (seen on Wikimedia Commons PDFs) does not take every pair."""
     parent = list(range(len(imgs)))
 
     def root(i):
@@ -54,9 +56,35 @@ def _groups(imgs):
             i = parent[i]
         return i
 
-    for i in range(len(imgs)):
-        for j in range(i + 1, len(imgs)):
-            if _touch(imgs[i], imgs[j]):
+    import bisect
+    B = 2.0
+    # left[key] / bottom[key]: images whose left (bottom) edge falls in that 2 pt bucket, sorted along the edge
+    left, bottom = {}, {}
+    for i, im in enumerate(imgs):
+        x0, y0 = im["bbox_pt"][0], im["bbox_pt"][1]
+        left.setdefault(int(x0 // B), []).append((y0, i))
+        bottom.setdefault(int(y0 // B), []).append((x0, i))
+    for d in (left, bottom):
+        for v in d.values():
+            v.sort()
+    lspan, bspan = {}, {}  # the tallest (widest) image in each bucket bounds how far back to look
+    for im in imgs:
+        x0, y0, x1, y1 = im["bbox_pt"]
+        lspan[int(x0 // B)] = max(lspan.get(int(x0 // B), 0), y1 - y0)
+        bspan[int(y0 // B)] = max(bspan.get(int(y0 // B), 0), x1 - x0)
+    for i, im in enumerate(imgs):
+        x0, y0, x1, y1 = im["bbox_pt"]
+        near = []
+        for k in (-1, 0, 1):
+            kc, kr = int(x1 // B) + k, int(y1 // B) + k
+            col = left.get(kc, [])  # right-hand neighbours: their y0 lies within reach of ours
+            lo = y0 - lspan.get(kc, 0)
+            near += [j for _, j in col[bisect.bisect_left(col, (lo,)):bisect.bisect_right(col, (y1 + 1,))]]
+            row = bottom.get(kr, [])  # neighbours above
+            lo = x0 - bspan.get(kr, 0)
+            near += [j for _, j in row[bisect.bisect_left(row, (lo,)):bisect.bisect_right(row, (x1 + 1,))]]
+        for j in near:
+            if j != i and root(i) != root(j) and _touch(im, imgs[j]):
                 parent[root(i)] = root(j)
     out = {}
     for i in range(len(imgs)):

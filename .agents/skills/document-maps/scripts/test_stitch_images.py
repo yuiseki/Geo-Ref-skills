@@ -44,3 +44,13 @@ def test_separate_pictures_are_left_alone(tmp_path):
                                   (picture(50, 100, 5), 250, 500, 200, 100)])
     man = extract_images.extract(tmp_path / "c.pdf", tmp_path / "out")
     assert stitch_images.stitch(man, tmp_path / "out") == []
+
+
+def test_forty_thousand_tiles_group_in_seconds():
+    import time
+    imgs = [{"id": i * 200 + j, "px": [16, 16], "page": 1, "bbox_pt": [j * 8.0, i * 8.0, j * 8.0 + 8, i * 8.0 + 8]}
+            for i in range(200) for j in range(200)]
+    t = time.time()
+    g = stitch_images._groups(imgs)
+    assert len(g) == 1 and len(g[0]) == 40000
+    assert time.time() - t < 10
