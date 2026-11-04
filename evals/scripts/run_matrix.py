@@ -62,13 +62,18 @@ def tasks(m):
                "kind": kind, "strength": strength, "seed": seed}
 
 
+def country_for(m, place):
+    """The rough hint level 4 still gives: the country (ISO code), per place or for the whole matrix."""
+    return m.get("countrycodes_for", {}).get(place, m.get("countrycodes", "jp"))
+
+
 def hint_from_place_hint(ph):
     """Level 4 gives the solver no bbox and no zoom: both come from the place-hint skill (names read on the map,
     looked up, and fitted for scale). No agreeing names, or no scale, is a declared failure: None."""
     sc = ph.get("scale") or {}
     if ph.get("status") != "ok" or sc.get("status") != "ok":
         return None
-    return {"bbox": sc["bbox"], "zoom": sc["zoom"], "source": "place-hint"}
+    return {"bbox": sc["bbox"], "zoom": sc["zoom"], "zooms": sc.get("zooms", [sc["zoom"]]), "source": "place-hint"}
 
 
 def attempts(m):
@@ -134,7 +139,7 @@ def run_one(t, m, work, cache, accurate_pct):
     if m.get("hint") == "place-hint":
         ph_out = run / "place_hint.json"
         step(UVX + [str(SKILLS / "place-hint" / "scripts" / "place_hint.py"), str(task / "image.png"), "--out",
-                    str(ph_out), "--countrycodes", m.get("countrycodes", "jp"), "--cache", str(NOMINATIM_CACHE)],
+                    str(ph_out), "--countrycodes", country_for(m, t["place"]), "--cache", str(NOMINATIM_CACHE)],
              ph_out, d / "place_hint.log")
         ph = json.loads(ph_out.read_text(encoding="utf-8"))
         hint = hint_from_place_hint(ph)
@@ -150,32 +155,39 @@ def run_one(t, m, work, cache, accurate_pct):
         hint_path.write_text(json.dumps(hint, indent=2), encoding="utf-8")
     ref_style = m.get("ref_style_for", {}).get(t["style"], m["ref_style"])
 
-    def fetch(style, out):
+    def fetch(style, out, zoom):
         step(UVX + [str(SKILLS / "tile-reference" / "scripts" / "fetch_reference.py"), "--style", style,
-                    "--zoom", str(hint["zoom"]), "--bbox", *map(str, hint["bbox"]), "--cache", str(cache),
+                    "--zoom", str(zoom), "--bbox", *map(str, hint["bbox"]), "--cache", str(cache),
                     "--out", str(out)], out / "reference.json", d / f"fetch.{style}.log")
 
-    fetch(ref_style, run / "ref")
+    # level 4 may offer a second zoom; it is tried only when every attempt at the first declared failure
+    zooms = hint.get("zooms") or [hint["zoom"]]
+    fetch(ref_style, run / "ref", zooms[0])
     # registrars in order: the first that does not declare failure gives the answer; every attempt is kept
     if not (run / "answer.json").exists():
         last = None
-        for att in attempts(m):
-            name = att["registrar"]
-            script = REGISTRARS[name]
-            ref_dir = run / "ref"
-            tag = name
-            if att.get("ref_style") and att["ref_style"] != ref_style:
-                ref_dir = run / f"ref-{att['ref_style']}"
-                fetch(att["ref_style"], ref_dir)
-                tag = f"{name}.{att['ref_style']}"
-            if att.get("args"):
-                tag += "." + "-".join(a.strip("-") for a in att["args"])
-            out = run / f"answer.{tag}.json"
-            step(UVX + [str(SKILLS / name / "scripts" / script), str(task / "image.png"), str(ref_dir),
-                        "--out", str(out)] + att.get("args", []), out, d / f"register.{tag}.log")
-            last = out
-            if json.loads(out.read_text(encoding="utf-8"))["status"] == "ok":
-                break
+        for zi, zoom in enumerate(zooms):
+            zt = "" if zi == 0 else f"-z{zoom}"
+            for att in attempts(m):
+                name = att["registrar"]
+                script = REGISTRARS[name]
+                ref_dir = run / f"ref{zt}"
+                tag = name
+                if att.get("ref_style") and att["ref_style"] != ref_style:
+                    ref_dir = run / f"ref-{att['ref_style']}{zt}"
+                    tag = f"{name}.{att['ref_style']}"
+                fetch(att.get("ref_style") or ref_style, ref_dir, zoom)
+                if att.get("args"):
+                    tag += "." + "-".join(a.strip("-") for a in att["args"])
+                out = run / f"answer.{tag}{zt}.json"
+                step(UVX + [str(SKILLS / name / "scripts" / script), str(task / "image.png"), str(ref_dir),
+                            "--out", str(out)] + att.get("args", []), out, d / f"register.{tag}{zt}.log")
+                last = out
+                if json.loads(out.read_text(encoding="utf-8"))["status"] == "ok":
+                    break
+            else:
+                continue
+            break
         (run / "answer.json").write_text(last.read_text(encoding="utf-8"), encoding="utf-8")
     step(UVX + [str(SKILLS / "gcp-refinement" / "scripts" / "refine_gcps.py"), str(run / "answer.json"),
                 "--out", str(run / "refined.json")], run / "refined.json", d / "refine.log")

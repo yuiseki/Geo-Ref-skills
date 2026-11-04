@@ -51,3 +51,25 @@ def test_user_agent_names_the_tool():
 def test_real_search(tmp_path):
     r = nominatim.Client(tmp_path).search("金沢市", countrycodes="jp", limit=3)
     assert r and abs(float(r[0]["lat"]) - 36.56) < 0.3
+
+
+def test_a_busy_server_is_asked_again_then_the_error_is_raised(tmp_path):
+    import urllib.error
+    state = {"n": 0}
+
+    def busy_twice(url, timeout=30):
+        state["n"] += 1
+        if state["n"] <= 2:
+            raise urllib.error.HTTPError(url, 503, "Service Unavailable", {}, None)
+        return b"[]"
+
+    slept = []
+    c = nominatim.Client(tmp_path, pause=0, fetch=busy_twice, sleep=slept.append)
+    assert c.search("Kyoto") == [] and state["n"] == 3 and slept == [2, 4]
+
+    def always_busy(url, timeout=30):
+        raise urllib.error.HTTPError(url, 503, "Service Unavailable", {}, None)
+
+    c2 = nominatim.Client(tmp_path / "b", pause=0, fetch=always_busy, sleep=lambda s: None)
+    with pytest.raises(urllib.error.HTTPError):
+        c2.search("Kyoto")

@@ -88,3 +88,25 @@ def test_both_grey_and_colour_are_read_by_default(tmp_path):
     cv2.imwrite(str(p), img)
     ws = ocr_words.read_words(p, "eng")
     assert {w["mode"] for w in ws if "KANAZAWA" in w["text"]} == {"grey", "colour"}
+
+
+PHRASE_TSV = """level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext
+5\t1\t1\t1\t1\t1\t100\t50\t80\t20\t92\tOxford
+5\t1\t1\t1\t1\t2\t188\t50\t70\t20\t90\tStreet
+5\t1\t1\t1\t1\t3\t600\t50\t70\t20\t90\tSoho
+5\t1\t2\t1\t1\t1\t300\t200\t90\t20\t91\tCOVENT
+5\t1\t2\t1\t2\t1\t296\t226\t96\t20\t89\tGARDEN
+"""
+
+
+def test_words_side_by_side_on_a_line_are_joined_into_a_phrase():
+    words = ocr_words.parse_tsv(PHRASE_TSV)
+    texts = [j["text"] for j in ocr_words.join_phrases(words)]
+    assert "Oxford Street" in texts
+    assert not any("Soho" in t for t in texts)  # too far to the right
+
+
+def test_a_word_stacked_on_another_is_joined():
+    words = ocr_words.parse_tsv(PHRASE_TSV)
+    texts = [j["text"] for j in ocr_words.join_chome(words)]
+    assert "COVENT GARDEN" in texts

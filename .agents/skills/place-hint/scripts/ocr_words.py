@@ -73,6 +73,39 @@ def join_cjk(words, gap=0.6):
 CHOME = re.compile(r"^\d{1,2}-CHOME$", re.IGNORECASE)
 
 
+LATIN_WORD = re.compile(r"^[A-Za-z][A-Za-z'\-]*[A-Za-z]$")
+
+
+def join_phrases(words, gap=0.8, max_words=3):
+    """Latin words next to each other on one tesseract line, as phrases of 2 to max_words words: English names
+    are several words ("Oxford Street", "Charing Cross"), and tesseract returns each word on its own (London,
+    2026-11-04). Every run of consecutive words is offered; the Nominatim lookup keeps only real names."""
+    out = []
+    by_line = {}
+    for w in words:
+        if LATIN_WORD.match(w["text"]):
+            by_line.setdefault(w["line"], []).append(w)
+    for ws in by_line.values():
+        ws = sorted(ws, key=lambda w: w["col"])
+        runs, run = [], [ws[0]]
+        for w in ws[1:]:
+            prev = run[-1]
+            if (w["col"] - w["w"] / 2) - (prev["col"] + prev["w"] / 2) <= gap * max(prev["h"], w["h"], 1.0):
+                run.append(w)
+            else:
+                runs.append(run)
+                run = [w]
+        runs.append(run)
+        for run in runs:
+            for i in range(len(run)):
+                for j in range(i + 2, min(len(run), i + max_words) + 1):
+                    m = _merge(run[i:j])
+                    m["text"] = " ".join(w["text"] for w in run[i:j])
+                    m["kind"] = "phrase"
+                    out.append(m)
+    return out
+
+
 def join_chome(words, max_gap=1.6):
     """Japanese map labels are often two lines: a district name over its block number ("KANOCHO" over
     "3-CHOME"). The pair is far more specific than the name alone (Nominatim knows "Kanocho 3-chome" as one
@@ -80,9 +113,13 @@ def join_chome(words, max_gap=1.6):
     and overlapping it horizontally. Positions are those of the image tesseract read (before turning back)."""
     out = []
     names = [w for w in words if w["text"].isalpha() and not is_cjk(w["text"])]
-    for c in (w for w in words if CHOME.match(w["text"])):
+    # the lower line is a block number, or another upper-case word of a name set on two lines (COVENT / GARDEN)
+    lower = [w for w in words if CHOME.match(w["text"]) or (w["text"].isalpha() and w["text"].isupper() and len(w["text"]) >= 3)]
+    for c in lower:
         best = None
         for n in names:
+            if n is c or (not CHOME.match(c["text"]) and not n["text"].isupper()):
+                continue
             dy = (c["row"] - c["h"] / 2) - (n["row"] + n["h"] / 2)
             overlap = min(n["col"] + n["w"] / 2, c["col"] + c["w"] / 2) - max(n["col"] - n["w"] / 2, c["col"] - c["w"] / 2)
             if -0.3 * n["h"] <= dy <= max_gap * max(n["h"], 1.0) and overlap > 0.3 * min(n["w"], c["w"]):
@@ -91,7 +128,7 @@ def join_chome(words, max_gap=1.6):
         if best:
             m = _merge([best[1], c])
             m["text"] = f"{best[1]['text']} {c['text']}"
-            m["kind"] = "chome"
+            m["kind"] = "chome" if CHOME.match(c["text"]) else "stacked"
             out.append(m)
     return out
 
@@ -149,7 +186,7 @@ def _read_words(image_path, langs, scale, psm, angles, grey):
         else:
             view, Mi = img, None
         found = parse_tsv(_tesseract(view, langs, psm))
-        found += join_cjk(found) + join_chome(found)
+        found += join_cjk(found) + join_chome(found) + join_phrases(found)
         for x in found:
             if Mi is not None:
                 x["col"], x["row"] = (Mi @ np.array([x["col"], x["row"], 1.0])).tolist()

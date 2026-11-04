@@ -1,0 +1,21 @@
+{
+  "level": 4,
+  "hint": "place-hint",
+  "countrycodes_for": {"london": "gb", "manhattan": "us", "sydney": "au", "toronto": "ca"},
+  "zooms": [14, 15, 16],
+  "size": [900, 700],
+  "ref_style": "osm-liberty",
+  "places": {
+    "london": [-0.1276, 51.5072],
+    "manhattan": [-73.9857, 40.7484],
+    "sydney": [151.2093, -33.8688],
+    "toronto": [-79.3832, 43.6532]
+  },
+  "styles": ["osm-liberty"],
+  "kinds": ["similarity", "projective"],
+  "strengths": [0.5, 1.0],
+  "seeds": [30],
+  "attempts": [
+    {"registrar": "feature-registration"}
+  ]
+}

@@ -11,6 +11,7 @@ Never point this at the public nominatim.openstreetmap.org.
 import hashlib
 import json
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -28,11 +29,14 @@ def http_get(url, timeout=30):
 
 
 class Client:
-    def __init__(self, cache, base=BASE, pause=0.5, fetch=http_get):
+    BUSY = {429, 502, 503, 504}
+
+    def __init__(self, cache, base=BASE, pause=0.5, fetch=http_get, sleep=time.sleep, retries=4):
         if "openstreetmap.org" in base:
             raise ValueError("use the self-hosted Nominatim, not the public one")
         self.cache = Path(cache)
         self.base, self.pause, self.fetch = base.rstrip("/"), pause, fetch
+        self.sleep, self.retries = sleep, retries
         self.requests = self.cached = 0
         self._last = 0.0
 
@@ -51,7 +55,16 @@ class Client:
         wait = self.pause - (time.time() - self._last)
         if wait > 0:
             time.sleep(wait)
-        body = self.fetch(url)
+        # a busy server (503 seen once in 48 tasks, 2026-11-04) is asked again after 2, 4, 8 s; other errors
+        # and a server still busy after that raise, and are never cached as "no such place"
+        for attempt in range(self.retries):
+            try:
+                body = self.fetch(url)
+                break
+            except urllib.error.HTTPError as e:
+                if e.code not in self.BUSY or attempt == self.retries - 1:
+                    raise
+                self.sleep(2 ** (attempt + 1))
         self._last = time.time()
         self.requests += 1
         result = json.loads(body)

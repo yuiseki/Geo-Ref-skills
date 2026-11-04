@@ -20,7 +20,12 @@ import sys
 import unicodedata
 from pathlib import Path
 
-STOP = {"CHOME", "HOME", "CHOM", "STATION", "BUS", "TERMINAL", "PARK", "EXIT", "NORTH", "SOUTH", "EAST", "WEST", "GATE", "CITY",
+GENERIC_EN = {"STREET", "ROAD", "LANE", "COURT", "SQUARE", "PLACE", "AVENUE", "GARDEN", "GARDENS", "CROSS", "CIRCUS",
+              "PALACE", "LIBRARY", "ACADEMY", "ROYAL", "SAINT", "KING", "QUEEN", "HALL", "MARKET", "HOUSE", "CHURCH",
+              "BUILDING", "CENTRE", "CENTER", "HOTEL", "MUSEUM", "THEATRE", "THEATER", "UNIVERSITY", "COLLEGE",
+              "WALK", "ROW", "TERRACE", "DRIVE", "WAY", "CLOSE", "GROVE", "HILL", "BANK", "POINT", "PIER", "WHARF",
+              "STORES", "BOULEVARD", "PLAZA", "TOWER", "BUILDING", "STORE", "SHOP", "MALL", "THE", "AND", "NEW", "OLD"}
+STOP = GENERIC_EN | {"CHOME", "HOME", "CHOM", "STATION", "BUS", "TERMINAL", "PARK", "EXIT", "NORTH", "SOUTH", "EAST", "WEST", "GATE", "CITY",
         "TOWN", "LINE", "ROUTE", "HOSPITAL", "SCHOOL", "BRIDGE", "RIVER"}
 LATIN = re.compile(r"^[A-Za-z][A-Za-z\-]+[A-Za-z]$")
 CJK = re.compile(r"^[぀-ヿ㐀-鿿]+$")
@@ -38,6 +43,15 @@ def clean_name(raw):
     t = raw.strip().strip(".,;:()[]{}'\"")
     if len(t) > 4 and t.endswith("!") and t[:-1].isupper():
         t = t[:-1] + "I"
+    if " " in t and not CHOME_NAME.match(t):
+        toks = t.split(" ")
+        if len(toks) > 4 or not all(LATIN.match(x) or x.upper() in ("ST", "OF") for x in toks):
+            return None
+        if all(x.upper() in STOP or x.upper() in ("ST", "OF") for x in toks):
+            return None
+        if any(x.upper() != x and not (x[0].isupper() and x[1:].islower()) for x in toks if len(x) > 1):
+            return None
+        return t if len(t.replace(" ", "")) >= 5 else None
     m = CHOME_NAME.match(t)
     if m:
         name = clean_name(m.group(1))
@@ -208,10 +222,9 @@ def scale_from_names(points, width, height, tol_frac=0.06, loose_frac=0.10, min_
     0.06, 14 % at 0.10 with four required). Otherwise this is a declared failure. With three or more agreeing
     block names, the final fit uses those only.
 
-    Returns m_per_px (mercator metres per image pixel), rotation_deg, zoom (the coarsest web map zoom whose 256 px
-    tiles are at least as fine as the map's pixels, so the reference never has less detail than the map; on
-    2026-11-04 the estimate came out 7 to 11 % coarse on three Tokyo maps, and rounding put one at z14 for a z15
-    map), and bbox: the image's footprint under the fit, widened by margin_frac of its
+    Returns m_per_px (mercator metres per image pixel), rotation_deg, zooms (the nearest web map zoom, then the
+    other neighbour of the estimate: the estimate missed by up to 0.4 of a zoom on 2026-11-04, so either side
+    can be the right one; try the second only when the first declares failure), zoom (the first of them), and bbox: the image's footprint under the fit, widened by margin_frac of its
     size and by three median name residuals on each side, as a hint for the reference."""
     n = len(points)
     if n < min_inliers:
@@ -251,6 +264,8 @@ def scale_from_names(points, width, height, tol_frac=0.06, loose_frac=0.10, min_
     res = sorted(abs((Zs[k] - b) / a - zs[k]) for k in best)
     m_per_px = abs(a)
     zoom_f = math.log2(2 * ORIGIN / (256 * m_per_px))
+    near = int(round(zoom_f))
+    zooms = [near, near + 1 if zoom_f > near else near - 1]
     # widen by the names' scatter too: a Tokyo map (2026-11-04) with names 36 px off their points got a
     # rotation a few degrees off, and the 25% margin missed its corner by about 200 m
     extra = 3 * res[len(res) // 2]
@@ -258,7 +273,7 @@ def scale_from_names(points, width, height, tol_frac=0.06, loose_frac=0.10, min_
     corners = [complex(c, -r) for c in (-mx, width + mx) for r in (-my, height + my)]
     ll = [mercator_to_lonlat((a * z + b).real, (a * z + b).imag) for z in corners]
     return {"status": "ok", "m_per_px": m_per_px, "rotation_deg": math.degrees(math.atan2(a.imag, a.real)),
-            "zoom": int(math.ceil(zoom_f - 0.05)), "zoom_float": zoom_f, "inliers": len(best), "names": n,
+            "zoom": zooms[0], "zooms": zooms, "zoom_float": zoom_f, "inliers": len(best), "names": n,
             "support": sorted(points[k]["name"] for k in best), "median_residual_px": res[len(res) // 2],
             "points": [{**p, "residual_px": abs((Zs[k] - b) / a - zs[k])} for k, p in enumerate(points)],
             "bbox": [min(x for x, _ in ll), min(y for _, y in ll), max(x for x, _ in ll), max(y for _, y in ll)]}

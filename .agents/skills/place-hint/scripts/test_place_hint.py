@@ -166,9 +166,9 @@ def test_located_points_take_the_most_confident_reading_of_each_name():
     assert [(p["name"], p["col"]) for p in pts] == [("KORINBO", 11), ("片町", 30)]
 
 
-def test_zoom_is_the_one_no_coarser_than_the_map():
-    # 6.26 m/px lies between z15 (4.78) and z14 (9.55); the reference must not be coarser than the map
-    assert place_hint.scale_from_names(names_on_map(6.26, 0, (139.75, 35.68)), 900, 700)["zoom"] == 15
+def test_zoom_between_two_levels_offers_both():
+    # 6.26 m/px lies between z15 (4.78) and z14 (9.55)
+    assert place_hint.scale_from_names(names_on_map(6.26, 0, (139.75, 35.68)), 900, 700)["zooms"] == [15, 14]
 
 
 @pytest.mark.parametrize("raw,want", [
@@ -252,3 +252,18 @@ def test_block_names_are_trusted_more_than_district_names():
     s = place_hint.scale_from_names(pts, 900, 700)
     assert s["status"] == "ok" and s["inliers"] == 8
     assert s["m_per_px"] == pytest.approx(4.78, rel=0.03) and s["rotation_deg"] == pytest.approx(8.0, abs=1.5)
+
+
+@pytest.mark.parametrize("raw,want", [
+    ("Oxford Street", "Oxford Street"), ("COVENT GARDEN", "COVENT GARDEN"), ("Street", None), ("GARDEN", None),
+    ("King", None), ("Street Road", None), ("Charing Cross", "Charing Cross"), ("Soho", "Soho"),
+])
+def test_name_filter_phrases_and_generic_english_words(raw, want):
+    assert place_hint.clean_name(raw) == want
+
+
+def test_zoom_candidates_are_the_nearest_then_the_other_neighbour():
+    s = place_hint.scale_from_names(names_on_map(4.78 * 2 ** -0.1, 0, (139.75, 35.68)), 900, 700)  # z 15.1
+    assert s["zooms"] == [15, 16] and s["zoom"] == 15
+    s = place_hint.scale_from_names(names_on_map(4.78 * 2 ** 0.4, 0, (139.75, 35.68)), 900, 700)  # z 14.6
+    assert s["zooms"] == [15, 14]

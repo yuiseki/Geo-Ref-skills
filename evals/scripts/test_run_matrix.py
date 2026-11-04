@@ -60,8 +60,17 @@ def test_zooms_are_an_axis_when_given():
 
 
 def test_level4_hint_comes_from_place_hint_scale_or_is_a_refusal():
-    ok = {"status": "ok", "bbox": [1, 2, 3, 4], "scale": {"status": "ok", "bbox": [1.5, 2.5, 2.5, 3.5], "zoom": 16}}
-    assert run_matrix.hint_from_place_hint(ok) == {"bbox": [1.5, 2.5, 2.5, 3.5], "zoom": 16, "source": "place-hint"}
+    ok = {"status": "ok", "bbox": [1, 2, 3, 4], "scale": {"status": "ok", "bbox": [1.5, 2.5, 2.5, 3.5], "zoom": 16,
+                                                          "zooms": [16, 15]}}
+    assert run_matrix.hint_from_place_hint(ok) == {"bbox": [1.5, 2.5, 2.5, 3.5], "zoom": 16, "zooms": [16, 15],
+                                                    "source": "place-hint"}
     no_scale = {"status": "ok", "bbox": [1, 2, 3, 4], "scale": {"status": "failed", "reason": "2 of 3 names"}}
     assert run_matrix.hint_from_place_hint(no_scale) is None
     assert run_matrix.hint_from_place_hint({"status": "failed", "reason": "support 1"}) is None
+
+
+def test_country_for_a_place_overrides_the_matrix_country():
+    m = {"countrycodes": "jp", "countrycodes_for": {"london": "gb"}}
+    assert run_matrix.country_for(m, "london") == "gb"
+    assert run_matrix.country_for(m, "tokyo") == "jp"
+    assert run_matrix.country_for({}, "tokyo") == "jp"
