@@ -43,6 +43,15 @@ def try_next(row):
     return row.get("failed_gates") == "place_hint" or row.get("register") not in ("ok", None)
 
 
+def tried_note(rows):
+    """Every tried candidate with its outcome and its own reason, since the row is only the last candidate's."""
+    parts = []
+    for i, r in enumerate(rows):
+        why = (r.get("error") or "").strip()
+        parts.append(f"c{i + 1}:{r['outcome']}" + (f"({why[:90]})" if why else ""))
+    return "tried " + " ".join(parts)
+
+
 def run_doc(t, m, work, cache, accurate_pct, kind):
     import cv2
     from make_doc_task import crop_truth
@@ -85,10 +94,10 @@ def run_doc(t, m, work, cache, accurate_pct, kind):
         (d / "truth" / "truth.json").write_text(json.dumps(ct), encoding="utf-8")
         (d / "task" / "hint.json").write_text("{}", encoding="utf-8")
         row = rm.run_one({**t, "id": tid}, m, work, cache, accurate_pct)
-        tried.append(f"c{i + 1}:{row['outcome']}")
+        tried.append(row)
         if not try_next(row):
             break
-    return {**row, "id": f"{t['id']}/{kind}", "error": (row.get("error") or "") + f" tried {' '.join(tried)}"}
+    return {**row, "id": f"{t['id']}/{kind}", "error": tried_note(tried) if tried else (row.get("error") or "")}
 
 
 def main():
