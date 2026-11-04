@@ -19,7 +19,11 @@ SKILLS = ROOT / ".agents" / "skills"
 COPIES = {
     "webmercator.py": ["tile-reference", "feature-registration", "georef-gates", "gcp-refinement", "cross-style-registration", "evals"],
     "tiles.py": ["tile-reference", "evals"],
-    "transforms.py": ["georef-gates", "gcp-refinement", "evals"],
+    "transforms.py": ["georef-gates", "gcp-refinement", "evals", "name-gcps"],
+    "ocr_words.py": ["place-hint", "name-gcps"],
+    "nominatim.py": ["place-hint", "name-gcps"],
+    "place_hint.py": ["place-hint", "name-gcps"],
+    "geometry.py": ["place-hint", "name-gcps"],
 }
 
 

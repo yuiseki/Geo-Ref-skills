@@ -1,0 +1,427 @@
+"""Control points from the towns printed on a map: each town's symbol in the image, and its place in OpenStreetMap.
+
+    python scripts/name_gcps.py image.png --out answer.json [--countrycodes xk,rs] [--cache tmp/nominatim]
+
+For maps that do not look like the reference tiles (a thematic country map, such as the United Nations
+peacekeeping maps), so image registration cannot match them, but whose towns are printed as a small ring
+beside their name.
+
+1. Read the words (tesseract, ocr_words.py) and keep those that look like place names (place_hint.clean_name),
+   each at its most confident reading.
+2. Look each name up on the self-hosted Nominatim. Keep exact name matches of class "place" (towns, villages)
+   or administrative boundaries (a town linked to its municipality); a name usually has candidates in many
+   places.
+3. Find the similarity (scale, rotation within max_angle_deg, shift) from printed names to their places that the
+   most names agree with, trying pairs of (name, candidate) at random. A name agrees when one of its
+   candidates lies within tol_frac of the image diagonal of where the similarity puts it: a name is printed
+   beside its town, not on it.
+4. Find the ring symbols (template matching, outside every word read), and give each agreeing name the symbol
+   beside its label that lies nearest to where the fit puts the town. Fit the transform (affine by default) to
+   the symbols, drop the point farthest off until all lie within tol_px, and choose the symbols again from
+   that fit.
+
+Fewer than min_names agreeing names, or fewer than min_gcps control points left, is a declared failure
+("status": "failed"). The answer has the same form as the registration tools' (check it with georef-gates).
+"""
+
+import argparse
+import cmath
+import json
+import math
+import random
+import sys
+from pathlib import Path
+
+import cv2
+import numpy as np
+
+import place_hint as ph
+import transforms as tf
+
+
+def labels(words, min_conf=60.0):
+    """{name: word} for words that look like place names, each at its most confident reading."""
+    out = {}
+    for w in sorted(words, key=lambda w: -w["conf"]):
+        if w["conf"] < min_conf:
+            continue
+        n = ph.clean_name(w["text"])
+        if n and n not in out:
+            out[n] = w
+    return out
+
+
+def _ring(r, t=1.2, pad=3, dot=False):
+    c = int(r + pad)
+    yy, xx = np.mgrid[:2 * c + 1, :2 * c + 1]
+    d = np.hypot(xx - c, yy - c)
+    T = 255 * (1 - np.clip(1 - np.abs(d - r) / t, 0, 1))
+    if dot:  # an administrative centre: a ring with a dot inside
+        T[d <= 0.45 * r] = 0
+    return T.astype(np.float32)
+
+
+def _band(r0, r1, c):
+    yy, xx = np.mgrid[:2 * c + 1, :2 * c + 1]
+    d = np.hypot(xx - c, yy - c)
+    K = ((d >= r0) & (d <= r1)).astype(np.float32)
+    return K / K.sum()
+
+
+def ring_score(gray, radii=(3.0, 3.5, 4.0, 4.5, 5.0, 6.0), dot_radii=(4.0, 5.0, 6.0, 7.0, 8.0), min_contrast=40.0):
+    """How much each pixel looks like the centre of a small dark ring (normalised cross-correlation, -1..1).
+
+    The ring must be hollow: a band inside it (between the ring and the centre, or between the ring and the
+    dot of an administrative centre) at least min_contrast grey levels lighter than the ring itself.
+    Correlation alone scored a filled square 0.66, as high as a ring."""
+    g = np.asarray(gray, np.float32)
+    best = np.full(g.shape, -1.0, np.float32)
+    for r, dot in [(r, False) for r in radii] + [(r, True) for r in dot_radii]:
+        T = _ring(r, dot=dot)
+        c = T.shape[0] // 2
+        R = cv2.matchTemplate(g, T, cv2.TM_CCOEFF_NORMED)
+        R = cv2.copyMakeBorder(R, c, c, c, c, cv2.BORDER_CONSTANT, value=-1)
+        ring_mean = cv2.filter2D(g, -1, _band(r - 0.5, r + 0.5, c), borderType=cv2.BORDER_REPLICATE)
+        lo, hi = (0.55 * r, 0.75 * r) if dot else (0.0, 0.5 * r)
+        band_mean = cv2.filter2D(g, -1, _band(lo, hi, c), borderType=cv2.BORDER_REPLICATE)
+        R[band_mean - ring_mean < min_contrast] = -1
+        best = np.maximum(best, R)
+    return best
+
+
+RING_CHARS = set("oO0°@©®«»“”\"'")
+
+
+def letter_boxes(words, min_conf=60.0, min_letters=3):
+    """Boxes (col, row, w, h) of the letters of confident words: where a ring is a letter (o, e, a), not a town.
+
+    tesseract reads a town's ring beside its name as part of the word ("Srbicao", "°Novi", 2026-11-04), so a
+    ring-like character at either end is left out of the box when the word without it was read too, or when it
+    is not a letter at all. Low-confidence readings (noise over roads and symbols) do not count."""
+    texts = {w["text"].strip() for w in words if w["conf"] >= min_conf}
+    out = []
+    for w in words:
+        t = w["text"].strip()
+        if w["conf"] < min_conf or w.get("kind", "word") != "word" or sum(ch.isalpha() for ch in t) < min_letters:
+            continue
+        n = len(t)
+        lead = 0
+        while lead < n and t[lead] in RING_CHARS and (not t[lead].isalpha() or t[lead + 1:] in texts):
+            lead += 1
+        trail = 0
+        while trail < n - lead and t[n - 1 - trail] in RING_CHARS and (
+                not t[n - 1 - trail].isalpha() or t[:n - 1 - trail] in texts):
+            trail += 1
+        cw = w["w"] / n
+        left = w["col"] - w["w"] / 2 + lead * cw
+        right = w["col"] + w["w"] / 2 - trail * cw
+        if right > left:
+            out.append(((left + right) / 2, w["row"], right - left, w["h"]))
+    return out
+
+
+def symbol_peaks(score, words, min_score=0.4, window=7):
+    """Local maxima of the ring score, except on the letters of words: o, e and a look like rings too."""
+    boxes = letter_boxes(words)
+    mx = cv2.dilate(score, np.ones((window, window), np.uint8))
+    ys, xs = np.where((score >= min_score) & (score == mx))
+    out = []
+    for x, y in zip(xs, ys):
+        if any(abs(x - c) <= bw / 2 + 1 and abs(y - r) <= bh / 2 + 1 for c, r, bw, bh in boxes):
+            continue
+        out.append({"col": x + _vertex(score, y, x, 1), "row": y + _vertex(score, y, x, 0), "score": float(score[y, x])})
+    return out
+
+
+def _vertex(s, y, x, axis):
+    """Sub-pixel offset of a peak along one axis, from a parabola through it and its two neighbours: the
+    integer peak alone is off by up to half a pixel, a sixth of the 3 px the gates allow."""
+    H, W = s.shape
+    if axis == 1 and 0 < x < W - 1:
+        a, b, c = s[y, x - 1], s[y, x], s[y, x + 1]
+    elif axis == 0 and 0 < y < H - 1:
+        a, b, c = s[y - 1, x], s[y, x], s[y + 1, x]
+    else:
+        return 0.0
+    d = a - 2 * b + c
+    return float(np.clip(0.5 * (a - c) / d, -0.5, 0.5)) if d < 0 else 0.0
+
+
+def fit_names(z, cands, diag, tol_frac=0.03, iters=60000, seed=0, max_angle_deg=30.0, min_pair_frac=0.1):
+    """The similarity Z = a z + b (z = col - i row, Z mercator metres as x + i y) most names agree with.
+
+    z: {name: complex}, cands: {name: [complex, ...]}. Returns a, b and {name: the agreeing candidate}."""
+    names = [n for n in z if cands.get(n)]
+    if len(names) < 2:
+        return None, None, {}
+    zs = np.array([z[n] for n in names])
+    flat = np.array([q for n in names for q in cands[n]])
+    owner = np.array([k for k, n in enumerate(names) for _ in cands[n]])
+    starts = np.r_[0, np.cumsum([len(cands[n]) for n in names])[:-1]]
+    pairs = [(k, q) for k, n in enumerate(names) for q in cands[n]]
+    tol = tol_frac * diag
+    rnd = random.Random(seed)
+
+    def agree(a, b):
+        d = np.abs(a * zs[owner] + b - flat) / abs(a)
+        best = np.minimum.reduceat(d, starts)
+        return best < tol, best
+
+    best_key, best_ab = None, None
+    for _ in range(iters):
+        (k1, q1), (k2, q2) = rnd.sample(pairs, 2)
+        dz = zs[k1] - zs[k2]
+        if k1 == k2 or abs(dz) < min_pair_frac * diag:
+            continue
+        a = (q1 - q2) / dz
+        if a == 0 or abs(math.degrees(cmath.phase(a))) > max_angle_deg:
+            continue
+        b = q1 - a * zs[k1]
+        ok, d = agree(a, b)
+        key = (int(ok.sum()), -float(d[ok].sum()))
+        if best_key is None or key > best_key:
+            best_key, best_ab = key, (a, b)
+    if best_ab is None:
+        return None, None, {}
+    a, b = best_ab
+    for _ in range(5):  # least squares over the agreeing names, then collect them again
+        ok, _ = agree(a, b)
+        idx = np.where(ok)[0]
+        if len(idx) < 2:
+            break
+        P = a * zs[owner] + b
+        chosen = {}
+        for k in idx:
+            sl = slice(starts[k], starts[k] + len(cands[names[k]]))
+            chosen[k] = flat[sl][np.argmin(np.abs(P[sl] - flat[sl]))]
+        src = np.array([zs[k] for k in idx])
+        dst = np.array([chosen[k] for k in idx])
+        ms, md = src.mean(), dst.mean()
+        a = np.sum((dst - md) * np.conj(src - ms)) / np.sum(np.abs(src - ms) ** 2)
+        b = md - a * ms
+    ok, _ = agree(a, b)
+    P = a * zs[owner] + b
+    out = {}
+    for k in np.where(ok)[0]:
+        sl = slice(starts[k], starts[k] + len(cands[names[k]]))
+        out[names[k]] = complex(flat[sl][np.argmin(np.abs(P[sl] - flat[sl]))])
+    return complex(a), complex(b), out
+
+
+def is_town_label(name):
+    """Towns are printed in mixed case; names in capitals are countries, provinces and regions, which have no
+    symbol (EQUATEUR, TSHUAPA and ANGOLA took a stray ring as their town, 2026-11-04)."""
+    return not name.isupper()
+
+
+def symbol_options(label, peaks, reach=1.2):
+    """The symbols that may be a label's town: outside its box and within reach * its height of the box."""
+    out = []
+    for p in peaks:
+        dx = max(abs(p["col"] - label["col"]) - label["w"] / 2, 0.0)
+        dy = max(abs(p["row"] - label["row"]) - label["h"] / 2, 0.0)
+        if (dx or dy) and math.hypot(dx, dy) <= reach * label["h"]:
+            out.append(p)
+    return out
+
+
+def anchor(label, peaks, predicted, reach=1.2):
+    """Of a label's symbol options, the one nearest to where the current fit puts the town; None if none."""
+    opts = symbol_options(label, peaks, reach)
+    if not opts:
+        return None
+    return min(opts, key=lambda p: math.hypot(p["col"] - predicted[0], p["row"] - predicted[1]))
+
+
+def fit_symbols(options, places, diag, tol_px=8.0, iters=20000, seed=0, max_angle_deg=30.0, min_pair_frac=0.1):
+    """The similarity Z = a s + b from symbols (s = col - i row) to places that the most names agree with,
+    choosing one of each name's symbol options. A label often has several ring-like marks within reach (an
+    airport, a railway tick, the next town), and the label's own position predicts its town only to 20 to 40 px
+    on a country map (Democratic Republic of the Congo, 2026-11-04), too loosely to choose among them.
+
+    options: {name: [complex, ...]}, places: {name: complex}. Returns a, b and {name: the chosen symbol}."""
+    names = [n for n in options if options[n] and n in places]
+    if len(names) < 2:
+        return None, None, {}
+    flat = np.array([o for n in names for o in options[n]])
+    owner = np.array([k for k, n in enumerate(names) for _ in options[n]])
+    starts = np.r_[0, np.cumsum([len(options[n]) for n in names])[:-1]]
+    Zs = np.array([places[n] for n in names])
+    rnd = random.Random(seed)
+
+    def agree(a, b):
+        d = np.abs(a * flat + b - Zs[owner]) / abs(a)
+        best = np.minimum.reduceat(d, starts)
+        return best < tol_px, best
+
+    best_key, best_ab = None, None
+    for _ in range(iters):
+        k1, k2 = rnd.sample(range(len(names)), 2)
+        s1, s2 = rnd.choice(options[names[k1]]), rnd.choice(options[names[k2]])
+        ds = s1 - s2
+        if abs(ds) < min_pair_frac * diag:
+            continue
+        a = (Zs[k1] - Zs[k2]) / ds
+        if a == 0 or abs(math.degrees(cmath.phase(a))) > max_angle_deg:
+            continue
+        b = Zs[k1] - a * s1
+        ok, d = agree(a, b)
+        key = (int(ok.sum()), -float(d[ok].sum()))
+        if best_key is None or key > best_key:
+            best_key, best_ab = key, (a, b)
+    if best_ab is None:
+        return None, None, {}
+    a, b = best_ab
+    ok, _ = agree(a, b)
+    out = {}
+    for k in np.where(ok)[0]:
+        sl = slice(starts[k], starts[k] + len(options[names[k]]))
+        out[names[k]] = complex(flat[sl][np.argmin(np.abs(a * flat[sl] + b - Zs[k]))])
+    return complex(a), complex(b), out
+
+
+def _gsd(model, src):
+    c = src.mean(axis=0, keepdims=True)
+    return float(np.sqrt(abs(np.linalg.det(model.jacobian(c)[0]))))
+
+
+def robust_fit(pts, method="affine", tol_px=2.0):
+    """Fit pixels (col, row) to mercator (x, y), dropping the point farthest off until every point lies within
+    tol_px (in image pixels). Returns the kept points and the fit (None when too few are left)."""
+    pts = list(pts)
+    while len(pts) >= tf.MIN_POINTS[method] + 1:
+        src = np.array([[p["col"], p["row"]] for p in pts], float)
+        dst = np.array([[p["x"], p["y"]] for p in pts], float)
+        try:
+            m = tf.fit(method, src, dst)
+        except ValueError:
+            return pts, None
+        res = np.hypot(*(m.predict(src) - dst).T) / _gsd(m, src)
+        w = int(np.argmax(res))
+        if res[w] <= tol_px:
+            return pts, m
+        pts = pts[:w] + pts[w + 1:]
+    return pts, None
+
+
+def one_per_symbol(pts, px=1.0):
+    """One control point per symbol. Two names on one symbol are two readings of one label (Kumanovo and a
+    misread Kumanove, 2026-11-04) or two names competing for it; counted twice, they would make the fit look
+    better supported than it is. The first is kept."""
+    out = []
+    for p in pts:
+        if all(math.hypot(p["col"] - q["col"], p["row"] - q["row"]) > px for q in out):
+            out.append(p)
+    return out
+
+
+def merge_hits(hits, km=2.0):
+    """Hits of one name within km of each other are one place. Its position is a town node's when there is one:
+    a boundary's point may be its centre rather than the town's."""
+    groups = []
+    for h in hits:
+        c = {"lon": float(h["lon"]), "lat": float(h["lat"]), "place": (h.get("category") or h.get("class")) == "place"}
+        for g in groups:
+            if ph.haversine_km(c["lon"], c["lat"], g[0]["lon"], g[0]["lat"]) <= km:
+                g.append(c)
+                break
+        else:
+            groups.append([c])
+    out = []
+    for g in groups:
+        use = [c for c in g if c["place"]] or g
+        out.append({"lon": sum(c["lon"] for c in use) / len(use), "lat": sum(c["lat"] for c in use) / len(use)})
+    return out
+
+
+def place_candidates(client, name, countrycodes=None):
+    """Nominatim's exact matches of class place for a name, as mercator complex numbers (near ones merged)."""
+    hits = ph.exact_hits(name, client.search(name, limit=40, countrycodes=countrycodes, namedetails=True))
+    # towns come back as a place node or as the administrative boundary the node is linked to (Prokuplje,
+    # Lipljan and Pristina only as the boundary, 2026-11-04); Nominatim puts a linked boundary at its town
+    hits = [h for h in hits if (h.get("category") or h.get("class")) == "place"
+            or ((h.get("category") or h.get("class")) == "boundary" and h.get("type") == "administrative")]
+    merged = merge_hits(hits)
+    return [complex(*ph.lonlat_to_mercator(c["lon"], c["lat"])) for c in merged]
+
+
+def solve(gray, words, cands, method="affine", tol_frac=0.03, tol_px=2.0, min_names=6, min_gcps=12,
+          max_angle_deg=30.0, iters=60000, seed=0, sym_tol_frac=0.005):
+    H, W = gray.shape
+    diag = math.hypot(W, H)
+    lab = labels(words)
+    z = {n: complex(w["col"], -w["row"]) for n, w in lab.items() if cands.get(n)}
+    a, b, agreeing = fit_names(z, {n: cands[n] for n in z}, diag, tol_frac, iters, seed, max_angle_deg)
+    info = {"names_read": len(lab), "names_found": len(z), "names_agreeing": sorted(agreeing)}
+    if len(agreeing) < min_names:
+        return {"status": "failed", "reason": f"{len(agreeing)} names agree on one similarity (need {min_names})",
+                **info}
+    peaks = symbol_peaks(ring_score(gray), words)
+    options = {n: [complex(p["col"], -p["row"]) for p in symbol_options(lab[n], peaks)]
+               for n in agreeing if is_town_label(n)}
+    options = {n: o for n, o in options.items() if o}
+    info["names_with_symbol"] = len(options)
+    sa, sb, chosen = fit_symbols(options, agreeing, diag, sym_tol_frac * diag, iters // 3, seed, max_angle_deg)
+    pts = [{"name": n, "col": s.real, "row": -s.imag, "x": agreeing[n].real, "y": agreeing[n].imag}
+           for n, s in sorted(chosen.items())]
+    kept, model = robust_fit(one_per_symbol(pts), method, tol_px)
+    if model is not None:  # choose each name's symbol again from the fit, then fit again
+        inv = tf.fit(method, np.array([[p["x"], p["y"]] for p in kept]), np.array([[p["col"], p["row"]] for p in kept]))
+        pts = []
+        for n in sorted(options):
+            c, r = inv.predict([[agreeing[n].real, agreeing[n].imag]])[0]
+            s = min(options[n], key=lambda o: abs(o - complex(c, -r)))
+            pts.append({"name": n, "col": s.real, "row": -s.imag, "x": agreeing[n].real, "y": agreeing[n].imag})
+        kept, model = robust_fit(one_per_symbol(pts), method, tol_px)
+    info["symbols_agreeing"] = len(chosen)
+    if model is None or len(kept) < min_gcps:
+        return {"status": "failed", "reason": f"{len(kept)} control points fit within {tol_px} px (need {min_gcps})",
+                **info}
+    gcps = []
+    for p in kept:
+        lon, lat = ph.mercator_to_lonlat(p["x"], p["y"])
+        gcps.append({"col": p["col"], "row": p["row"], "lon": lon, "lat": lat, "name": p["name"]})
+    return {"status": "ok", "method": method, "crs": "EPSG:4326", "gcps": gcps, **info}
+
+
+def main():
+    import nominatim
+    import ocr_words
+
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("image")
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--langs", default="eng")
+    ap.add_argument("--countrycodes", default=None)
+    ap.add_argument("--cache", default="tmp/nominatim")
+    ap.add_argument("--method", default="affine", choices=sorted(tf.MIN_POINTS))
+    ap.add_argument("--tol-frac", type=float, default=0.03)
+    ap.add_argument("--tol-px", type=float, default=2.0)
+    ap.add_argument("--min-names", type=int, default=6)
+    ap.add_argument("--min-gcps", type=int, default=12)
+    ap.add_argument("--scales", type=float, nargs="+", default=[2.0, 3.0, 4.0, 5.0],
+                    help="read the image enlarged by each factor; each finds names the others miss")
+    ap.add_argument("--words", default=None, help="keep the OCR words in this JSON file and reuse them if present")
+    a = ap.parse_args()
+    if a.words and Path(a.words).exists():
+        words = json.loads(Path(a.words).read_text(encoding="utf-8"))
+    else:
+        # one enlargement reads some names and misses others: on a Congo map (2026-11-04) 2, 3, 4 and 5 times
+        # read 110 to 122 names each, 157 together
+        words = [w for sc in a.scales for w in ocr_words.read_words(a.image, a.langs, sc, angles=[0.0])]
+        if a.words:
+            Path(a.words).write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
+    gray = cv2.imread(a.image, cv2.IMREAD_GRAYSCALE)
+    client = nominatim.Client(a.cache)
+    cands = {n: place_candidates(client, n, a.countrycodes) for n in labels(words)}
+    ans = solve(gray, words, cands, a.method, a.tol_frac, a.tol_px, a.min_names, a.min_gcps)
+    ans = {"image": {"width": gray.shape[1], "height": gray.shape[0]},
+           "tool": {"name": "name-gcps", "langs": a.langs, "scales": a.scales, "tol_frac": a.tol_frac, "tol_px": a.tol_px},
+           "nominatim": {"base": client.base, "requests": client.requests, "cached": client.cached}, **ans}
+    Path(a.out).write_text(json.dumps(ans, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(json.dumps({k: ans.get(k) for k in ("status", "reason", "names_found")} | {"gcps": len(ans.get("gcps", []))}))
+    sys.exit(0 if ans["status"] == "ok" else 1)
+
+
+if __name__ == "__main__":
+    main()
