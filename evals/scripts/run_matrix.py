@@ -123,10 +123,10 @@ def step(cmd, out, log):
     return r.returncode
 
 
-def run_one(t, m, work, cache, accurate_pct):
-    d = Path(work) / t["id"]
-    task, truth, run = d / "task", d / "truth", d / "run"
-    for p in (task, truth, run):
+def run_one_make(t, m, d, cache):
+    """Make the task (image, hint, truth) in d unless its truth is already there."""
+    task, truth = d / "task", d / "truth"
+    for p in (task, truth, d / "run"):
         p.mkdir(parents=True, exist_ok=True)
     W, H = m["size"]
     step(UVX + [str(EVALS / "make_task.py"), "--style", t["style"], "--center", *map(str, t["center"]),
@@ -134,6 +134,12 @@ def run_one(t, m, work, cache, accurate_pct):
                 "--strength", str(t["strength"]), "--seed", str(t["seed"]), "--cache", str(cache),
                 "--task-out", str(task), "--truth-out", str(truth), "--photometric", t.get("photometric", "none")],
          truth / "truth.json", d / "make.log")
+
+
+def run_one(t, m, work, cache, accurate_pct):
+    d = Path(work) / t["id"]
+    task, truth, run = d / "task", d / "truth", d / "run"
+    run_one_make(t, m, d, cache)
     hint = json.loads((task / "hint.json").read_text(encoding="utf-8"))
     hint_path = task / "hint.json"
     if m.get("hint") == "place-hint":
