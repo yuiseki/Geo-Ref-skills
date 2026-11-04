@@ -5,6 +5,10 @@
 Candidates come from two cues, both classical:
     regions  content on the paper, closed over small gaps, as connected blocks. The paper's colour and noise
              are measured on the page's outer margin, so a scan on off-white paper works like a white page
+    cores    the largest rectangle of 16 px blocks at least half filled (lone empty
+             blocks closed) inside each region, its sides then
+             moved to the last mostly-filled row or column (a chart, a caption or a
+             legend touching the map widens its region but not this rectangle)
     frames   long horizontal and vertical lines (a map's neat line) and the rectangles they enclose
 Boxes overlapping more than 80 % are one candidate. Each gets features and a ranking score:
     fill          share of the box that is not paper (a map is drawn all over; a paragraph is mostly paper)
@@ -74,6 +78,43 @@ def _features(crop, colour, noise):
     return {"fill": fill, "colours": colours, "orientations": ent, "palette": palette}
 
 
+def largest_filled_rectangle(mask):
+    """(x0, y0, x1, y1) of the largest axis-aligned rectangle of True cells, or None (histogram method)."""
+    H, W = mask.shape
+    heights = np.zeros(W + 1, np.int64)
+    best, box = 0, None
+    for y in range(H):
+        heights[:W] = np.where(mask[y], heights[:W] + 1, 0)
+        stack = []
+        for x in range(W + 1):
+            h = heights[x]
+            start = x
+            while stack and stack[-1][1] >= h:
+                sx, sh = stack.pop()
+                if sh * (x - sx) > best:
+                    best, box = int(sh * (x - sx)), (int(sx), int(y - sh + 1), int(x), int(y + 1))
+                start = sx
+            stack.append((start, h))
+    return box
+
+
+def _refine(mask, box, step, frac=0.5):
+    """Move each side of a block-aligned box to the pixel where the row or column stops being mostly content."""
+    x0, y0, x1, y1 = box
+    H, W = mask.shape
+    full = lambda a: a.size and a.mean() >= frac
+    for _ in range(step):
+        if y0 > 0 and full(mask[y0 - 1, x0:x1]):
+            y0 -= 1
+        if y1 < H and full(mask[y1, x0:x1]):
+            y1 += 1
+        if x0 > 0 and full(mask[y0:y1, x0 - 1]):
+            x0 -= 1
+        if x1 < W and full(mask[y0:y1, x1]):
+            x1 += 1
+    return int(x0), int(y0), int(x1), int(y1)
+
+
 def _iou(a, b):
     x0, y0, x1, y1 = max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])
     inter = max(0, x1 - x0) * max(0, y1 - y0)
@@ -90,10 +131,24 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
     boxes = []
     k = max(3, int(close_frac * W))
     closed = cv2.morphologyEx(content, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (k, k)))
-    n, _, stats, _ = cv2.connectedComponentsWithStats(closed, connectivity=8)
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(closed, connectivity=8)
+    raw = content.astype(bool)
+    f = 16  # the core is searched on 16 x 16 blocks at least half filled, so white roads do not cut it
     for i in range(1, n):
         x, y, w, h = stats[i, :4]
         boxes.append(((int(x), int(y), int(x + w), int(y + h)), "region"))
+        if w * h < min_area * W * H:
+            continue
+        comp = (labels[y:y + h, x:x + w] == i) & raw[y:y + h, x:x + w]
+        hb, wb = h // f, w // f
+        if hb == 0 or wb == 0:
+            continue
+        blocks = (comp[:hb * f, :wb * f].reshape(hb, f, wb, f).mean(axis=(1, 3)) >= 0.5).astype(np.uint8)
+        blocks = cv2.morphologyEx(blocks, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8)).astype(bool)  # lone empty blocks
+        r = largest_filled_rectangle(blocks)
+        if r:
+            box = _refine(raw, (x + r[0] * f, y + r[1] * f, x + r[2] * f, y + r[3] * f), f)
+            boxes.append((box, "core"))
     L = max(10, int(line_frac * W))
     dark = (cv2.cvtColor(page, cv2.COLOR_BGR2GRAY) < 128).astype(np.uint8)
     hl = cv2.morphologyEx(dark, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (L, 1)))
@@ -106,7 +161,8 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
             boxes.append(((int(x), int(y), int(x + w), int(y + h)), "frame"))
     floor = min_area * W * H
     out = []
-    for box, kind in sorted(boxes, key=lambda b: b[1] != "frame"):  # frames first, so they win a merge
+    order = {"frame": 0, "core": 1, "region": 2}
+    for box, kind in sorted(boxes, key=lambda b: order[b[1]]):  # frames first, then cores, so they win a merge
         x0, y0, x1, y1 = box
         if (x1 - x0) * (y1 - y0) < floor:
             continue

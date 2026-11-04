@@ -6,6 +6,8 @@ Writes, for one A4 page:
     page.png      the page drawn at --dpi: body text, a bar chart and the map at a random place and size
     scan.pdf      that page as one image (a scanned document)
     embedded.pdf  the page without the map as one image, and the map as its own image object on top
+    tiled.pdf     as embedded, with the map cut into 3 to 6 horizontal strips, one image object each
+    paper.pdf     as scan, on yellowish paper with sensor noise and JPEG (no skew, so the placement holds)
     placement.json  the map's rectangle on the page in points from the top left (map_pt: left, top, width,
                   height), the page size, the dpi and the seed
 crop_truth() turns the task's truth into the truth of any crop of the page drawn at any dpi, so an answer
@@ -13,6 +15,7 @@ for a crop is scored against the right transform.
 """
 
 import argparse
+import io
 import json
 from pathlib import Path
 
@@ -67,6 +70,30 @@ def make_documents(map_path, out, seed=0, dpi=150):
         pg.insert_obj(obj)
     pg.gen_content()
     doc.save(str(out / "embedded.pdf"))
+    # tiled: the map cut into horizontal strips, each its own image object, as many PDF producers store rasters
+    n = int(rng.integers(3, 7))
+    rows = [round(H * k / n) for k in range(n + 1)]
+    doc = pdfium.PdfDocument.new()
+    pg = doc.new_page(*A4)
+    parts = [(background, (0, 0, A4[0], A4[1]))]
+    for r0, r1 in zip(rows[:-1], rows[1:]):
+        y_top = top + height_pt * r0 / H
+        parts.append((m.crop((0, r0, W, r1)), (left, A4[1] - y_top - height_pt * (r1 - r0) / H, width_pt,
+                                               height_pt * (r1 - r0) / H)))
+    for im, (x, y, w, h) in parts:
+        obj = pdfium.PdfImage.new(doc)
+        obj.set_bitmap(pdfium.PdfBitmap.from_pil(im))
+        obj.set_matrix(pdfium.PdfMatrix().scale(w, h).translate(x, y))
+        pg.insert_obj(obj)
+    pg.gen_content()
+    doc.save(str(out / "tiled.pdf"))
+    # paper: the scan on yellowish paper, with sensor noise and JPEG, still axis-aligned so the truth holds
+    tint = np.array((238, 234, 226), np.float32) / 255.0
+    arr = np.asarray(page).astype(np.float32) * tint + rng.normal(0, 4, (ph, pw, 3))
+    scan = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    buf = io.BytesIO()
+    scan.save(buf, format="JPEG", quality=75)
+    Image.open(buf).save(out / "paper.pdf", resolution=dpi)
     pl = {"map_pt": [left, top, width_pt, height_pt], "page_size_pt": list(A4), "dpi": dpi, "seed": seed,
           "map_px": [W, H]}
     (out / "placement.json").write_text(json.dumps(pl, indent=2), encoding="utf-8")

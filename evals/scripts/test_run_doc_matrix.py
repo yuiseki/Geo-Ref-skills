@@ -28,3 +28,14 @@ def test_next_candidate_only_after_a_declared_failure():
     assert not rdm.try_next({"outcome": "refused", "register": "ok", "failed_gates": "spread"})
     assert not rdm.try_next({"outcome": "ok"})
     assert not rdm.try_next({"outcome": "gate_hole"})
+
+
+def test_a_stitched_picture_comes_before_its_strips():
+    bg = {"file": "p001-i001.png", "px": [1240, 1754], "page": 1, "page_size_pt": [595, 842], "bbox_pt": [0, 0, 595, 842]}
+    strips = [{"id": k + 2, "file": f"p001-i00{k + 2}.png", "px": [900, 100], "page": 1, "page_size_pt": [595, 842],
+               "bbox_pt": [100, 500 - 50 * (k + 1), 550, 500 - 50 * k]} for k in range(3)]
+    s = {"id": "s1", "file": "p001-s001.png", "px": [900, 300], "page": 1, "page_size_pt": [595, 842],
+         "bbox_pt": [100, 350, 550, 500], "parts": [2, 3, 4]}
+    c = rdm.image_candidates({"images": [bg] + strips, "stitched": [s]})
+    assert [x["file"] for x in c[:3]] == ["p001-i001.png", "p001-s001.png", "p001-i002.png"]
+    assert rdm.image_candidates({"images": [bg]}) == rdm.embedded_candidates({"images": [bg]})

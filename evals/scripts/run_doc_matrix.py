@@ -2,11 +2,13 @@
 
     python scripts/run_doc_matrix.py matrix.json --work tmp/matrix/level5 --out results.tsv
 
-matrix.json is a level 4 matrix plus "documents": ["scan", "embedded"]. For each task: make_task, then
-make_doc_task puts the map on an A4 page among body text and a chart, as a scanned page (scan.pdf) and with
-the map as its own image (embedded.pdf). The document-maps skill gives the candidates:
+matrix.json is a level 4 matrix plus "documents": ["scan", "embedded", "tiled", "paper"]. For each task: make_task, then
+make_doc_task puts the map on an A4 page among body text and a chart, as a scanned page (scan.pdf, paper.pdf)
+and with the map as its own image (embedded.pdf) or as strips (tiled.pdf). The document-maps skill gives the candidates:
     embedded  every image object (extract_images), largest first, each at its own dpi
+    tiled     as embedded, with strips joined back first (stitch_images)
     scan      the one page image, then map-like rectangles on it (find_map_rectangles), in their rank order
+    paper     as scan, the page on yellowish paper with noise and JPEG
 Each candidate becomes a level 4 task (its crop, and the truth composed for that crop) and goes through
 run_matrix.run_one. The next candidate is tried only when the previous one declared failure (place-hint found
 no place or scale, or registration declared failure), never because the gates disliked an answer.
@@ -39,6 +41,12 @@ def embedded_candidates(man, min_px=64):
     return sorted(out, key=lambda c: -c["area"])
 
 
+def image_candidates(man, min_px=64):
+    """Stitched pictures (stitch_images) and image objects together, largest first; a stitched picture is
+    larger than any of its strips, so it comes before them."""
+    return embedded_candidates({"images": list(man.get("stitched", [])) + list(man["images"])}, min_px)
+
+
 def page_candidates(cands, dpi, max_n=3):
     return [{"box": c["box"], "dpi": dpi, "score": c["score"]} for c in cands[:max_n]]
 
@@ -64,10 +72,12 @@ def run_doc(t, m, work, cache, accurate_pct, kind):
     if not (ex / "manifest.json").exists():
         subprocess.run(PDF_UVX + [str(DOCS / "extract_images.py"), str(doc / f"{kind}.pdf"), "--out", str(ex)],
                        check=True, cwd=rm.ROOT, capture_output=True)
+        subprocess.run(PDF_UVX + [str(DOCS / "stitch_images.py"), str(ex / "manifest.json")],
+                       check=True, cwd=rm.ROOT, capture_output=True)
     man = json.loads((ex / "manifest.json").read_text(encoding="utf-8"))
     cands = []
-    if kind == "embedded":
-        for c in embedded_candidates(man):
+    if kind in ("embedded", "tiled"):
+        for c in image_candidates(man):
             cands.append({**c, "image": ex / c["file"], "crop": None})
     else:
         page = embedded_candidates(man)[0]  # the scanned page

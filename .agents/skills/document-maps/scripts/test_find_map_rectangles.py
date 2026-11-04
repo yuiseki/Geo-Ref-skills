@@ -105,3 +105,22 @@ def test_two_maps_side_by_side_are_two_candidates():
     boxes = [c["box"] for c in fm.find(p)[:2]]
     for want in [(100, 600, 580, 1100), (640, 600, 1120, 1100)]:
         assert any(iou(b, want) > 0.9 for b in boxes), boxes
+
+
+def test_a_chart_touching_the_map_does_not_widen_it():
+    p = np.full((1754, 1240, 3), 255, np.uint8)
+    p[600:1100, 200:950] = map_like(750, 500, seed=5)
+    for i, hgt in enumerate([180, 200, 130]):  # bars that start on the map's bottom edge, one sticking out left
+        x = 170 + i * 85
+        cv2.rectangle(p, (x, 1100), (x + 60, 1100 + hgt), (180, 120, 60), -1)
+    cv2.rectangle(p, (200, 585), (700, 599), (40, 40, 40), -1)  # a caption line touching the top
+    cands = fm.find(p)
+    assert iou(cands[0]["box"], (200, 600, 950, 1100)) > 0.9, [(c["box"], c["kind"], round(c["score"], 3)) for c in cands[:4]]
+
+
+def test_largest_filled_rectangle():
+    m = np.zeros((6, 8), bool)
+    m[1:5, 2:7] = True
+    m[0, 0:8] = True
+    assert fm.largest_filled_rectangle(m) == (2, 0, 7, 5)  # row 0 extends the block upwards
+    assert fm.largest_filled_rectangle(np.zeros((3, 3), bool)) is None

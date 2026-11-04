@@ -46,3 +46,34 @@ def test_the_scan_page_shows_the_map_where_the_placement_says(tmp_path):
     inside = page[y0 + 3:y1 - 3, x0 + 3:x1 - 3]
     assert inside.std() > 40  # the noisy map, not white paper
     assert page[5:40, 5:40].min() > 240  # the page margin is white
+
+
+def test_the_tiled_document_stitches_back_into_the_map(tmp_path):
+    import sys
+    sys.path.insert(0, str(mdt.Path(__file__).resolve().parents[2] / ".agents/skills/document-maps/scripts"))
+    import extract_images
+    import stitch_images
+    img, truth = fake_task(tmp_path)
+    mdt.make_documents(img, tmp_path / "doc", seed=3, dpi=150)
+    man = extract_images.extract(tmp_path / "doc" / "tiled.pdf", tmp_path / "ex")
+    assert len(man["images"]) >= 4  # the background and three strips or more
+    got = stitch_images.stitch(man, tmp_path / "ex")
+    assert len(got) == 1
+    back = np.asarray(Image.open(tmp_path / "ex" / got[0]["file"]).convert("RGB"))
+    assert np.array_equal(back, np.asarray(Image.open(img).convert("RGB")))
+
+
+def test_the_paper_scan_is_off_white_and_noisy_with_the_map_in_place(tmp_path):
+    img, truth = fake_task(tmp_path)
+    pl = mdt.make_documents(img, tmp_path / "doc", seed=4, dpi=150)
+    import pypdfium2 as pdfium
+    pg = pdfium.PdfDocument(str(tmp_path / "doc" / "paper.pdf"))[0]
+    objs = list(pg.get_objects())
+    assert len(objs) == 1
+    page = np.asarray(objs[0].get_bitmap(render=False).to_pil().convert("RGB")).astype(int)
+    margin = page[5:40, 5:40]
+    assert 200 < margin.mean() < 245 and margin.std() > 1.5
+    left, top, w, h = pl["map_pt"]
+    x0, y0 = int(round(left * 150 / 72)), int(round(top * 150 / 72))
+    x1, y1 = int(round((left + w) * 150 / 72)), int(round((top + h) * 150 / 72))
+    assert page[y0 + 3:y1 - 3, x0 + 3:x1 - 3].std() > 40
