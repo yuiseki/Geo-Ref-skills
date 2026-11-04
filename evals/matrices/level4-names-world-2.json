@@ -1,0 +1,57 @@
+{
+  "level": 4,
+  "hint": "place-hint",
+  "countrycodes_for": {
+    "dublin": "ie",
+    "chicago": "us",
+    "vancouver": "ca",
+    "auckland": "nz"
+  },
+  "zooms": [
+    14,
+    15,
+    16
+  ],
+  "size": [
+    900,
+    700
+  ],
+  "ref_style": "osm-liberty",
+  "places": {
+    "dublin": [
+      -6.2603,
+      53.3498
+    ],
+    "chicago": [
+      -87.6298,
+      41.8781
+    ],
+    "vancouver": [
+      -123.1207,
+      49.2827
+    ],
+    "auckland": [
+      174.7633,
+      -36.8485
+    ]
+  },
+  "styles": [
+    "osm-liberty"
+  ],
+  "kinds": [
+    "similarity",
+    "projective"
+  ],
+  "strengths": [
+    0.5,
+    1.0
+  ],
+  "seeds": [
+    31
+  ],
+  "attempts": [
+    {
+      "registrar": "feature-registration"
+    }
+  ]
+}

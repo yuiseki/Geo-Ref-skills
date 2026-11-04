@@ -1,0 +1,52 @@
+{
+  "level": 4,
+  "hint": "place-hint",
+  "countrycodes": "jp",
+  "zooms": [
+    14,
+    15,
+    16
+  ],
+  "size": [
+    900,
+    700
+  ],
+  "ref_style": "osm-liberty",
+  "places": {
+    "matsuyama": [
+      132.7657,
+      33.8392
+    ],
+    "takamatsu": [
+      134.0434,
+      34.3428
+    ],
+    "nagasaki": [
+      129.8737,
+      32.7503
+    ],
+    "aomori": [
+      140.74,
+      40.8244
+    ]
+  },
+  "styles": [
+    "osm-liberty"
+  ],
+  "kinds": [
+    "similarity",
+    "projective"
+  ],
+  "strengths": [
+    0.5,
+    1.0
+  ],
+  "seeds": [
+    22
+  ],
+  "attempts": [
+    {
+      "registrar": "feature-registration"
+    }
+  ]
+}
