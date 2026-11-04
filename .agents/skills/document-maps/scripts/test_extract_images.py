@@ -66,3 +66,34 @@ def test_unknown_format_is_an_error(tmp_path):
     p.write_text("hello")
     with pytest.raises(ValueError):
         extract_images.extract(p, tmp_path / "out")
+
+
+@pytest.mark.parametrize("rotation", [0, 90, 180, 270])
+@pytest.mark.parametrize("origin", [(0, 0), (100, -50)])
+def test_bbox_is_where_the_image_shows_on_the_drawn_page(tmp_path, rotation, origin):
+    # bbox_pt is on the page as it is shown (rotation and the media box applied), the frame render_pages draws:
+    # Commons PDFs with /Rotate 90 put the map's box off the drawn page
+    import numpy as np
+    import pypdfium2 as pdfium
+    l, b = origin
+    doc = pdfium.PdfDocument.new()
+    pg = doc.new_page(400, 300)
+    pg.set_mediabox(l, b, l + 400, b + 300)
+    obj = pdfium.PdfImage.new(doc)
+    obj.set_bitmap(pdfium.PdfBitmap.from_pil(pil(40, 20, (255, 0, 0))))
+    obj.set_matrix(pdfium.PdfMatrix().scale(80, 40).translate(l + 30, b + 200))
+    pg.insert_obj(obj)
+    pg.gen_content()
+    pg.set_rotation(rotation)
+    src = tmp_path / "r.pdf"
+    doc.save(str(src))
+    man = extract_images.extract(src, tmp_path / "out")
+    im = man["images"][0]
+    page = pdfium.PdfDocument(str(src))[0]
+    a = np.asarray(page.render(scale=1).to_pil().convert("RGB")).astype(int)
+    H, W = a.shape[:2]
+    assert im["page_size_pt"] == pytest.approx([W, H], abs=1)
+    red = (a[..., 0] > 200) & (a[..., 1] < 60)
+    ys, xs = np.nonzero(red)
+    shown = [xs.min(), H - ys.max() - 1, xs.max() + 1, H - ys.min()]
+    assert im["bbox_pt"] == pytest.approx(shown, abs=1.5)

@@ -7,7 +7,8 @@ Writes one PNG per image (or the stored file as it is, for Office documents) and
     source   path, sha256, size of the document
     tool     versions (pypdfium2, pdfium) and this script
     images   [{id, file, px: [w, h], page (1-based) and bbox_pt: [x0, y0, x1, y1] on the page in PDF points
-             (origin bottom left) and page_size_pt, for PDF; part (the path inside the zip), for Office}]
+             (origin bottom left of the page as shown: crop box and /Rotate applied, the frame render_pages
+             draws) and page_size_pt, for PDF; part (the path inside the zip), for Office}]
 
 PDF (pypdfium2, BSD-3-Clause / Apache-2.0): image objects on each page. An image inside a Form XObject is
 reported with "in_form": true and no bbox_pt: pdfium gives its bounds in the form's own space, not the page's
@@ -40,6 +41,23 @@ def _sha256(path):
     return h.hexdigest()
 
 
+def shown_box(box, crop, rotation):
+    """A box [x0, y0, x1, y1] in PDF user space, on the page as it is shown: the crop box's corner at the origin,
+    the page turned clockwise by rotation (0, 90, 180, 270), y up. This is the frame pdfium renders."""
+    l, b, r, t = crop
+    x0, y0, x1, y1 = box
+    rot = rotation % 360
+    if rot == 90:
+        xs, ys = (y0 - b, y1 - b), (r - x1, r - x0)
+    elif rot == 180:
+        xs, ys = (r - x1, r - x0), (t - y1, t - y0)
+    elif rot == 270:
+        xs, ys = (t - y1, t - y0), (x0 - l, x1 - l)
+    else:
+        xs, ys = (x0 - l, x1 - l), (y0 - b, y1 - b)
+    return [xs[0], ys[0], xs[1], ys[1]]
+
+
 def _pdf(src, out):
     import pypdfium2 as pdfium
     import pypdfium2.raw as raw
@@ -49,6 +67,7 @@ def _pdf(src, out):
     for pi in range(len(doc)):
         page = doc[pi]
         w, h = page.get_size()
+        crop, rotation = page.get_cropbox(), page.get_rotation()
         for obj in page.get_objects(filter=[raw.FPDF_PAGEOBJ_IMAGE], max_depth=8):
             pw, ph = obj.get_px_size()
             n = len(images) + 1
@@ -59,7 +78,7 @@ def _pdf(src, out):
             if obj.level > 0:
                 rec["in_form"] = True
             else:
-                x0, y0, x1, y1 = obj.get_bounds()
+                x0, y0, x1, y1 = shown_box(obj.get_bounds(), crop, rotation)
                 rec["bbox_pt"] = [round(x0, 3), round(y0, 3), round(x1, 3), round(y1, 3)]
             images.append(rec)
     return images, tool
