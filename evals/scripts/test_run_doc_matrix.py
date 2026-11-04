@@ -27,3 +27,7 @@ def test_each_tried_candidate_keeps_its_own_reason():
     assert note.startswith("tried c1:refused(place-hint: 3 of 7 names agree")
     assert "c2:refused(place-hint: support 0 names" in note
     assert rdm.tried_note([{"outcome": "ok", "error": ""}]) == "tried c1:ok"
+
+
+def test_a_refused_reference_moves_on_to_the_next_candidate():
+    assert rdm.try_next({"outcome": "refused", "failed_gates": "reference", "register": "not run"})

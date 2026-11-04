@@ -74,3 +74,10 @@ def test_country_for_a_place_overrides_the_matrix_country():
     assert run_matrix.country_for(m, "london") == "gb"
     assert run_matrix.country_for(m, "tokyo") == "jp"
     assert run_matrix.country_for({}, "tokyo") == "jp"
+
+
+def test_a_reference_too_large_to_fetch_is_a_declared_failure_not_an_error():
+    # a wrong scale from the names (a whole page read as the map) asks for 550 tiles; the fetcher refuses
+    err = "fetch_reference.py exited 1: ValueError: 550 tiles needed, more than max_tiles=400"
+    assert "550 tiles" in run_matrix.reference_refusal(err)
+    assert run_matrix.reference_refusal("exited 1: TimeoutError: The read operation timed out") is None

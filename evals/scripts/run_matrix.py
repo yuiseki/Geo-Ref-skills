@@ -136,6 +136,14 @@ def run_one_make(t, m, d, cache):
          truth / "truth.json", d / "make.log")
 
 
+def reference_refusal(err):
+    """The reason when fetch_reference refused a reference too large to build (a wrong scale from the names asks
+    for far more tiles than a map of this size can need): a declared failure, not an error. None otherwise."""
+    import re
+    hit = re.search(r"\d+ tiles needed, more than max_tiles=\d+", err)
+    return hit.group(0) if hit else None
+
+
 def run_one(t, m, work, cache, accurate_pct):
     d = Path(work) / t["id"]
     task, truth, run = d / "task", d / "truth", d / "run"
@@ -168,7 +176,14 @@ def run_one(t, m, work, cache, accurate_pct):
 
     # level 4 may offer a second zoom; it is tried only when every attempt at the first declared failure
     zooms = hint.get("zooms") or [hint["zoom"]]
-    fetch(ref_style, run / "ref", zooms[0])
+    try:
+        fetch(ref_style, run / "ref", zooms[0])
+    except RuntimeError as e:
+        why = reference_refusal(str(e))
+        if why is None:
+            raise
+        return {**{k: v for k, v in t.items() if k != "wrong_center"}, "outcome": "refused", "register": "not run",
+                "gates_passed": False, "failed_gates": "reference", "error": f"reference: {why}"}
     # registrars in order: the first that does not declare failure gives the answer; every attempt is kept
     if not (run / "answer.json").exists():
         last = None
