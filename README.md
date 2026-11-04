@@ -276,6 +276,42 @@ PDF、PowerPoint、Word、Excel の中から地図らしい画像を切り出し
 
 候補を 1 つの順位にした版では、スキャンの正解が 13 から 10 に減りました。切り出した地図の画素は前の版と同じで、違いは地図の下の棒グラフが入るかどうかだけでした。それでも地名を読む段 (tesseract) が読む語が変わり、地名が足りずに止まりました。地図を見つける段ではなく、地名を読む段の揺らぎです ([記録](docs/failures/2026-11-04-level5-documents.md))。
 
+### 実際の文書: 国連の平和維持活動の地図
+
+ここまでの例は、模擬の地図を PDF に入れたものでした。実際の PDF として、国連の地理空間情報部が公開している平和維持活動 (PKO) の地図 5 件を試しました ([一覧](docs/datasets.md))。国全体の主題図で、OSM の描画とは見た目が違うので、レベル 4 の画像の照合は成り立ちません ([最初の通し](docs/failures/2026-11-04-un-pko-maps.md))。
+
+そこで、町の記号 (小さな輪や点) と、その横の町の名前から GCP を作る道具 [name-gcps](.agents/skills/name-gcps/SKILL.md) を足しました。文字を読み、自前の Nominatim で町の位置を引き、名前の位置で大まかな縮尺と向きを当ててから、名前ごとに近くの記号の候補を選んで当て直します。道具に渡すのは PDF と、地図の国と隣の国だけです。PDF から地図を見つけるところ (document-maps)、GCP を作るところ、関門まで、全て道具が行いました。
+
+| 地図 | 結果 | GCP | LOO の最大 | 1 px の地上の長さ (およそ) |
+|---|---|---:|---:|---:|
+| UNMIK (コソボ) | 関門を全て通った | 18 | 2.2 px | 140 m |
+| MINUSCA (中央アフリカ) | 関門を全て通った | 26 | 2.3 px | 1 km |
+| UNMISS (南スーダン) | 関門を全て通った | 21 | 2.4 px | 1 km |
+| MONUSCO (コンゴ民主共和国) | 失敗を宣言 (投影の曲がりが大きく、2 px 以内にそろう点が足りない) | | | |
+| UNISFA (アビエイ) | 失敗を宣言 (村の名前が OSM に少なく、名前がそろわない) | | | |
+
+この 5 件は、結果を見ながら道具を直したので、評価ではなく作例です。残る誤差は、地図の記号の位置と OSM の町の点の違いで、2 px 前後です。
+
+#### UNMIK (コソボ)
+
+| 取り出した地図と GCP (赤い丸) | 結果 |
+|---|---|
+| ![UNMIK の取り出した地図](docs/examples/level5-un-unmik-input.jpg) | ![UNMIK の結果](docs/examples/level5-un-unmik-magenta.jpg) |
+
+#### MINUSCA (中央アフリカ)
+
+| 取り出した地図と GCP (赤い丸) | 結果 |
+|---|---|
+| ![MINUSCA の取り出した地図](docs/examples/level5-un-minusca-input.jpg) | ![MINUSCA の結果](docs/examples/level5-un-minusca-magenta.jpg) |
+
+#### UNMISS (南スーダン)
+
+| 取り出した地図と GCP (赤い丸) | 結果 |
+|---|---|
+| ![UNMISS の取り出した地図](docs/examples/level5-un-unmiss-input.jpg) | ![UNMISS の結果](docs/examples/level5-un-unmiss-magenta.jpg) |
+
+地図: based on United Nations map。国連の利用条件 ([Geospatial Information Section](https://www.un.org/geospatial/en/mandates/public)) に従い、図から国連の名称と地図の参照番号を消しています (`docs/examples/mask_un_marks.py`)。右の図の背景: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。PDF そのものはリポジトリに入れていません。
+
 ## レベル 6: 地図の中身を地理空間情報に戻す (マイルストーン)
 
 位置を合わせることは、それ自体が目的ではありません。地図に描かれた情報、たとえば浸水した範囲、計画区域、凡例で塗り分けた区域を、座標を持つデータ (GeoJSON) として取り出せて初めて、ほかのデータと重ねて使えます。レベル 1〜5 の位置合わせは、このための土台です。
@@ -303,6 +339,7 @@ PDF、PowerPoint、Word、Excel の中から地図らしい画像を切り出し
 | 4 | 同上、地物の形で測る版 (松山、高松、長崎、青森) | 19/48 | 0 | (対照なし) |
 | 5 | 同じ地図を PDF に入れたもの (埋め込みとスキャン、静岡、仙台、メルボルン、シアトル) | 27/64 | 0 | (対照なし) |
 | 5 | 同上、候補を 1 つの順位にした版 | 24/64 | 0 | (対照なし) |
+| 5 | 実際の PDF: 国連の PKO の地図 (name-gcps、結果を見て直した作例) | 3/5 通過、2 は失敗を宣言 | 目視で 0 | (対照なし) |
 
 解けなかった課題のほとんどは、道具が失敗を宣言したものです。理由と、試して採らなかった直し方は [docs/failures/](docs/failures/) に残しています。
 

@@ -192,6 +192,36 @@ def _iou(a, b):
     return inter / float(area(a) + area(b) - inter)
 
 
+def remainders(boxes, span=0.9, edge=0.03, max_share=0.6):
+    """What is left of a box when another box, along one whole side of it, is cut away.
+
+    A map with an inset beside it (an enlargement of one area, at its own scale) is one rectangle on the page;
+    the inset is another inside it, spanning its height along one side. Neither is the main map alone, and two
+    scales in one image cannot be georeferenced (Congo, 2026-11-04). The inset must span `span` of the box,
+    touch its side within `edge` of its size, and take at most `max_share` of it."""
+    out = []
+    for R in boxes:
+        x0, y0, x1, y1 = R
+        W, H = x1 - x0, y1 - y0
+        for S in boxes:
+            if S == R:
+                continue
+            a0, b0, a1, b1 = S
+            if a0 < x0 - edge * W or a1 > x1 + edge * W or b0 < y0 - edge * H or b1 > y1 + edge * H:
+                continue
+            if (b1 - b0) >= span * H and (a1 - a0) <= max_share * W:
+                if x1 - a1 <= edge * W:
+                    out.append((x0, y0, a0, y1))
+                elif a0 - x0 <= edge * W:
+                    out.append((a1, y0, x1, y1))
+            if (a1 - a0) >= span * W and (b1 - b0) <= max_share * H:
+                if y1 - b1 <= edge * H:
+                    out.append((x0, y0, x1, b0))
+                elif b0 - y0 <= edge * H:
+                    out.append((x0, b1, x1, y1))
+    return out
+
+
 def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
     H, W = page.shape[:2]
     if page.ndim == 2:
@@ -234,9 +264,10 @@ def find(page, min_area=0.02, close_frac=0.012, line_frac=0.10):
         x, y, w, h = cv2.boundingRect(c)
         if w >= L and h >= L:
             boxes.append(((int(x), int(y), int(x + w), int(y + h)), "frame"))
+    boxes += [(b, "remainder") for b in remainders(list({b for b, _ in boxes}))]
     floor = min_area * W * H
     out = []
-    order = {"frame": 0, "core": 1, "cut": 2, "region": 3}
+    order = {"frame": 0, "core": 1, "cut": 2, "region": 3, "remainder": 4}
     for box, kind in sorted(boxes, key=lambda b: order[b[1]]):  # frames first, then cores, so they win a merge
         x0, y0, x1, y1 = box
         if (x1 - x0) * (y1 - y0) < floor:

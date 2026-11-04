@@ -43,6 +43,26 @@ import transforms as tf
 SHORT_NAME = re.compile(r"^[A-Z][a-z]{2}$")
 
 
+def _trimmed(w):
+    """The name in a reading and the reading with its box narrowed to the name. tesseract reads the mark beside a
+    town into the word ("\u2018Isiro", "{Juba", "\u00abKenge" on a Congo map, 2026-11-04); the characters that are
+    not letters at either end are cut off, their share of the box with them."""
+    t = w["text"]
+    i, j = 0, len(t)
+    while i < j and not t[i].isalpha():
+        i += 1
+    while j > i and not t[j - 1].isalpha():
+        j -= 1
+    core = t[i:j]
+    n = core if SHORT_NAME.match(core) else ph.clean_name(core)
+    if not n or (i == 0 and j == len(t)):
+        return n, w
+    cw = w["w"] / len(t)
+    left = w["col"] - w["w"] / 2 + i * cw
+    right = w["col"] + w["w"] / 2 - (len(t) - j) * cw
+    return n, {**w, "text": core, "col": (left + right) / 2, "w": right - left}
+
+
 def labels(words, min_conf=60.0):
     """{name: word} for words that look like place names, each at its most confident reading.
 
@@ -53,8 +73,7 @@ def labels(words, min_conf=60.0):
     for w in sorted(words, key=lambda w: -w["conf"]):
         if w["conf"] < min_conf:
             continue
-        t = w["text"].strip().strip(".,;:()")
-        n = t if SHORT_NAME.match(t) else ph.clean_name(w["text"])
+        n, w = _trimmed(w)
         if n and n not in out:
             out[n] = w
     return out
@@ -134,11 +153,11 @@ def letter_boxes(words, min_conf=60.0, min_letters=3):
             continue
         n = len(t)
         lead = 0
-        while lead < n and t[lead] in RING_CHARS and (not t[lead].isalpha() or t[lead + 1:] in texts):
+        while lead < n and (not t[lead].isalpha() or t[lead] in RING_CHARS and t[lead + 1:] in texts):
             lead += 1
         trail = 0
-        while trail < n - lead and t[n - 1 - trail] in RING_CHARS and (
-                not t[n - 1 - trail].isalpha() or t[:n - 1 - trail] in texts):
+        while trail < n - lead and (not t[n - 1 - trail].isalpha()
+                                    or t[n - 1 - trail] in RING_CHARS and t[:n - 1 - trail] in texts):
             trail += 1
         cw = w["w"] / n
         left = w["col"] - w["w"] / 2 + lead * cw
@@ -399,18 +418,24 @@ def solve(gray, words, cands, method="affine", tol_frac=0.03, tol_px=2.0, min_na
     sa, sb, chosen = fit_symbols(options, near, diag, sym_tol_frac * diag, iters // 3, seed, max_angle_deg)
     pts = [{"name": n, "col": s.real, "row": -s.imag, "x": q.real, "y": q.imag} for n, (s, q) in sorted(chosen.items())]
     kept, model = robust_fit(one_per_symbol(pts), method, tol_px)
-    if model is not None:  # choose each name's symbol again from the fit, then fit again
+    # choose each name's symbol and place again from the fit, now over every town name read, not only those the
+    # label fit kept: on a country map the label fit misses names near the edges, where a non-linear projection
+    # bends furthest from a similarity (Congo, 2026-11-04), and those are the names that fix the edges
+    all_options = {n: [complex(p["col"], -p["row"]) for p in symbol_options(lab[n], peaks)] for n in z if is_town_label(n)}
+    for _ in range(2):
+        if model is None:
+            break
         inv = tf.fit(method, np.array([[p["x"], p["y"]] for p in kept]), np.array([[p["col"], p["row"]] for p in kept]))
         pts = []
-        for n in sorted(options):
+        for n in sorted(all_options):
             best = None
-            for q in near[n]:
+            for q in cands[n]:
                 c, r = inv.predict([[q.real, q.imag]])[0]
-                for o in options[n]:
+                for o in all_options[n]:
                     d = abs(o - complex(c, -r))
                     if best is None or d < best[0]:
                         best = (d, o, q)
-            if best is not None:
+            if best is not None and best[0] <= sym_tol_frac * diag:
                 _, o, q = best
                 pts.append({"name": n, "col": o.real, "row": -o.imag, "x": q.real, "y": q.imag})
         kept, model = robust_fit(one_per_symbol(pts), method, tol_px)

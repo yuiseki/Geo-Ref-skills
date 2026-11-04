@@ -62,6 +62,15 @@ def test_labels_take_three_letter_town_names_in_title_case():
     assert sorted(ng.labels(words)) == ["Bor", "Wau"]
 
 
+def test_labels_drop_marks_read_with_the_name_and_shrink_the_box():
+    words = [{"text": "\u2018Isiro", "conf": 80, "col": 30, "row": 10, "w": 60, "h": 12},
+             {"text": "{Juba,", "conf": 70, "col": 30, "row": 40, "w": 60, "h": 12}]
+    lab = ng.labels(words)
+    assert sorted(lab) == ["Isiro", "Juba"]
+    assert abs(lab["Isiro"]["w"] - 50) < 1e-9 and abs(lab["Isiro"]["col"] - 35) < 1e-9
+    assert abs(lab["Juba"]["w"] - 40) < 1e-9 and abs(lab["Juba"]["col"] - 30) < 1e-9
+
+
 def test_labels_keep_the_most_confident_reading_of_each_name():
     words = [{"text": "Prizren", "conf": 70, "col": 1, "row": 1, "w": 5, "h": 5},
              {"text": "Prizren", "conf": 95, "col": 9, "row": 9, "w": 5, "h": 5},

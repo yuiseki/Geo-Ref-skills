@@ -221,3 +221,13 @@ def test_a_text_block_on_a_coloured_box_scores_below_a_map_of_its_size():
     s_map, f_map = fm.appearance(map_like(900, 500))
     assert f_text["gaps"] > 0.3 and f_map["gaps"] < 0.05
     assert s_map > s_text
+
+
+def test_an_inset_along_one_side_leaves_the_main_map_as_a_remainder():
+    # a map with an inset filling its right side (the Congo map, 2026-11-04)
+    rem = fm.remainders([(0, 0, 1000, 700), (620, 10, 995, 690)])
+    assert (0, 0, 620, 700) in rem
+    # a legend box in a corner is not an inset along a side
+    assert fm.remainders([(0, 0, 1000, 700), (700, 500, 990, 690)]) == []
+    # a box along the whole bottom leaves the part above it
+    assert (0, 0, 1000, 600) in fm.remainders([(0, 0, 1000, 700), (5, 600, 995, 700)])
