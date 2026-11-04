@@ -209,6 +209,60 @@ PDF、PowerPoint、Word、Excel の中から地図らしい画像を切り出し
 
 地図を見つける道具は [document-maps](.agents/skills/document-maps/SKILL.md) です。埋め込まれた画像、細切れに埋め込まれた画像をつなぎ直したもの、ページを描いた絵から切り出した矩形を、見た目の地図らしさとページに占める広さで 1 つの順位に並べます。順に レベル 4 の道具へ渡し、道具が失敗を宣言したときだけ次の候補へ進みます。
 
+道具に渡すのは PDF と国だけです。地図がどこにあるか、どの場所の地図か、ズームはいくつかは渡しません。以下の 4 例では、文書の中から地図を見つけ、地名から場所と縮尺を求め、位置を合わせるところまで、全て道具が行いました。右の図は、戻した地図を赤紫で参照に重ねたもので、街路が二重にならなければ合っています。4 例とも、下の最初の評価で正解した課題から選びました。
+
+### 簡易版: 地図を画像として埋め込んだ PDF
+
+地図が 1 つの画像として PDF に入っている文書です。道具は、ページ全体の背景の画像と、地図の画像を取り出します。1 番目の候補の背景からは地名が 1 つも読めず、道具が失敗を宣言したので、2 番目の候補の地図の画像へ進みました。
+
+#### 仙台 (日本語の地図)
+
+| 文書のページ | 道具が取り出した地図と GCP | 結果 |
+|---|---|---|
+| ![仙台の文書](docs/examples/level5-sendai-embedded-page.jpg) | ![仙台の取り出した地図](docs/examples/level5-sendai-embedded-input.jpg) | ![仙台の結果](docs/examples/level5-sendai-embedded-magenta.jpg) |
+
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
+ズーム 16 の地図に透視の歪みを掛け、文書に入れたもの。CHUO、FUTSUKAMACHI、ICHIBANCHO 3-CHOME など 15 の地名が 1 つの縮尺と向きにそろいました。GCP 207 点、誤差は最大 0.49 m です。
+
+#### メルボルン (英語の地図)
+
+| 文書のページ | 道具が取り出した地図と GCP | 結果 |
+|---|---|---|
+| ![メルボルンの文書](docs/examples/level5-melbourne-embedded-page.jpg) | ![メルボルンの取り出した地図](docs/examples/level5-melbourne-embedded-input.jpg) | ![メルボルンの結果](docs/examples/level5-melbourne-embedded-magenta.jpg) |
+
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
+ズーム 15 の地図に透視の歪みを掛け、文書に入れたもの。Byron Street、CARLTON、Gertrude Street など 7 つの地名がそろいました。GCP 363 点、誤差は最大 0.39 m です。
+
+### 高度版: ページ全体を 1 枚の画像にしたスキャン
+
+紙をスキャンしたのと同じ形の PDF です。地図は画像として分かれておらず、ページの絵の中から地図の範囲を探して切り出します。左の図の赤紫の枠が、道具が切り出した範囲です。地図の下の棒グラフの一部まで入っていますが、位置合わせはその部分を使わずに通りました。
+
+#### 仙台 (日本語の地図)
+
+| 文書のページ | 道具が取り出した地図と GCP | 結果 |
+|---|---|---|
+| ![仙台の文書](docs/examples/level5-sendai-scan-page.jpg) | ![仙台の取り出した地図](docs/examples/level5-sendai-scan-input.jpg) | ![仙台の結果](docs/examples/level5-sendai-scan-magenta.jpg) |
+
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
+簡易版と同じ地図です。AOBA WARD、FUTSUKAMACHI、HONCHO 2-CHOME など 15 の地名がそろいました。GCP 175 点、誤差は最大 1.29 m です。
+
+#### メルボルン (英語の地図)
+
+| 文書のページ | 道具が取り出した地図と GCP | 結果 |
+|---|---|---|
+| ![メルボルンの文書](docs/examples/level5-melbourne-scan-page.jpg) | ![メルボルンの取り出した地図](docs/examples/level5-melbourne-scan-input.jpg) | ![メルボルンの結果](docs/examples/level5-melbourne-scan-magenta.jpg) |
+
+地図: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)
+
+簡易版と同じ地図です。Collins Street、Flinders Street など 10 の地名がそろいました。GCP 310 点、誤差は最大 1.74 m です。
+
+スキャンでは、地図が 150 dpi のページの絵から切り出されるので、誤差は埋め込みより大きくなります。それでも、画像の半径の 0.1% 以内に収まっています。
+
+### 評価
+
 最初の評価は、静岡、仙台、メルボルン、シアトルの 16 枚の地図を、地図を画像として埋め込んだ PDF と、ページ全体を 150 dpi でスキャンした形の PDF に入れた 64 課題です。
 
 | 文書 | 正解 | 失敗を宣言 | 関門が正しい答えを落とした | 誤った答え |
