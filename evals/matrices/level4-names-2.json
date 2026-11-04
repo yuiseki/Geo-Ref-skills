@@ -1,0 +1,52 @@
+{
+  "level": 4,
+  "hint": "place-hint",
+  "countrycodes": "jp",
+  "zooms": [
+    14,
+    15,
+    16
+  ],
+  "size": [
+    900,
+    700
+  ],
+  "ref_style": "osm-liberty",
+  "places": {
+    "kyoto": [
+      135.7681,
+      35.0116
+    ],
+    "yokohama": [
+      139.638,
+      35.4437
+    ],
+    "okayama": [
+      133.9195,
+      34.6551
+    ],
+    "kumamoto": [
+      130.7079,
+      32.8031
+    ]
+  },
+  "styles": [
+    "osm-liberty"
+  ],
+  "kinds": [
+    "similarity",
+    "projective"
+  ],
+  "strengths": [
+    0.5,
+    1.0
+  ],
+  "seeds": [
+    21
+  ],
+  "attempts": [
+    {
+      "registrar": "feature-registration"
+    }
+  ]
+}
