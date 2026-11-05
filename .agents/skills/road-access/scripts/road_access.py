@@ -133,7 +133,8 @@ def road_lines(ps):
     by = collections.defaultdict(list)
     for p in ps:
         st = status_of(p["stroke"])
-        if st and len(p["pts"]) >= 3:
+        # a box drawn in a status colour (the warning box, the legend's frame) is not a road
+        if st and len(p["pts"]) >= 3 and not rect_of(p):
             by[st].append(p)
     out = []
     for st, group in by.items():
@@ -155,30 +156,40 @@ def road_lines(ps):
     return out
 
 
+def rect_of(p):
+    """(left, top, right, bottom) if the path is an upright rectangle: 4 to 8 straight segments that come back to
+    the start (or a closed path), every point on the edge of its box (a side may begin in its middle, May 2026)
+    and the four corners among them; else None."""
+    xy = [(x, y) for t, x, y in p["pts"]]
+    if len(xy) < 4 or len(xy) > 8 or any(t == 1 for t, _, _ in p["pts"]):
+        return None
+    if not (p.get("closed") or max(abs(xy[0][0] - xy[-1][0]), abs(xy[0][1] - xy[-1][1])) < 0.5):
+        return None
+    xs, ys = [q[0] for q in xy], [q[1] for q in xy]
+    l, r, t, b = min(xs), max(xs), min(ys), max(ys)
+    on_edge = all(min(abs(x - l), abs(x - r)) < 0.5 or min(abs(y - t), abs(y - b)) < 0.5 for x, y in xy)
+    corners = all(any(abs(x - cx) < 0.5 and abs(y - cy) < 0.5 for x, y in xy) for cx in (l, r) for cy in (t, b))
+    return (l, t, r, b) if on_edge and corners and r - l > 0.5 and b - t > 0.5 else None
+
+
 def rectangles(ps, min_side=40.0):
     """Stroked upright rectangles with both sides at least min_side pt, as (left, top, right, bottom): the frames of
     insets that enlarge one area at their own scale (two at the top of the maps of April to July 2026, under the
-    size map_candidates takes as frames). A path of 4 to 8 straight segments that comes back to its start (or is
-    closed), every point on the edge of its box and the four corners among them, over a white box of its size
-    (an inset hides the map; the boxes that mark what an inset enlarges do not, and their roads are the map's)."""
+    size map_candidates takes as frames). A rectangle (rect_of) over a white box of its size (an inset hides the
+    map; the boxes that mark what an inset enlarges do not, and their roads are the map's)."""
     out = []
     fills = [q for q in ps if q["fill"]]
     for p in ps:
         if not p["stroke"]:
             continue
-        xy = [(x, y) for t, x, y in p["pts"]]
-        if len(xy) < 4 or len(xy) > 8 or any(t == 1 for t, _, _ in p["pts"]):
+        rect = rect_of(p)
+        if not rect:
             continue
-        loops = p.get("closed") or max(abs(xy[0][0] - xy[-1][0]), abs(xy[0][1] - xy[-1][1])) < 0.5
-        xs, ys = [q[0] for q in xy], [q[1] for q in xy]
-        l, r, t, b = min(xs), max(xs), min(ys), max(ys)
-        # every point on the box's edge (a side may begin in its middle, May 2026), and each corner among them
-        on_edge = all(min(abs(x - l), abs(x - r)) < 0.5 or min(abs(y - t), abs(y - b)) < 0.5 for x, y in xy)
-        corners = all(any(abs(x - cx) < 0.5 and abs(y - cy) < 0.5 for x, y in xy) for cx in (l, r) for cy in (t, b))
+        l, t, r, b = rect
         # an inset hides the map under a white box of its size; a box that marks what an inset enlarges does not
         backed = any(q["fill"] == (255, 255, 255) and all(abs(u - v) < 2 for u, v in zip(q["box"], (l, t, r, b)))
                      for q in fills)
-        if loops and on_edge and corners and backed and r - l >= min_side and b - t >= min_side:
+        if backed and r - l >= min_side and b - t >= min_side:
             box = (round(l, 2), round(t, 2), round(r, 2), round(b, 2))
             if box not in out:
                 out.append(box)

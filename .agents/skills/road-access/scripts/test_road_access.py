@@ -148,3 +148,11 @@ def test_stroked_rectangles_of_a_size_are_found_as_boxes():
     got = ra.rectangles([inset, white((160, 6, 237, 72)), marker, abyei, road, mid, white((246, 10, 303, 74)), locator],
                         min_side=40)
     assert got == [(160, 6, 237, 72), (246, 10, 303, 74)]
+
+
+def test_a_box_drawn_in_a_status_colour_is_not_a_road():
+    # the red border of the warning box or the legend box (April to September 2026): a closed rectangle
+    box = path((255, 0, 0), [(136, 29), (200, 29), (200, 90), (136, 90), (136, 29)])
+    roads = [path((255, 0, 0), [(0, i), (10, i + 3), (20, i)]) for i in range(3)]
+    got = ra.road_lines([box] + roads)
+    assert len(got) == 3 and all(len(r["parts"][0]) == 3 for r in got)
