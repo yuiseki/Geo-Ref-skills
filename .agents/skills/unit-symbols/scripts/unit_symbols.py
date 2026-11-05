@@ -13,10 +13,15 @@ import pypdfium2 as pdfium, pypdfium2.raw as R
 import pdf_words as pw
 
 # what is drawn inside a unit frame -> arm, by NATO APP-6 (the handbook gives the size indicators and the staff but
-# no table of arms); checked by eye on a contact sheet of one frame per signature
-ARM = {'d6': 'infantry', 'h2v5': 'engineer', 'h3v3': 'medical', 'd2v2': 'signal', 'h4v8': 'aviation (rotary wing)',
-       'h4v9': 'aviation (rotary wing)', 'c18h4': 'aviation (fixed wing)', 'c12': 'artillery',
-       'c12+h8v8': 'transport', 'c12+c6+h2+v3': 'riverine', 'c12+c6+h2+h2v2+h2v2+v3': 'riverine'}
+# no table of arms); checked by eye on a contact sheet of one frame per signature over 80 maps of 2017 to 2025
+# (2026-11-05), the signatures counting a straight run of segments as one line (straight_runs)
+ARM = {'d5': 'infantry', 'c12h2+d5': 'mechanized infantry', 'h2v4': 'engineer', 'h2v2': 'medical', 'd2v1': 'signal',
+       'h4v5': 'aviation (rotary wing)', 'h4v7': 'aviation (rotary wing)', 'h2+h4v5': 'aviation (rotary wing)',
+       'c18h3': 'aviation (fixed wing)', 'c12h2': 'armour', 'd1': 'reconnaissance', 'c12h2+d2': 'armoured reconnaissance',
+       'c12h2+d3': 'armoured reconnaissance', 'c6+c6+h1': 'maintenance', 'c12+h8v8': 'transport', 'c12+h10v6': 'transport',
+       # an anchor: a ring, a shank with a stock, arms with flukes
+       'c12+c6+h1+v1': 'riverine', 'c12+c6+h1+h2v2+h2v2+v1': 'riverine',
+       'c12+c12+c12+c6+c6+h1+h2v1+h2v1+v1': 'riverine', 'c12+c12+c12+c6+c6+h1+h1v2+h2v1+v1': 'riverine'}
 # abbreviations written inside a frame instead (UN usage)
 INNER = {'HQ': 'headquarters', 'SHQ': 'sector headquarters', 'FHQ': 'force headquarters', 'UNMO': 'military observers',
          'FPU': 'formed police unit', 'IPO': 'individual police officers', 'MP': 'military police',
@@ -25,8 +30,11 @@ INNER = {'HQ': 'headquarters', 'SHQ': 'sector headquarters', 'FHQ': 'force headq
 
 
 def arm_of(signature, inner):
+    """The arm of a unit: its symbol's signature, else that signature without the single lines that are paths of
+    their own (the leader's staff v1, the headquarters bar h1), else the abbreviation written inside."""
     sig = signature or ''
-    return ARM.get(sig) or ARM.get(sig.split('+')[0]) or INNER.get(inner)
+    core = '+'.join(p for p in sig.split('+') if p not in ('v1', 'h1'))
+    return ARM.get(sig) or ARM.get(core) or INNER.get(inner)
 
 
 def col(fn, o):
@@ -74,20 +82,46 @@ def inside(pt, b, pad=0.0):
     return b[0] - pad <= pt[0] <= b[2] + pad and b[1] - pad <= pt[1] <= b[3] + pad
 
 
+def straight_runs(segs):
+    """The straight lines of a path, a run of segments going on in one direction joined into one: a symbol drawn
+    with a point halfway along a line (UNMISS 2023-2025) gives the lines of one drawn without it (2020). Curves
+    count one each, as 'c'."""
+    out, last = [], None
+    for (t0, x0, y0), (t1, x1, y1) in zip(segs, segs[1:]):
+        if t1 == 1:
+            out.append(('c',))
+            last = None
+            continue
+        if t1 != 0:
+            last = None
+            continue
+        dx, dy = x1 - x0, y1 - y0
+        n = math.hypot(dx, dy)
+        if n < 1e-9:
+            continue
+        if last is not None and out and out[-1][0] == 'l':
+            _, ax, ay, bx, by = out[-1]
+            px, py = bx - ax, by - ay
+            m = math.hypot(px, py)
+            # the same direction, not a turn back along the line (that is a second stroke: the cross's arms)
+            if (bx, by) == (x0, y0) and (px * dx + py * dy) / (m * n) > 0.999:
+                out[-1] = ('l', ax, ay, x1, y1)
+                continue
+        out.append(('l', x0, y0, x1, y1))
+        last = (x1, y1)
+    return out
+
+
 def signature(frame):
     """What is drawn inside the frame, beyond the rectangle: lines by direction (d diagonal, h, v), curves."""
     b = frame['box']
     w, h = wh(b)
-    pts = frame['segs']
     kinds = collections.Counter()
-    for (t0, x0, y0), (t1, x1, y1) in zip(pts, pts[1:]):
-        if t1 == 1:  # bezier
+    for r in straight_runs(frame['segs']):
+        if r[0] == 'c':
             kinds['c'] += 1
             continue
-        if t1 != 0 and t1 != 2:
-            continue
-        if t1 == 2:  # moveto: no segment
-            continue
+        _, x0, y0, x1, y1 = r
         dx, dy = abs(x1 - x0), abs(y1 - y0)
         on_edge = (dx < 0.5 and (abs(x0 - b[0]) < 1 or abs(x0 - b[2]) < 1)) or (dy < 0.5 and (abs(y0 - b[1]) < 1 or abs(y0 - b[3]) < 1))
         if on_edge:
