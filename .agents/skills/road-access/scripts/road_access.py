@@ -124,8 +124,9 @@ def paths(page):
 
 def road_lines(ps):
     """The roads drawn in the status colours, as {status, colour, width, parts: [[(x, y), ...]]}: for each status
-    the brightest colour drawn in it (a road may lie on a darker casing of the same hue), at the width its paths
-    mostly have (the legend's swatches are wider), with at least 3 points."""
+    the colour drawn in it with the most points, the brighter of two that tie (a road may lie on a darker casing
+    of the same hue and shape; a brighter colour drawn a little elsewhere is not the roads, January 2026), at the
+    width its paths mostly have (the legend's swatches are wider), with at least 3 points."""
     import collections
     by = collections.defaultdict(list)
     for p in ps:
@@ -134,8 +135,8 @@ def road_lines(ps):
             by[st].append(p)
     out = []
     for st, group in by.items():
-        colour = max({p["stroke"] for p in group}, key=lambda c: (colorsys.rgb_to_hsv(*(v / 255 for v in c))[2],
-                                                                  sum(len(p["pts"]) for p in group if p["stroke"] == c)))
+        colour = max({p["stroke"] for p in group}, key=lambda c: (sum(len(p["pts"]) for p in group if p["stroke"] == c),
+                                                                  colorsys.rgb_to_hsv(*(v / 255 for v in c))[2]))
         mine = [p for p in group if p["stroke"] == colour]
         width = collections.Counter(round(p["width"], 2) for p in mine).most_common(1)[0][0]
         for p in mine:

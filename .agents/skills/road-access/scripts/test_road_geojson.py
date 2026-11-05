@@ -47,3 +47,20 @@ def test_labels_are_used_only_where_lines_and_table_agree():
     ok = [{"ids": ["A"], "agrees": True}] * 40 + [{"ids": ["B"], "agrees": False}] + [{"ids": [], "agrees": None}] * 9
     bad = [{"ids": ["A"], "agrees": True}] * 40 + [{"ids": ["B"], "agrees": False}] * 10
     assert rg.labels_reliable(ok) and not rg.labels_reliable(bad)
+
+
+def test_rectangles_found_inside_the_map_frame_are_cut_whether_vector_frames_or_not(tmp_path):
+    # January 2026: the Koch inset was found on the rendered page, not as a vector frame (candidate 8)
+    import json
+    run = tmp_path / "run"
+    (run / "cands").mkdir(parents=True)
+    cands = [{"dpi": 150, "from": {"kind": "rendered", "box_px": [58, 2, 1013, 671], "frame": True}},
+             {"dpi": 150, "from": {"kind": "rendered", "box_px": [60, 533, 256, 619], "frame": True}},
+             {"dpi": 4000, "from": {"kind": "image", "box_px": [0, 0, 515, 455]}},
+             {"dpi": 150, "from": {"kind": "rendered", "box_px": [968, 406, 1115, 673]}},  # the table, beyond the frame
+             {"dpi": 150, "from": {"kind": "rendered", "box_px": [461, 14, 646, 268]}}]
+    (run / "cands/candidates.json").write_text(json.dumps({"candidates": cands}))
+    gcps = [{"col": c, "row": r, "lon": 30 + c / 100, "lat": 8 - r / 100} for c, r in [(0, 0), (900, 0), (0, 600), (900, 600)]]
+    (run / "answer.c1.affine.json").write_text(json.dumps({"method": "affine", "gcps": gcps, "image": {"width": 955, "height": 669}}))
+    P, inner = rg.panel_of(run, {"cand": 1, "method": "affine"})
+    assert sorted(inner) == [[60, 533, 256, 619], [461, 14, 646, 268]]

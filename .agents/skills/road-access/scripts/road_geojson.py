@@ -7,8 +7,9 @@ Reads what the georeferencing batch left (deployment-batch: results.jsonl, and p
 gates), reads the roads from the PDF (road_access.py) and writes one GeoJSON per map that passed every gate.
 
 - The geometry comes from the panel whose answer passed every gate (the map's frame). Points outside it, and points
-  inside another frame drawn within it (an enlargement of one area at its own scale, the Koch and Unity insets of
-  the versions of December 2025 to March 2026), are cut off.
+  inside another rectangle found within it (an enlargement of one area at its own scale, the Koch inset of the
+  versions of December 2025 to March 2026), are cut off. The blue box around Unity only marks what the inset
+  enlarges; its lines are at the map's scale and are kept.
 - status is the colour the line is drawn in. The road's number and its table row (ends, truck class, the table's
   status) are added only on maps whose labels and lines agree (labels_reliable): the numbered versions of December
   2025 to March 2026 put their labels in boxes away from the lines and disagree too often.
@@ -101,7 +102,9 @@ def panel_of(run, result):
     inner = []
     for i, c in enumerate(cands):
         b = c["from"].get("box_px")
-        if i == ci - 1 or not c["from"].get("frame") or not b or c.get("dpi") != cand["dpi"]:
+        # every rectangle found on the same rendering inside the frame, a vector frame or not: the Koch inset of
+        # January 2026 was found only on the rendered page
+        if i == ci - 1 or c["from"].get("kind") != "rendered" or not b or c.get("dpi") != cand["dpi"]:
             continue
         if box[0] - 2 <= b[0] and box[1] - 2 <= b[1] and b[2] <= box[2] + 2 and b[3] <= box[3] + 2 and \
                 (b[2] - b[0]) * (b[3] - b[1]) < 0.5 * (box[2] - box[0]) * (box[3] - box[1]):

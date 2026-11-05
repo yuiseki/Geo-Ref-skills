@@ -120,3 +120,11 @@ def test_labels_on_the_map_go_to_the_nearest_line_and_their_rows():
     got = ra.link(lines, words, rows, max_d=8)
     assert got[0]["ids"] == ["C09"] and got[0]["rows"][0]["road"] == "Juba - Nimule" and got[0]["agrees"] is True
     assert got[1]["ids"] == ["U08"] and got[1]["agrees"] is False  # the line is red, the table says yellow
+
+
+def test_the_road_colour_is_the_one_drawn_most_not_a_brighter_one_drawn_little():
+    # January 2026: roads not passable in (230, 0, 0); a few short pieces elsewhere in (255, 0, 0)
+    roads = [path((230, 0, 0), [(0, i), (10, i), (20, i), (30, i)], 0.96) for i in range(5)]
+    other = [path((255, 0, 0), [(0, 50), (1, 50), (2, 50)], 0.96)]
+    got = ra.road_lines(roads + other)
+    assert len(got) == 5 and all(r["colour"] == (230, 0, 0) for r in got)
