@@ -120,6 +120,25 @@ def panel_of(run, result):
     return P, inner
 
 
+def snap_to_edge(boxes, box_px, near=25.0):
+    """Insets with each side that lies within near pixels of the panel's edge moved out to that edge: the roads in an
+    inset run past its frame, hidden by clipping that the paths do not carry (the insets at the top of the map,
+    4 to 10 pt below its edge, 2026)."""
+    out = []
+    for b in boxes:
+        b = list(b)
+        if b[0] - box_px[0] < near:
+            b[0] = box_px[0]
+        if b[1] - box_px[1] < near:
+            b[1] = box_px[1]
+        if box_px[2] - b[2] < near:
+            b[2] = box_px[2]
+        if box_px[3] - b[3] < near:
+            b[3] = box_px[3]
+        out.append(b)
+    return out
+
+
 def inset_boxes(rects, P, box_px):
     """Rectangles (page pt) inside the panel's box, under half its area, in rendering pixels."""
     out = []
@@ -186,7 +205,7 @@ def main():
         words = pw.words(pw.chars(pdf))
         rows = ra.table_rows(words, [p for p in ps if p["fill"]])
         lines = ra.link(ra.road_lines(ps), words, rows)
-        inner = inner + inset_boxes(ra.rectangles(ps), P, P["box"])
+        inner = snap_to_edge(inner + inset_boxes(ra.rectangles(ps), P, P["box"]), P["box"], near=12 * P["k"])
         use = labels_reliable(lines)
         fs = features(lines, rows, P, inner, date, use)
         sha = hashlib.sha256(pdf.read_bytes()).hexdigest()

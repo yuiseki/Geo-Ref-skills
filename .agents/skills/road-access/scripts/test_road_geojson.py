@@ -82,3 +82,10 @@ def test_lines_along_the_panel_edge_or_an_inset_edge_are_cut_with_a_margin():
     edge = [(19, 31), (19.5, 31), (20, 31)]  # px 38 to 40: just left of the inset's frame
     assert rg.geometry([edge], P, [inset], margin=3) == []
     assert rg.geometry([[(10, 25), (15, 25)]], P, [inset], margin=3)  # inside, clear of edges: kept
+
+
+def test_an_inset_near_the_map_edge_reaches_it():
+    # the insets at the top of the map start 4 to 10 pt below its edge, and their roads, clipped in the PDF, run on
+    # up into that gap (2 April 2026: an inset from y 8.0 pt, its road up to 4.9 pt)
+    got = rg.snap_to_edge([[540, 17, 660, 146], [800, 200, 900, 300]], [58, 2, 1013, 671], near=25)
+    assert got == [[540, 2, 660, 146], [800, 200, 900, 300]]
