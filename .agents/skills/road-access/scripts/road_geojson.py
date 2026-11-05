@@ -30,6 +30,7 @@ import transforms as tf
 import webmercator as wm
 
 HERE = Path(__file__).resolve().parent
+MARGIN_PX = 3.0  # at 150 dpi, 1.4 pt: what lies on a frame
 MONTHS = {m: i + 1 for i, m in enumerate(["january", "february", "march", "april", "may", "june", "july", "august",
                                           "september", "october", "november", "december"])}
 BASED_ON = "Based on United Nations World Food Programme (WFP) Logistics Cluster map"
@@ -51,17 +52,20 @@ def date_of(name):
     return None
 
 
-def geometry(parts, P, exclude):
+def geometry(parts, P, exclude, margin=0.0):
     """Page-point polylines as a LineString or MultiLineString in longitude and latitude, through panel P; points
-    outside the panel or inside one of the exclude boxes (rendering pixels, x0 y0 x1 y1) cut a line; pieces under 2
-    points are dropped. [] if nothing is left."""
+    outside the panel or inside one of the exclude boxes (rendering pixels, x0 y0 x1 y1), each within margin pixels
+    of its edge, cut a line; pieces under 2 points are dropped. [] if nothing is left. The margin drops what is drawn
+    along the frames: the page's red border along the map (May and July 2026), and roads of an inset on its frame."""
     out = []
     for part in parts:
         cur = []
         for x, y in part:
             px, py = x * P["k"], y * P["k"]
             c, r = px - P["o"][0], py - P["o"][1]
-            keep = 0 <= c <= P["W"] and 0 <= r <= P["H"] and not any(b[0] <= px <= b[2] and b[1] <= py <= b[3] for b in exclude)
+            m = margin
+            keep = m <= c <= P["W"] - m and m <= r <= P["H"] - m and \
+                not any(b[0] - m <= px <= b[2] + m and b[1] - m <= py <= b[3] + m for b in exclude)
             if keep:
                 cur.append((c, r))
             else:
@@ -133,7 +137,7 @@ def features(lines, rows, P, exclude, date, use_labels):
         by_id.setdefault(r["id"], []).append(r)
     fs = []
     for ln in lines:
-        g = geometry(ln["parts"], P, exclude)
+        g = geometry(ln["parts"], P, exclude, margin=MARGIN_PX)
         if not g:
             continue
         p = {"date": date, "status": ln["status"], "colour": "#%02x%02x%02x" % tuple(ln["colour"])}

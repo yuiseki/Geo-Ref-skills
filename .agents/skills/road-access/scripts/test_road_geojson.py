@@ -70,3 +70,15 @@ def test_insets_inside_the_panel_are_put_in_rendering_pixels():
     P = {"k": 2.0}
     got = rg.inset_boxes([(160, 6, 237, 72), (600, 6, 700, 72), (0, 0, 470, 350)], P, [120, 0, 950, 716])
     assert got == [[320.0, 12.0, 474.0, 144.0]]
+
+
+def test_lines_along_the_panel_edge_or_an_inset_edge_are_cut_with_a_margin():
+    # May and July 2026: the page's red border runs along the map frame (728 km "not passable"); pieces of the
+    # insets' roads lay on their frames (12.2 N)
+    P = panel()
+    border = [(5, 10), (5, 30), (5, 50)]  # c = 0 all along: on the panel's left edge
+    assert rg.geometry([border], P, [], margin=3) == []
+    inset = (40, 0, 80, 60)
+    edge = [(19, 31), (19.5, 31), (20, 31)]  # px 38 to 40: just left of the inset's frame
+    assert rg.geometry([edge], P, [inset], margin=3) == []
+    assert rg.geometry([[(10, 25), (15, 25)]], P, [inset], margin=3)  # inside, clear of edges: kept
