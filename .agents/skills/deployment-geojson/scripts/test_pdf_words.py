@@ -50,7 +50,7 @@ def test_to_pixels_puts_page_points_in_a_cropped_rendering():
     assert p["conf"] == 100.0
 
 
-def text_pdf(path, rotation, x=100.0, y=600.0, text="Bunia"):
+def text_pdf(path, rotation, x=100.0, y=600.0, text="Bunia", crop=None):
     import ctypes
     import pypdfium2 as pdfium
     import pypdfium2.raw as raw
@@ -62,6 +62,8 @@ def text_pdf(path, rotation, x=100.0, y=600.0, text="Bunia"):
     raw.FPDFPageObj_Transform(obj, 1, 0, 0, 1, x, y)
     raw.FPDFPage_InsertObject(pg.raw, obj)
     pg.gen_content()
+    if crop:
+        pg.set_cropbox(*crop)
     pg.set_rotation(rotation)
     doc.save(str(path))
 
@@ -78,3 +80,29 @@ def test_a_rotated_page_gives_characters_where_they_are_drawn(tmp_path):
     import pypdfium2 as pdfium
     W, H = pdfium.PdfDocument(str(tmp_path / "r90.pdf"))[0].get_size()
     assert 0 <= b["l"] <= W and 0 <= b["t"] <= H
+
+
+def test_a_cropped_page_gives_characters_where_they_are_shown(tmp_path):
+    # WFP's access constraints maps (2025-2026) are landscape sheets printed on a portrait page and cut out by a
+    # CropBox that does not start at the page's origin; every word came out above the page (y < 0, 2026-11-05)
+    crop = (30.0, 229.0, 612.0, 561.6)
+    text_pdf(tmp_path / "full.pdf", 0, y=400.0)
+    text_pdf(tmp_path / "crop.pdf", 0, y=400.0, crop=crop)
+    a = pw.chars(tmp_path / "full.pdf")[0]
+    b = pw.chars(tmp_path / "crop.pdf")[0]
+    assert abs(b["l"] - (a["l"] - crop[0])) < 0.5
+    assert abs(b["t"] - (a["t"] - (792 - crop[3]))) < 0.5
+    import pypdfium2 as pdfium
+    W, H = pdfium.PdfDocument(str(tmp_path / "crop.pdf"))[0].get_size()
+    assert 0 <= b["l"] <= W and 0 <= b["t"] <= H
+
+
+def test_a_cropped_and_rotated_page_gives_characters_where_they_are_shown(tmp_path):
+    crop = (30.0, 229.0, 612.0, 561.6)
+    text_pdf(tmp_path / "crop.pdf", 0, y=400.0, crop=crop)
+    text_pdf(tmp_path / "crop90.pdf", 90, y=400.0, crop=crop)
+    a = pw.chars(tmp_path / "crop.pdf")[0]
+    b = pw.chars(tmp_path / "crop90.pdf")[0]
+    h = crop[3] - crop[1]
+    # turned a quarter clockwise: a shown point (x, y) of the unturned crop goes to (h - y, x)
+    assert abs(b["l"] - (h - a["b"])) < 0.5 and abs(b["t"] - a["l"]) < 0.5

@@ -101,10 +101,13 @@ def vector_frames(pdf, page=1, min_side=0.12, max_share=0.9):
     W, H = pg.get_size()  # as shown
     rot = pg.get_rotation() % 360
     W0, H0 = (H, W) if rot % 180 else (W, H)  # unturned, the space paths are in
+    cx, cy, _, _ = pg.get_cropbox()
 
     def shown(x, y):
         """An unturned page point as shown after /Rotate (clockwise), origin bottom left: pages turned a quarter
-        (UN maps of 2021 and 2022) are rendered turned, and their paths are not."""
+        (UN maps of 2021 and 2022) are rendered turned, and their paths are not; pages cut out by a CropBox that
+        does not start at the origin (WFP's access constraints maps, 2025-2026) are shown from its corner."""
+        x, y = x - cx, y - cy
         return {90: (y, W0 - x), 180: (W0 - x, H0 - y), 270: (H0 - y, x)}.get(rot, (x, y))
 
     out = []

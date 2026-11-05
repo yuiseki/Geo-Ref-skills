@@ -154,3 +154,17 @@ def test_frames_of_a_turned_page_are_where_the_page_shows_them(tmp_path):
     # shown 792 wide, 612 high; a quarter turn clockwise puts unturned (x, y) at (y, 612 - x), bottom-left origin
     (b,) = mc.vector_frames(tmp_path / "t.pdf", 1)
     assert list(b) == pytest.approx([200, 212, 600, 512], abs=1)
+
+
+def test_frames_of_a_cropped_page_are_where_the_page_shows_them(tmp_path):
+    # WFP's access constraints maps (2025-2026): a landscape sheet on a portrait page, cut out by a CropBox
+    # (0, 229, 612, 562); the frame came out 229 pt too high and the map's lower half was cut off (2026-11-05)
+    import pypdfium2 as pdfium
+    doc = pdfium.PdfDocument.new()
+    pg = doc.new_page(612, 792)
+    stroked_rect(pg, 100, 300, 300, 200)  # x 100..400, y 300..500 (bottom-left origin)
+    pg.gen_content()
+    pg.set_cropbox(30, 229, 612, 562)
+    doc.save(str(tmp_path / "c.pdf"))
+    (b,) = mc.vector_frames(tmp_path / "c.pdf", 1)
+    assert list(b) == pytest.approx([70, 71, 370, 271], abs=1)

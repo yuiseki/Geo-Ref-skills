@@ -47,11 +47,9 @@ def is_blue(c):
 
 
 def paths_of(page):
-    # paths are in the unturned page's space; the page may be shown turned by /Rotate (2021-2022 maps)
-    rot = page.get_rotation()
-    W0, H0 = page.get_size()
-    if rot % 180:
-        W0, H0 = H0, W0
+    # paths are in the unturned page's space; the page may be shown turned by /Rotate (2021-2022 maps) and cut out
+    # by a CropBox away from the origin
+    rot, W0, H0, x0, y0 = pw.page_frame(page)
     out = []
     for o in page.get_objects(max_depth=0):
         if o.type != 2:
@@ -66,11 +64,11 @@ def paths_of(page):
             x, y = ctypes.c_float(), ctypes.c_float()
             R.FPDFPathSegment_GetPoint(s, ctypes.byref(x), ctypes.byref(y))
             X, Y = m.a * x.value + m.c * y.value + m.e, m.b * x.value + m.d * y.value + m.f
-            segs.append((R.FPDFPathSegment_GetType(s), *pw.display(X, Y, rot, W0, H0)))
+            segs.append((R.FPDFPathSegment_GetType(s), *pw.display(X, Y, rot, W0, H0, x0, y0)))
         l, b, r, t = o.get_bounds()
         out.append({'fill': col(R.FPDFPageObj_GetFillColor, raw) if mode.value else None,
                     'stroke': col(R.FPDFPageObj_GetStrokeColor, raw) if st.value else None,
-                    'box': pw.display_box(l, b, r, t, rot, W0, H0), 'segs': segs})
+                    'box': pw.display_box(l, b, r, t, rot, W0, H0, x0, y0), 'segs': segs})
     return out
 
 
