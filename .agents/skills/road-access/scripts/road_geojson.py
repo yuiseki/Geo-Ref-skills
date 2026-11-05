@@ -80,8 +80,11 @@ def geometry(parts, P, exclude):
     return [{"type": "MultiLineString", "coordinates": lines}]
 
 
-def labels_reliable(lines, max_share=0.05):
-    """Whether a map's road labels may be trusted: of its labelled lines, at most max_share disagree with the table."""
+def labels_reliable(lines, max_share=0.035):
+    """Whether a map's road labels may be trusted: of its labelled lines, at most max_share disagree with the table.
+    The versions of April to September 2026 (codes, labels on the lines) disagree on 0 to 3.4% of them; the
+    numbered versions of December 2025 to March 2026 (labels in boxes away from the lines) on 3.7 to 7.4%, and a
+    label put on the wrong line shows only when the colours differ, so more of theirs are wrong than that."""
     lab = [x for x in lines if x["ids"]]
     return bool(lab) and sum(1 for x in lab if x["agrees"] is False) <= max_share * len(lab)
 
