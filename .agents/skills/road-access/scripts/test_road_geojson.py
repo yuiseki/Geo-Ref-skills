@@ -97,3 +97,9 @@ def test_insets_side_by_side_close_the_gap_between_them():
     # 25 June 2026: two insets at the top 11.5 pt apart; a road of the left one runs on into the gap
     got = rg.snap_to_edge([[295, 4, 507, 154], [531, 4, 650, 157]], [61, 4, 1002, 718], near=25)
     assert got == [[295, 4, 531, 154], [507, 4, 650, 157]]
+
+
+def test_insets_are_widened_by_a_pad_before_they_meet_the_edges():
+    # 10 April 2026: an inset's road runs 4 pt out of its left side and its bottom
+    got = rg.snap_to_edge([[400, 200, 500, 300]], [0, 0, 1000, 1000], near=25, pad=12)
+    assert got == [[388, 188, 512, 312]]

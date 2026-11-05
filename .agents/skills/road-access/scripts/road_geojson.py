@@ -31,6 +31,7 @@ import webmercator as wm
 
 HERE = Path(__file__).resolve().parent
 MARGIN_PX = 3.0  # at 150 dpi, 1.4 pt: what lies on a frame
+INSET_PAD_PT = 6.0  # roads of an inset run up to 5 pt past its frame on every side, clipped in the PDF
 INSET_NEAR_PT = 16.0  # the insets at the top lie 4 to 10 pt below the map edge and 11.5 to 12.3 pt apart (2026)
 MONTHS = {m: i + 1 for i, m in enumerate(["january", "february", "march", "april", "may", "june", "july", "august",
                                           "september", "october", "november", "december"])}
@@ -122,10 +123,12 @@ def panel_of(run, result):
     return P, inner
 
 
-def snap_to_edge(boxes, box_px, near=25.0):
+def snap_to_edge(boxes, box_px, near=25.0, pad=0.0):
     """Insets with each side that lies within near pixels of the panel's edge, or of another inset's facing side,
-    moved out to it: the roads in an inset run past its frame, hidden by clipping that the paths do not carry (the
-    insets at the top of the map, 4 to 10 pt below its edge and 11.5 to 12.3 pt apart, 2026)."""
+    moved out to it, after each is widened by pad pixels: the roads in an inset run past its frame on every side by
+    up to 5 pt, hidden by clipping that the paths do not carry (the insets at the top of the map, 4 to 10 pt below
+    its edge and 11.5 to 12.3 pt apart, 2026)."""
+    boxes = [[b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad] for b in boxes]
     out = []
     for b in boxes:
         b = list(b)
@@ -215,7 +218,8 @@ def main():
         words = pw.words(pw.chars(pdf))
         rows = ra.table_rows(words, [p for p in ps if p["fill"]])
         lines = ra.link(ra.road_lines(ps), words, rows)
-        inner = snap_to_edge(inner + inset_boxes(ra.rectangles(ps), P, P["box"]), P["box"], near=INSET_NEAR_PT * P["k"])
+        inner = snap_to_edge(inner + inset_boxes(ra.rectangles(ps), P, P["box"]), P["box"], near=INSET_NEAR_PT * P["k"],
+                             pad=INSET_PAD_PT * P["k"])
         use = labels_reliable(lines)
         fs = features(lines, rows, P, inner, date, use)
         sha = hashlib.sha256(pdf.read_bytes()).hexdigest()
