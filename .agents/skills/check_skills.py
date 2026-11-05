@@ -20,7 +20,7 @@ COPIES = {
     "webmercator.py": ["tile-reference", "feature-registration", "georef-gates", "gcp-refinement", "cross-style-registration", "evals", "deployment-geojson"],
     "tiles.py": ["tile-reference", "evals"],
     "transforms.py": ["georef-gates", "gcp-refinement", "evals", "name-gcps", "deployment-geojson"],
-    "pdf_words.py": ["name-gcps", "unit-symbols", "deployment-geojson"],
+    "pdf_words.py": ["name-gcps", "unit-symbols", "deployment-geojson", "road-access"],
     "ocr_words.py": ["place-hint", "name-gcps"],
     "nominatim.py": ["place-hint", "name-gcps"],
     "place_hint.py": ["place-hint", "name-gcps"],
