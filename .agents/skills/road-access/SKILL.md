@@ -77,7 +77,7 @@ uvx --with numpy --with opencv-python-headless --with pypdfium2 --with pillow py
   --pdf map.pdf --run work/runs/<stem> --results work/results.jsonl --reference ref_dir --out map_georef.jpg
 # GeoJSON を日付順に同じ参照の地図に描き、通行状況ごとの道路の長さを添えた GIF にする
 uvx --with numpy --with opencv-python-headless --with pillow python scripts/road_render.py gif \
-  geojson/*.geojson --reference ref_dir --out series.gif
+  geojson/*.geojson --reference ref_dir --out series.gif  # 背景を先に縮め、道路はその上に描く。色は全コマ共通のパレット
 ```
 
 `ref_dir` には `reference.png` と `reference.json` (geotransform) を置く (tile-reference スキルで作れる)。`georef` は、答えの逆の変換 (メルカトルから地図の画素へ) で参照の画素ごとに地図の色を引く。外す範囲は `road_geojson.py` と同じである。図の中のクレジットは英語で書く (Logistics Cluster / WFP と OpenStreetMap)。

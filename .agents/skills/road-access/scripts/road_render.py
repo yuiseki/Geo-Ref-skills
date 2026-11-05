@@ -77,9 +77,23 @@ def frames_of(docs):
     return out
 
 
-def to_px(gt, lon, lat):
+def to_px(gt, lon, lat, scale=1.0):
     mx, my = wm.lonlat_to_mercator(lon, lat)
-    return (mx - gt[0]) / gt[1], (my - gt[3]) / gt[5]
+    return (mx - gt[0]) / gt[1] * scale, (my - gt[3]) / gt[5] * scale
+
+
+def palette_for(base, colours=112):
+    """A palette for every frame: the background's own colours, then the status colours and the text's, exactly
+    (a palette made per frame turns red brown and greens grey)."""
+    from PIL import Image
+    q = base.quantize(colors=colours, method=Image.MEDIANCUT)
+    pal = q.getpalette()[: colours * 3]
+    for c in list(COLOURS.values()) + [(0, 0, 0), (60, 60, 60), (255, 255, 255), (120, 120, 120)]:
+        pal += list(c)
+    pal += [0] * (768 - len(pal))
+    img = Image.new("P", (1, 1))
+    img.putpalette(pal)
+    return img
 
 
 def font(size):
@@ -92,7 +106,7 @@ def font(size):
     return ImageFont.load_default(size=size)
 
 
-def draw_roads(base, gt, features, width=4):
+def draw_roads(base, gt, features, width=4, scale=1.0):
     from PIL import ImageDraw
     dr = ImageDraw.Draw(base)
     order = ["passable", "last-mile delivery by land cruiser", "passable with difficulties", "not passable"]
@@ -102,7 +116,7 @@ def draw_roads(base, gt, features, width=4):
                 continue
             g = f["geometry"]
             for p in ([g["coordinates"]] if g["type"] == "LineString" else g["coordinates"]):
-                dr.line([to_px(gt, *c) for c in p], fill=COLOURS[s], width=width, joint="curve")
+                dr.line([to_px(gt, *c, scale=scale) for c in p], fill=COLOURS[s], width=width, joint="curve")
     return base
 
 
@@ -195,16 +209,18 @@ def cmd_gif(a):
     from PIL import Image
     docs = [json.loads(Path(p).read_text()) for p in a.geojson]
     ref, gt = load_reference(a.reference)
+    # the background is made small first and the roads drawn on it at their final width
+    scale = min(1.0, a.width / ref.width) if a.width else 1.0
+    base = faded(ref).resize((round(ref.width * scale), round(ref.height * scale)), Image.LANCZOS)
+    pal = palette_for(base)
     frames = []
     for d, feats, km in frames_of(docs):
-        img = draw_roads(faded(ref), gt, feats, width=a.line)
+        img = draw_roads(base.copy(), gt, feats, width=a.line, scale=scale)
         lines = [(d, None)] + [(f"{LABELS[s]}: {round(km.get(s, 0)):,} km", COLOURS[s])
                                for s in LABELS if s in km or s != "last-mile delivery by land cruiser"]
-        if a.width and img.width > a.width:
-            img = img.resize((a.width, round(img.height * a.width / img.width)), Image.LANCZOS)
-        legend(img, lines, (10, 10), size=max(12, a.width // 50))
-        credit(img, size=max(10, a.width // 70))
-        frames.append(img.quantize(colors=96, method=Image.MEDIANCUT, dither=Image.NONE))
+        legend(img, lines, (10, 10), size=max(12, img.width // 50))
+        credit(img, size=max(10, img.width // 70))
+        frames.append(img.quantize(palette=pal, dither=Image.NONE))
     frames[0].save(a.out, save_all=True, append_images=frames[1:], duration=a.ms, loop=0, optimize=True)
     print(json.dumps({"out": a.out, "frames": len(frames)}))
 
@@ -224,8 +240,8 @@ def main():
     m.add_argument("geojson", nargs="+")
     m.add_argument("--reference", required=True)
     m.add_argument("--out", required=True)
-    m.add_argument("--width", type=int, default=800)
-    m.add_argument("--line", type=int, default=5)
+    m.add_argument("--width", type=int, default=900)
+    m.add_argument("--line", type=int, default=3)
     m.add_argument("--ms", type=int, default=700)
     a = ap.parse_args()
     {"georef": cmd_georef, "gif": cmd_gif}[a.cmd](a)

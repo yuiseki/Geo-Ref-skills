@@ -36,3 +36,14 @@ def test_frames_are_in_date_order_with_lengths_by_status():
     assert [d for d, _, _ in fr] == ["2026-01-01", "2026-02-01"]
     km = fr[1][2]
     assert abs(km["passable"] - 111.2) < 1 and fr[0][2]["not passable"] > 150
+
+
+def test_a_palette_keeps_the_status_colours_exactly():
+    from PIL import Image, ImageDraw
+    base = Image.new("RGB", (50, 50), (240, 240, 240))
+    ImageDraw.Draw(base).rectangle([0, 0, 25, 25], fill=(200, 220, 200))
+    pal = rr.palette_for(base)
+    img = base.copy()
+    ImageDraw.Draw(img).line([(0, 40), (49, 40)], fill=rr.COLOURS["not passable"], width=3)
+    q = img.quantize(palette=pal, dither=Image.NONE).convert("RGB")
+    assert q.getpixel((20, 40)) == rr.COLOURS["not passable"]

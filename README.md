@@ -305,23 +305,14 @@ PDF が 1,310 件ある全体の処理は、新しい年から進めています
 
 30 枚全てが関門を通りました (アフィン、GCP は 31〜92 点、1 点ずつ外したときの残差は最大 2.28 px)。道路の線は合わせて 8,939 本です。
 
-下の 2 枚は、乾季の 2026 年 1 月 9 日と、雨季の 2026 年 7 月 31 日の元の地図です。どちらも原本の PDF から縮小して引用しています。
+乾季の 2026 年 1 月 9 日と雨季の 2026 年 7 月 31 日の版について、引用元の地図 (原本の PDF から縮小して引用) と、関門を通った答え (地名から作った GCP によるアフィン変換) で OSM の上に写した図を並べます。国境、町、川が OSM の位置に重なります。右の表と、地図の上に重ねた拡大図は、位置が合わないので外しています。
 
-![South Sudan - Access Constraints Map, 9 January 2026 (引用)](docs/examples/level6-wfp-ssd-2026-01-09-original.jpg)
+| 日付 | 引用元 | ジオリファレンス後 |
+|---|---|---|
+| 2026-01-09 | ![South Sudan - Access Constraints Map, 9 January 2026 (引用)](docs/examples/level6-wfp-ssd-2026-01-09-original.jpg)<br>引用元: [Access Constraints Map, 9 January 2026, Logistics Cluster](https://logcluster.org/en/documents/maps-general-4136)<br>©︎ Logistics Cluster / WFP | ![1 月 9 日の地図を OSM に重ねた図](docs/examples/level6-wfp-ssd-2026-01-09-georef.jpg) |
+| 2026-07-31 | ![South Sudan - Access Constraints Map, 31 July 2026 (引用)](docs/examples/level6-wfp-ssd-2026-07-31-original.jpg)<br>引用元: [Access Constraints Map, 31 July 2026, Logistics Cluster](https://logcluster.org/en/documents/south-sudan-access-constraints-map-31-july-2026)<br>©︎ Logistics Cluster / WFP | ![7 月 31 日の地図を OSM に重ねた図](docs/examples/level6-wfp-ssd-2026-07-31-georef.jpg) |
 
-引用元: [South Sudan - Maps - General (Access Constraints Map, 9 January 2026), Logistics Cluster](https://logcluster.org/en/documents/maps-general-4136)。©︎ Logistics Cluster / WFP
-
-![South Sudan - Access Constraints Map, 31 July 2026 (引用)](docs/examples/level6-wfp-ssd-2026-07-31-original.jpg)
-
-引用元: [South Sudan - Access Constraints Map, 31 July 2026, Logistics Cluster](https://logcluster.org/en/documents/south-sudan-access-constraints-map-31-july-2026)。©︎ Logistics Cluster / WFP
-
-同じ 2 枚を、関門を通った答え (地名から作った GCP によるアフィン変換) で OSM の上に写した図です。国境、町、川が OSM の位置に重なります。右の表と、地図の上に重ねた拡大図は、位置が合わないので外しています。
-
-![1 月 9 日の地図を OSM に重ねた図](docs/examples/level6-wfp-ssd-2026-01-09-georef.jpg)
-
-![7 月 31 日の地図を OSM に重ねた図](docs/examples/level6-wfp-ssd-2026-07-31-georef.jpg)
-
-地図: ©︎ Logistics Cluster / WFP (引用元は上の 2 つのページ)。背景: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)、OpenMapTiles。
+地図: ©︎ Logistics Cluster / WFP (引用元は表の中のページ)。背景: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)、OpenMapTiles。
 
 30 枚の GeoJSON を日付順に同じ地図の上に描くと、通れる道路の時系列変化になります。左上の数字は、通行状況ごとの道路の長さです。
 
