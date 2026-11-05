@@ -128,3 +128,23 @@ def test_the_road_colour_is_the_one_drawn_most_not_a_brighter_one_drawn_little()
     other = [path((255, 0, 0), [(0, 50), (1, 50), (2, 50)], 0.96)]
     got = ra.road_lines(roads + other)
     assert len(got) == 5 and all(r["colour"] == (230, 0, 0) for r in got)
+
+
+def test_stroked_rectangles_of_a_size_are_found_as_boxes():
+    # the insets of May 2026 (about 60 pt a side) are under the 12% of the page that map_candidates takes as frames;
+    # the boxes that mark what an inset enlarges (about 20 pt) and other shapes are not insets
+    inset = path((0, 0, 208), [(160, 6), (237, 6), (237, 72), (160, 72), (160, 6)])
+    marker = path((0, 0, 208), [(220, 105), (245, 105), (245, 120), (220, 120), (220, 105)])
+    abyei = path((0, 0, 0), [(160, 80), (200, 80), (210, 100), (190, 120), (165, 110), (160, 80)])
+    road = path((255, 255, 0), [(0, 0), (100, 0), (100, 100), (0, 100)])  # open: not a rectangle
+    road["pts"] = road["pts"][:4]
+    # May 2026: a frame begun and ended in the middle of its left side
+    mid = path((0, 77, 168), [(246, 42), (246, 10), (303, 10), (303, 74), (246, 74), (246, 42)])
+    # an inset hides the map under a white box; a box marking what an inset enlarges (June 2026: 40 by 61 pt
+    # around Koch and Rupkuai) has none, and the roads in it are the map's
+    def white(b):
+        return {"fill": (255, 255, 255), "stroke": None, "width": 1.0, "box": b, "pts": [], "closed": True}
+    locator = path((0, 77, 168), [(290, 136), (330, 136), (330, 197), (290, 197), (290, 136)])
+    got = ra.rectangles([inset, white((160, 6, 237, 72)), marker, abyei, road, mid, white((246, 10, 303, 74)), locator],
+                        min_side=40)
+    assert got == [(160, 6, 237, 72), (246, 10, 303, 74)]

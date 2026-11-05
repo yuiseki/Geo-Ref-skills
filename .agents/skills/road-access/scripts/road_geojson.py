@@ -7,8 +7,9 @@ Reads what the georeferencing batch left (deployment-batch: results.jsonl, and p
 gates), reads the roads from the PDF (road_access.py) and writes one GeoJSON per map that passed every gate.
 
 - The geometry comes from the panel whose answer passed every gate (the map's frame). Points outside it, and points
-  inside another rectangle found within it (an enlargement of one area at its own scale, the Koch inset of the
-  versions of December 2025 to March 2026), are cut off. The blue box around Unity only marks what the inset
+  inside another rectangle within it (an enlargement of one area at its own scale: the Koch inset of the versions
+  of December 2025 to March 2026, found on the rendered page; the two insets at the top of the versions of April
+  to July 2026, stroked rectangles of about 60 pt, road_access.rectangles), are cut off. The blue box around Unity only marks what the inset
   enlarges; its lines are at the map's scale and are kept.
 - status is the colour the line is drawn in. The road's number and its table row (ends, truck class, the table's
   status) are added only on maps whose labels and lines agree (labels_reliable): the numbered versions of December
@@ -100,7 +101,7 @@ def panel_of(run, result):
     src = np.array([[q["col"], q["row"]] for q in ans["gcps"]])
     dst = np.array([wm.lonlat_to_mercator(q["lon"], q["lat"]) for q in ans["gcps"]])
     box = cand["from"]["box_px"]
-    P = {"k": cand["dpi"] / 72.0, "o": box[:2], "W": ans["image"]["width"], "H": ans["image"]["height"],
+    P = {"k": cand["dpi"] / 72.0, "o": box[:2], "box": box, "W": ans["image"]["width"], "H": ans["image"]["height"],
          "model": tf.fit(ans["method"], src, dst), "gcps": len(src), "method": ans["method"]}
     inner = []
     for i, c in enumerate(cands):
@@ -113,6 +114,17 @@ def panel_of(run, result):
                 (b[2] - b[0]) * (b[3] - b[1]) < 0.5 * (box[2] - box[0]) * (box[3] - box[1]):
             inner.append(b)
     return P, inner
+
+
+def inset_boxes(rects, P, box_px):
+    """Rectangles (page pt) inside the panel's box, under half its area, in rendering pixels."""
+    out = []
+    for l, t, r, b in rects:
+        q = [l * P["k"], t * P["k"], r * P["k"], b * P["k"]]
+        if box_px[0] - 2 <= q[0] and box_px[1] - 2 <= q[1] and q[2] <= box_px[2] + 2 and q[3] <= box_px[3] + 2 and \
+                (q[2] - q[0]) * (q[3] - q[1]) < 0.5 * (box_px[2] - box_px[0]) * (box_px[3] - box_px[1]):
+            out.append(q)
+    return out
 
 
 def features(lines, rows, P, exclude, date, use_labels):
@@ -170,6 +182,7 @@ def main():
         words = pw.words(pw.chars(pdf))
         rows = ra.table_rows(words, [p for p in ps if p["fill"]])
         lines = ra.link(ra.road_lines(ps), words, rows)
+        inner = inner + inset_boxes(ra.rectangles(ps), P, P["box"])
         use = labels_reliable(lines)
         fs = features(lines, rows, P, inner, date, use)
         sha = hashlib.sha256(pdf.read_bytes()).hexdigest()

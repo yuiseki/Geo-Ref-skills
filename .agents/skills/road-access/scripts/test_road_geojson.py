@@ -64,3 +64,9 @@ def test_rectangles_found_inside_the_map_frame_are_cut_whether_vector_frames_or_
     (run / "answer.c1.affine.json").write_text(json.dumps({"method": "affine", "gcps": gcps, "image": {"width": 955, "height": 669}}))
     P, inner = rg.panel_of(run, {"cand": 1, "method": "affine"})
     assert sorted(inner) == [[60, 533, 256, 619], [461, 14, 646, 268]]
+
+
+def test_insets_inside_the_panel_are_put_in_rendering_pixels():
+    P = {"k": 2.0}
+    got = rg.inset_boxes([(160, 6, 237, 72), (600, 6, 700, 72), (0, 0, 470, 350)], P, [120, 0, 950, 716])
+    assert got == [[320.0, 12.0, 474.0, 144.0]]

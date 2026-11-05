@@ -106,9 +106,10 @@ def paths(page):
         mode, st = ctypes.c_int(), ctypes.c_int()
         R.FPDFPath_GetDrawMode(o.raw, ctypes.byref(mode), ctypes.byref(st))
         m = o.get_matrix()
-        pts = []
+        pts, closed = [], False
         for i in range(R.FPDFPath_CountSegments(o.raw)):
             s = R.FPDFPath_GetPathSegment(o.raw, i)
+            closed = closed or bool(R.FPDFPathSegment_GetClose(s))
             x, y = ctypes.c_float(), ctypes.c_float()
             R.FPDFPathSegment_GetPoint(s, ctypes.byref(x), ctypes.byref(y))
             X, Y = m.a * x.value + m.c * y.value + m.e, m.b * x.value + m.d * y.value + m.f
@@ -118,7 +119,8 @@ def paths(page):
         l, b, r, t = o.get_bounds()
         out.append({"fill": col(R.FPDFPageObj_GetFillColor, o.raw) if mode.value else None,
                     "stroke": col(R.FPDFPageObj_GetStrokeColor, o.raw) if st.value else None,
-                    "width": w.value, "box": pw.display_box(l, b, r, t, rot, W0, H0, x0, y0), "pts": pts})
+                    "width": w.value, "box": pw.display_box(l, b, r, t, rot, W0, H0, x0, y0), "pts": pts,
+                    "closed": closed})
     return out
 
 
@@ -150,6 +152,36 @@ def road_lines(ps):
             parts = [q for q in parts if len(q) >= 2]
             if parts:
                 out.append({"status": st, "colour": colour, "width": width, "parts": parts})
+    return out
+
+
+def rectangles(ps, min_side=40.0):
+    """Stroked upright rectangles with both sides at least min_side pt, as (left, top, right, bottom): the frames of
+    insets that enlarge one area at their own scale (two at the top of the maps of April to July 2026, under the
+    size map_candidates takes as frames). A path of 4 to 8 straight segments that comes back to its start (or is
+    closed), every point on the edge of its box and the four corners among them, over a white box of its size
+    (an inset hides the map; the boxes that mark what an inset enlarges do not, and their roads are the map's)."""
+    out = []
+    fills = [q for q in ps if q["fill"]]
+    for p in ps:
+        if not p["stroke"]:
+            continue
+        xy = [(x, y) for t, x, y in p["pts"]]
+        if len(xy) < 4 or len(xy) > 8 or any(t == 1 for t, _, _ in p["pts"]):
+            continue
+        loops = p.get("closed") or max(abs(xy[0][0] - xy[-1][0]), abs(xy[0][1] - xy[-1][1])) < 0.5
+        xs, ys = [q[0] for q in xy], [q[1] for q in xy]
+        l, r, t, b = min(xs), max(xs), min(ys), max(ys)
+        # every point on the box's edge (a side may begin in its middle, May 2026), and each corner among them
+        on_edge = all(min(abs(x - l), abs(x - r)) < 0.5 or min(abs(y - t), abs(y - b)) < 0.5 for x, y in xy)
+        corners = all(any(abs(x - cx) < 0.5 and abs(y - cy) < 0.5 for x, y in xy) for cx in (l, r) for cy in (t, b))
+        # an inset hides the map under a white box of its size; a box that marks what an inset enlarges does not
+        backed = any(q["fill"] == (255, 255, 255) and all(abs(u - v) < 2 for u, v in zip(q["box"], (l, t, r, b)))
+                     for q in fills)
+        if loops and on_edge and corners and backed and r - l >= min_side and b - t >= min_side:
+            box = (round(l, 2), round(t, 2), round(r, 2), round(b, 2))
+            if box not in out:
+                out.append(box)
     return out
 
 
