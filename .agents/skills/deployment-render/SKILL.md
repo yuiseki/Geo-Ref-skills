@@ -38,7 +38,7 @@ uvx --with numpy --with opencv-python-headless --with cairosvg --with pillow \
   python scripts/make_gif.py a.geojson b.geojson ... --reference ref_dir --symbols symbols --out series.gif
 ```
 
-コマの日付は PDF の作成日で、地図が表す日付ではない。部隊数の増減には、実際の変化と、読み取りの取りこぼし (古い地図では兵科の絵を読めず、空の枠になる) が混ざる。
+コマの日付は PDF の作成日で、地図が表す日付ではない。部隊数の増減には、実際の変化と、位置の取りこぼし (位置が決まらなかった部隊は描かれない) が混ざる。
 
 ## 素材の扱い
 
