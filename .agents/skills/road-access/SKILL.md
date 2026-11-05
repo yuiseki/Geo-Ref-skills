@@ -69,6 +69,19 @@ uvx --with numpy --with pypdfium2 python scripts/road_geojson.py \
 - 日付はファイル名から取る (`20260109`、`04 September 2026`)。
 - ファイル全体に、元の PDF の SHA-256、道具のコミット、WFP の地図に基づくことと、何も保証しないことを書く。地図の参照番号 (ファイル名) は入れない。道具に未コミットの変更があると書き出さない。
 
+## 図にする
+
+```sh
+# 関門を通った答えで、地図を参照の地図 (EPSG:3857) の上に写す。右の表と拡大図は外す
+uvx --with numpy --with opencv-python-headless --with pypdfium2 --with pillow python scripts/road_render.py georef \
+  --pdf map.pdf --run work/runs/<stem> --results work/results.jsonl --reference ref_dir --out map_georef.jpg
+# GeoJSON を日付順に同じ参照の地図に描き、通行状況ごとの道路の長さを添えた GIF にする
+uvx --with numpy --with opencv-python-headless --with pillow python scripts/road_render.py gif \
+  geojson/*.geojson --reference ref_dir --out series.gif
+```
+
+`ref_dir` には `reference.png` と `reference.json` (geotransform) を置く (tile-reference スキルで作れる)。`georef` は、答えの逆の変換 (メルカトルから地図の画素へ) で参照の画素ごとに地図の色を引く。外す範囲は `road_geojson.py` と同じである。図の中のクレジットは英語で書く (Logistics Cluster / WFP と OpenStreetMap)。
+
 ## ページの切り抜き
 
 これらの地図は、横長の地図を縦長の用紙に印刷し、CropBox で切り抜いている (例: `0 229 612 562`)。文字と描画の座標は、CropBox の左下を原点に直してから使う (`pdf_words.page_frame`)。
