@@ -17,9 +17,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SKILLS = ROOT / ".agents" / "skills"
 COPIES = {
-    "webmercator.py": ["tile-reference", "feature-registration", "georef-gates", "gcp-refinement", "cross-style-registration", "evals"],
+    "webmercator.py": ["tile-reference", "feature-registration", "georef-gates", "gcp-refinement", "cross-style-registration", "evals", "deployment-geojson"],
     "tiles.py": ["tile-reference", "evals"],
-    "transforms.py": ["georef-gates", "gcp-refinement", "evals", "name-gcps"],
+    "transforms.py": ["georef-gates", "gcp-refinement", "evals", "name-gcps", "deployment-geojson"],
+    "pdf_words.py": ["name-gcps", "unit-symbols", "deployment-geojson"],
     "ocr_words.py": ["place-hint", "name-gcps"],
     "nominatim.py": ["place-hint", "name-gcps"],
     "place_hint.py": ["place-hint", "name-gcps"],

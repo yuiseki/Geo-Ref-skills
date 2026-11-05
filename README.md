@@ -365,6 +365,9 @@ PDF、PowerPoint、Word、Excel の中から地図らしい画像を切り出し
 | [`gcp-refinement`](.agents/skills/gcp-refinement/SKILL.md) | 外れた GCP を上限付きで除き、記録する |
 | [`georef-gates`](.agents/skills/georef-gates/SKILL.md) | 答えを返す前の関門 |
 | [`place-hint`](.agents/skills/place-hint/SKILL.md) | 地名を読んで (tesseract)、自前の Nominatim で引き、場所のあたりを付ける |
+| [`unit-symbols`](.agents/skills/unit-symbols/SKILL.md) | 平和維持活動の部隊配置図 (ベクタ PDF) から、部隊記号の枠、ラベル、規模、兵科、位置を読む |
+| [`deployment-batch`](.agents/skills/deployment-batch/SKILL.md) | 部隊配置図の PDF をディレクトリごと、新しいものから順に、関門まで通す (再開でき、1 件の失敗が全体を止めない) |
+| [`deployment-geojson`](.agents/skills/deployment-geojson/SKILL.md) | ジオリファレンスした配置図から、部隊の位置の GeoJSON を作る。参照番号を除き、PDF のハッシュと道具のコミットを付け、無保証を明記する |
 
 構成は、姉妹リポジトリ GeoAI-master-skills (`.agents/skills/<スキル>/` に手順、スクリプト、テスト) にならっています。
 
