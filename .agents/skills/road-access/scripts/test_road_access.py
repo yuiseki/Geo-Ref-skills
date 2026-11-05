@@ -85,3 +85,38 @@ def test_a_fill_over_the_whole_table_does_not_hide_the_cells():
 def test_pink_is_last_mile_delivery_by_land_cruiser():
     # a fourth class in the versions of March to June 2026 ("Last-Mile Delivery Possible by Land cruiser")
     assert ra.status_of((255, 190, 232)) == "last-mile delivery by land cruiser"
+
+
+def path(stroke, pts, width=0.48):
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    return {"fill": None, "stroke": stroke, "width": width, "box": (min(xs), min(ys), max(xs), max(ys)),
+            "pts": [(2 if i == 0 else 0, x, y) for i, (x, y) in enumerate(pts)]}  # pdfium: 2 moveto, 0 lineto
+
+
+def test_road_lines_are_the_brightest_status_colour_at_its_usual_width():
+    ps = [path((76, 230, 0), [(0, 0), (10, 0), (20, 5)]), path((92, 137, 68), [(0, 0), (10, 0), (20, 5)], 1.12),  # casing
+          path((76, 230, 0), [(0, 10), (10, 10), (20, 10)]),
+          path((255, 0, 0), [(0, 20), (5, 20), (9, 20)]),
+          path((255, 0, 0), [(300, 300), (310, 300)], 2.72),  # the legend's swatch
+          path((63, 63, 63), [(0, 30), (10, 30), (20, 30)])]  # a boundary
+    got = ra.road_lines(ps)
+    assert sorted((r["status"], len(r["parts"][0])) for r in got) == [("not passable", 3), ("passable", 3), ("passable", 3)]
+    assert all(r["colour"] != (92, 137, 68) for r in got)
+
+
+def test_a_path_with_several_moves_has_several_parts():
+    p = path((255, 255, 0), [(0, 0), (10, 0), (20, 0), (30, 0)])
+    p["pts"][2] = (2, 20, 0)  # moveto: a second part
+    (r,) = ra.road_lines([p, path((255, 255, 0), [(0, 9), (1, 9), (2, 9)])])[:1]
+    assert [len(x) for x in r["parts"]] == [2, 2]
+
+
+def test_labels_on_the_map_go_to_the_nearest_line_and_their_rows():
+    lines = [{"status": "passable", "colour": (76, 230, 0), "parts": [[(0, 0), (100, 0)]]},
+             {"status": "not passable", "colour": (255, 0, 0), "parts": [[(0, 50), (100, 50)]]}]
+    words = [w("C09", 40, 2), w("U08", 60, 47), w("T01", 50, 25)]  # T01 is 25 from both: too far
+    rows = [{"id": "C09", "road": "Juba - Nimule", "status": "passable"},
+            {"id": "U08", "road": "Adar - Mathiang", "status": "passable with difficulties"}]
+    got = ra.link(lines, words, rows, max_d=8)
+    assert got[0]["ids"] == ["C09"] and got[0]["rows"][0]["road"] == "Juba - Nimule" and got[0]["agrees"] is True
+    assert got[1]["ids"] == ["U08"] and got[1]["agrees"] is False  # the line is red, the table says yellow

@@ -122,6 +122,71 @@ def paths(page):
     return out
 
 
+def road_lines(ps):
+    """The roads drawn in the status colours, as {status, colour, width, parts: [[(x, y), ...]]}: for each status
+    the brightest colour drawn in it (a road may lie on a darker casing of the same hue), at the width its paths
+    mostly have (the legend's swatches are wider), with at least 3 points."""
+    import collections
+    by = collections.defaultdict(list)
+    for p in ps:
+        st = status_of(p["stroke"])
+        if st and len(p["pts"]) >= 3:
+            by[st].append(p)
+    out = []
+    for st, group in by.items():
+        colour = max({p["stroke"] for p in group}, key=lambda c: (colorsys.rgb_to_hsv(*(v / 255 for v in c))[2],
+                                                                  sum(len(p["pts"]) for p in group if p["stroke"] == c)))
+        mine = [p for p in group if p["stroke"] == colour]
+        width = collections.Counter(round(p["width"], 2) for p in mine).most_common(1)[0][0]
+        for p in mine:
+            if abs(p["width"] - width) > 0.01:
+                continue
+            parts = []
+            for t, x, y in p["pts"]:
+                if t == 2 or not parts:  # pdfium FPDF_SEGMENT_MOVETO (0 lineto, 1 bezierto)
+                    parts.append([])
+                parts[-1].append((x, y))
+            parts = [q for q in parts if len(q) >= 2]
+            if parts:
+                out.append({"status": st, "colour": colour, "width": width, "parts": parts})
+    return out
+
+
+def seg_dist(px, py, a, b):
+    (x0, y0), (x1, y1) = a, b
+    dx, dy = x1 - x0, y1 - y0
+    L = dx * dx + dy * dy
+    t = 0.0 if L == 0 else max(0.0, min(1.0, ((px - x0) * dx + (py - y0) * dy) / L))
+    return ((px - x0 - t * dx) ** 2 + (py - y0 - t * dy) ** 2) ** 0.5
+
+
+def line_dist(px, py, line):
+    return min(seg_dist(px, py, a, b) for part in line["parts"] for a, b in zip(part, part[1:]))
+
+
+def link(lines, words, rows, max_d=8.0):
+    """Each road label on the map (a word that is a row's number or code, not in the table) goes to the nearest
+    line within max_d; each line gets the labels, the rows they name, and whether their status agrees with its
+    colour (None if no label)."""
+    by_id = {}
+    for r in rows:
+        by_id.setdefault(r["id"], []).append(r)
+    in_table = {(r["x"], r["y"]) for r in rows if "x" in r}
+    for ln in lines:
+        ln["ids"], ln["rows"] = [], []
+    for wd in words:
+        if wd["kind"] != "word" or wd["text"] not in by_id or (wd["x"], wd["y"]) in in_table:
+            continue
+        d, ln = min(((line_dist(wd["x"], wd["y"], ln), i) for i, ln in enumerate(lines)), default=(None, None))
+        if d is None or d > max_d:
+            continue
+        lines[ln]["ids"].append(wd["text"])
+        lines[ln]["rows"] += by_id[wd["text"]]
+    for ln in lines:
+        ln["agrees"] = all(r["status"] == ln["status"] for r in ln["rows"]) if ln["rows"] else None
+    return lines
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("pdf")
@@ -132,10 +197,16 @@ def main():
 
     page = pdfium.PdfDocument(a.pdf)[a.page - 1]
     ps = paths(page)
-    rows = table_rows(pw.words(pw.chars(a.pdf, a.page)), [p for p in ps if p["fill"]])
+    words = pw.words(pw.chars(a.pdf, a.page))
+    rows = table_rows(words, [p for p in ps if p["fill"]])
+    lines = link(road_lines(ps), words, rows)
+    for ln in lines:
+        ln["rows"] = [r["id"] for r in ln["rows"]]
     with open(a.out, "w", encoding="utf-8") as f:
-        json.dump({"table": rows}, f, ensure_ascii=False)
-    print(json.dumps({"rows": len(rows), "no_status": sum(1 for r in rows if not r["status"])}))
+        json.dump({"table": rows, "lines": lines}, f, ensure_ascii=False)
+    print(json.dumps({"rows": len(rows), "no_status": sum(1 for r in rows if not r["status"]), "lines": len(lines),
+                      "labelled": sum(1 for x in lines if x["ids"]), "disagree": sum(1 for x in lines if x["agrees"] is False),
+                      "rows_on_map": len({i for x in lines for i in x["ids"]})}))
 
 
 if __name__ == "__main__":
