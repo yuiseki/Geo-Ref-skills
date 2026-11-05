@@ -49,7 +49,7 @@ def test_labels_are_used_only_where_lines_and_table_agree():
     assert rg.labels_reliable(ok) and not rg.labels_reliable(bad)
 
 
-def test_rectangles_found_inside_the_map_frame_are_cut_whether_vector_frames_or_not(tmp_path):
+def test_only_vector_frames_inside_the_map_frame_are_cut_of_the_candidates(tmp_path):
     # January 2026: the Koch inset was found on the rendered page, not as a vector frame (candidate 8)
     import json
     run = tmp_path / "run"
@@ -63,7 +63,9 @@ def test_rectangles_found_inside_the_map_frame_are_cut_whether_vector_frames_or_
     gcps = [{"col": c, "row": r, "lon": 30 + c / 100, "lat": 8 - r / 100} for c, r in [(0, 0), (900, 0), (0, 600), (900, 600)]]
     (run / "answer.c1.affine.json").write_text(json.dumps({"method": "affine", "gcps": gcps, "image": {"width": 955, "height": 669}}))
     P, inner = rg.panel_of(run, {"cand": 1, "method": "affine"})
-    assert sorted(inner) == [[60, 533, 256, 619], [461, 14, 646, 268]]
+    # only the vector frame: a rectangle found on the rendered page may take in the map around an inset (25 June
+    # 2026: the Jonglei inset with Akobo and Nasser beside it); the Koch inset is found by road_access.rectangles
+    assert sorted(inner) == [[60, 533, 256, 619]]
 
 
 def test_insets_inside_the_panel_are_put_in_rendering_pixels():
@@ -89,3 +91,9 @@ def test_an_inset_near_the_map_edge_reaches_it():
     # up into that gap (2 April 2026: an inset from y 8.0 pt, its road up to 4.9 pt)
     got = rg.snap_to_edge([[540, 17, 660, 146], [800, 200, 900, 300]], [58, 2, 1013, 671], near=25)
     assert got == [[540, 2, 660, 146], [800, 200, 900, 300]]
+
+
+def test_insets_side_by_side_close_the_gap_between_them():
+    # 25 June 2026: two insets at the top 11.5 pt apart; a road of the left one runs on into the gap
+    got = rg.snap_to_edge([[295, 4, 507, 154], [531, 4, 650, 157]], [61, 4, 1002, 718], near=25)
+    assert got == [[295, 4, 531, 154], [507, 4, 650, 157]]

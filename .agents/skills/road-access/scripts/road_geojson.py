@@ -7,9 +7,9 @@ Reads what the georeferencing batch left (deployment-batch: results.jsonl, and p
 gates), reads the roads from the PDF (road_access.py) and writes one GeoJSON per map that passed every gate.
 
 - The geometry comes from the panel whose answer passed every gate (the map's frame). Points outside it, and points
-  inside another rectangle within it (an enlargement of one area at its own scale: the Koch inset of the versions
-  of December 2025 to March 2026, found on the rendered page; the two insets at the top of the versions of April
-  to July 2026, stroked rectangles of about 60 pt, road_access.rectangles), are cut off. The blue box around Unity only marks what the inset
+  inside an inset within it (an enlargement of one area at its own scale: a vector frame among the candidates, or
+  a stroked rectangle over a white box, road_access.rectangles: the Koch inset of December 2025 to March 2026,
+  the insets at the top and on the right of April to July 2026), are cut off. The blue box around Unity only marks what the inset
   enlarges; its lines are at the map's scale and are kept.
 - status is the colour the line is drawn in. The road's number and its table row (ends, truck class, the table's
   status) are added only on maps whose labels and lines agree (labels_reliable): the numbered versions of December
@@ -110,9 +110,10 @@ def panel_of(run, result):
     inner = []
     for i, c in enumerate(cands):
         b = c["from"].get("box_px")
-        # every rectangle found on the same rendering inside the frame, a vector frame or not: the Koch inset of
-        # January 2026 was found only on the rendered page
-        if i == ci - 1 or c["from"].get("kind") != "rendered" or not b or c.get("dpi") != cand["dpi"]:
+        # vector frames only: a rectangle found on the rendered page may take in the map around an inset (25 June
+        # 2026: the Jonglei inset with Akobo and Nasser beside it); the insets too small to be frames are found by
+        # road_access.rectangles
+        if i == ci - 1 or not c["from"].get("frame") or not b or c.get("dpi") != cand["dpi"]:
             continue
         if box[0] - 2 <= b[0] and box[1] - 2 <= b[1] and b[2] <= box[2] + 2 and b[3] <= box[3] + 2 and \
                 (b[2] - b[0]) * (b[3] - b[1]) < 0.5 * (box[2] - box[0]) * (box[3] - box[1]):
@@ -121,12 +122,20 @@ def panel_of(run, result):
 
 
 def snap_to_edge(boxes, box_px, near=25.0):
-    """Insets with each side that lies within near pixels of the panel's edge moved out to that edge: the roads in an
-    inset run past its frame, hidden by clipping that the paths do not carry (the insets at the top of the map,
-    4 to 10 pt below its edge, 2026)."""
+    """Insets with each side that lies within near pixels of the panel's edge, or of another inset's facing side,
+    moved out to it: the roads in an inset run past its frame, hidden by clipping that the paths do not carry (the
+    insets at the top of the map, 4 to 10 pt below its edge and 11.5 pt apart, 2026)."""
     out = []
     for b in boxes:
         b = list(b)
+        # a side facing another inset close by moves to that inset's side, closing the gap between them
+        for o in boxes:
+            if o is b or min(b[3], o[3]) <= max(b[1], o[1]):
+                continue  # not side by side
+            if 0 < o[0] - b[2] < near:
+                b[2] = o[0]
+            if 0 < b[0] - o[2] < near:
+                b[0] = o[2]
         if b[0] - box_px[0] < near:
             b[0] = box_px[0]
         if b[1] - box_px[1] < near:
