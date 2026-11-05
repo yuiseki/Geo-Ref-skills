@@ -51,12 +51,28 @@ uvx --with pypdfium2 python scripts/road_access.py map.pdf --out roads.json
 
 道路の区切り方は 2026 年 4 月に変わった。3 月までの版の 140 本のうち、9 月の版と両端の地名が一致するのは 64 本だけである。地名の綴りも版によって揺れる (Abienhom と Abiemnhom、Dim Zubeir と Deim Zubeir)。
 
+## GeoJSON にする
+
+```sh
+uvx --with numpy --with pypdfium2 python scripts/road_geojson.py \
+  --results work/results.jsonl --runs work/runs --src pdfs --out geojson
+```
+
+地図の地理参照は、別のスキルの一括処理 (deployment-batch の `batch.py`) に任せる。この地図には地名が文字として多く入っているので、地名から GCP を作る方法で足りる。南スーダンと周りの国に絞るため、`--missions` で全ファイルを `UNMISS` に割り当てる。
+
+`road_geojson.py` は、全ての関門を通った地図ごとに、GeoJSON を 1 つ書く (`SSD_roads_<日付>_<SHA-256 の先頭 12 桁>.geojson`)。
+
+- 線の位置は、関門を通った枠 (地図の枠) の答えで経緯度にする。枠の外の点と、枠の中に描かれた別の枠 (ある地域の拡大図。2026 年 3 月までの版の Koch と Unity) の中の点では、線を切る。
+- `status` は、線が描かれた色による通行状況である。
+- `road_ids` と `roads` (表の行の両端の地名、トラックの区分、表の通行状況) は、番号と線の対応が信頼できる地図 (番号の付いた線のうち、表と色が食い違うのが 5% 以下) にだけ付ける。
+- 日付はファイル名から取る (`20260109`、`04 September 2026`)。
+- ファイル全体に、元の PDF の SHA-256、道具のコミット、WFP の地図に基づくことと、何も保証しないことを書く。地図の参照番号 (ファイル名) は入れない。道具に未コミットの変更があると書き出さない。
+
 ## ページの切り抜き
 
 これらの地図は、横長の地図を縦長の用紙に印刷し、CropBox で切り抜いている (例: `0 229 612 562`)。文字と描画の座標は、CropBox の左下を原点に直してから使う (`pdf_words.page_frame`)。
 
 ## 限界
 
-- 線はページの pt のままで、まだ経緯度にしていない。
 - 2026 年 3 月までの版の、線と番号の対応 (上記)。
 - 文字の層の無い版 (画像だけの PDF) は読めない。
