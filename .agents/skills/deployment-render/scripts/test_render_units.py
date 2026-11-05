@@ -54,3 +54,8 @@ def test_credits_name_the_artist_and_licence(tmp_path):
     (tmp_path / "sources.json").write_text(json.dumps({"infantry": {"artist": "CdnMCG", "licence": "CC BY-SA 4.0"}}))
     lines = ru.credit_lines({"infantry"}, tmp_path)
     assert "CdnMCG" in lines[1] and "CC BY-SA 4.0" in lines[1] and "OpenStreetMap" in lines[0]
+
+
+def test_a_symbol_without_alpha_still_loads_as_bgra(tmp_path):
+    (tmp_path / "full.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" width="60" height="40"><rect width="60" height="40" fill="#00f"/></svg>')
+    assert ru.load_symbol(tmp_path / "full.svg", 40).shape == (40, 60, 4)

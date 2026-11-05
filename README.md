@@ -264,6 +264,12 @@ PDF、PowerPoint、Word、Excel の中から地図らしい画像を切り出し
 
 地図: based on United Nations map。背景: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。記号: [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Tactical_signs_and_map_symbols_of_NATO) の CdnMCG による APP-6 の記号 (CC BY-SA 4.0)。素材はリポジトリに入れず、`fetch_symbols.py` で取ります。図は CC BY-SA 4.0 の条件 (表示と継承) に従って使ってください。
 
+UNMISS の 2020 年 6 月から 2025 年 5 月までの 16 版 (同じ日付の重複は 1 つにまとめた) を、同じ地図の上で順に重ねると、配置の時系列変化になります。
+
+![UNMISS の部隊配置の時系列 (2020〜2025)](docs/examples/level6-un-unmiss-timeseries.gif)
+
+コマの日付は PDF の作成日で、地図が表す日付ではありません。部隊数の増減には、実際の変化と、読み取りの取りこぼしが混ざっています。たとえば古い地図では兵科の絵を読めず、空の枠になる部隊があります。2022 年の 3 版は、地図全体の答えが関門を通らず、点ごとの確認で使ったもので、コマに印を付けています。
+
 ### 点を使う条件
 
 点ごとの位置合わせの確かさを、位置合わせと同じく関門で縛ります。関門は緩めていません。

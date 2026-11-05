@@ -29,6 +29,17 @@ uvx --with numpy --with opencv-python-headless --with cairosvg \
 - 同じ場所に積んだ記号は、点から出した引き出し線の先に並べる。国名の札は枠の下。
 - 点の位置は GeoJSON の経緯度で、引き出し線の根元が正確な位置になる。記号の箱の位置は正確でない。
 
+## 時系列の GIF
+
+同じ参照地図の上に、日付順の GeoJSON を 1 コマずつ重ねて GIF にする。参照地図は、全てのファイルの点が入る範囲で 1 枚作る (コマごとに範囲が変わると、動かない部隊が動いて見える)。同じ日付が 2 つあれば先の 1 つを使う。コマには日付と描いた部隊の数を書き、地図全体の答えが関門を通らなかったコマには、その印を付ける。
+
+```sh
+uvx --with numpy --with opencv-python-headless --with cairosvg --with pillow \
+  python scripts/make_gif.py a.geojson b.geojson ... --reference ref_dir --symbols symbols --out series.gif
+```
+
+コマの日付は PDF の作成日で、地図が表す日付ではない。部隊数の増減には、実際の変化と、読み取りの取りこぼし (古い地図では兵科の絵を読めず、空の枠になる) が混ざる。
+
 ## 素材の扱い
 
 Commons の APP-6 の記号の多くは CC BY-SA 4.0 (作者 CdnMCG)。このリポジトリには素材を入れない。絵には、作者とライセンスと Commons の URL、地図の出典 (Based on United Nations map、© OpenStreetMap contributors)、無保証の注意を書き込む。この絵を公開するときは、CC BY-SA 4.0 の条件 (表示と継承) に従う。

@@ -65,6 +65,8 @@ def load_symbol(path, height):
     w = int(round(height * 1.5))
     png = cairosvg.svg2png(url=str(path), output_width=w, output_height=height)
     im = _cv.imdecode(np.frombuffer(png, np.uint8), _cv.IMREAD_UNCHANGED)
+    if im.ndim == 3 and im.shape[2] == 3:  # a symbol that fills its box has no alpha channel
+        im = np.dstack([im, np.full(im.shape[:2], 255, np.uint8)])
     return im  # BGRA
 
 
