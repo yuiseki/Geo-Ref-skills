@@ -249,19 +249,20 @@ PDF、PowerPoint、Word、Excel の中から地図らしい画像を切り出し
 
 位置を合わせることは、それ自体が目的ではありません。地図に描かれた情報を、座標を持つデータ (GeoJSON) として取り出せて初めて、ほかのデータと重ねて使えます。レベル 1〜5 の位置合わせは、このための土台です。
 
-いま動いているのは、国連の PKO の展開図 (部隊の配置) です。平和研究のために、部隊の配置を時系列の GeoJSON にすることを目指しています。LLM と VLM は使いません。次の 3 つのスキルで、PDF から GeoJSON まで自動で進めます。
+いま動いているのは、国連の PKO の展開図 (部隊の配置) です。平和研究のために、部隊の配置を時系列の GeoJSON にすることを目指しています。LLM と VLM は使いません。次の 4 つのスキルで、PDF から GeoJSON まで、さらに軍事記号で地図を再現するところまで進めます。
 
 | スキル | 役目 |
 |---|---|
 | [deployment-batch](.agents/skills/deployment-batch/SKILL.md) | PDF の束を、ミッション名と日付を読みながら、レベル 5 の道具で位置合わせする。関門を通した答えだけを残す |
 | [unit-symbols](.agents/skills/unit-symbols/SKILL.md) | 部隊の記号を読む。枠、国名の札、規模の印 (中隊、大隊など)、兵科、積み重なった記号と引き出し線。引き出し線の先が正確な位置 (国連軍事記号ハンドブック) |
 | [deployment-geojson](.agents/skills/deployment-geojson/SKILL.md) | 記号の画像上の位置を、位置合わせの変換で経緯度に写し、公開できる形の GeoJSON にする |
+| [deployment-render](.agents/skills/deployment-render/SKILL.md) | GeoJSON の点を、Wikimedia Commons の NATO APP-6 の軍事記号 (兵科の絵と規模の印) で OSM の上に描き、元の配置図を再現する |
 
-下は、UNMISS (南スーダン) の 2025 年 5 月の地図から取り出した 64 部隊を、OSM の上に点で描いた図です。色は兵科、黒は司令部で、同じ場所に積み重なった記号は 1 つの点にまとめ、先頭の札と残りの数 (+7 など) を添えています。Juba の UNMISS 本部、各セクター司令部、国ごとの部隊が、それぞれの町や基地のあたりに落ちています。
+下は、UNMISS (南スーダン) の 2025 年 5 月の地図から取り出した 64 部隊の GeoJSON を、軍事記号にして OSM の上に描き直した図です。兵科の絵 (歩兵、医療、工兵、通信、憲兵、司令部) と、規模の印 (中隊は棒 1 本、大隊は棒 2 本、旅団は x) は、Wikimedia Commons の APP-6 の記号です。素材の無い兵科 (軍事監視員、FPU など) は、枠の中に略称を書いています。同じ場所に積み重なった記号は、赤い点 (GeoJSON の位置) から出した引き出し線の先に並べています。記号の箱の位置は正確ではなく、位置の正解は赤い点です。Juba の UNMISS 本部、各セクター司令部、国ごとの部隊が、それぞれの町や基地のあたりに落ちています。
 
-![UNMISS の部隊の配置を OSM に重ねた図](docs/examples/level6-un-unmiss-units.jpg)
+![UNMISS の部隊の配置を軍事記号で OSM に重ねた図](docs/examples/level6-un-unmiss-symbols.jpg)
 
-地図: based on United Nations map。点は [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright) の上に描いています。
+地図: based on United Nations map。背景: [© OpenStreetMap contributors](https://www.openstreetmap.org/copyright)。記号: [Wikimedia Commons](https://commons.wikimedia.org/wiki/Category:Tactical_signs_and_map_symbols_of_NATO) の CdnMCG による APP-6 の記号 (CC BY-SA 4.0)。素材はリポジトリに入れず、`fetch_symbols.py` で取ります。図は CC BY-SA 4.0 の条件 (表示と継承) に従って使ってください。
 
 ### 点を使う条件
 
