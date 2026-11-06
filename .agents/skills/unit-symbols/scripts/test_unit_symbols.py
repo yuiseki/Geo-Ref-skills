@@ -136,7 +136,8 @@ def test_unit_frames_come_from_the_top_level_when_it_has_any():
     blue = (39, 118, 181)
 
     def fr(x, level):
-        return {"stroke": blue, "fill": None, "box": (x, 100.0, x + 18.0, 110.0), "segs": [], "level": level}
+        return {"stroke": blue, "fill": None, "box": (x, 100.0, x + 18.0, 110.0), "level": level,
+                "segs": [(2, x, 100.0), (0, x + 18.0, 100.0), (0, x + 18.0, 110.0), (0, x, 110.0), (0, x, 100.0)]}
     top, deep = [fr(100.0, 0), fr(200.0, 0)], [fr(300.0, 1)]
     assert L.unit_frames(top + deep) == top
     assert L.unit_frames(deep) == deep
@@ -190,3 +191,16 @@ def test_a_dot_drawn_inside_a_frame_is_a_symbol_not_a_place():
     frames = [{"box": (100.0, 100.0, 118.0, 110.0)}]
     places = [{"x": 109.0, "y": 105.0}, {"x": 140.0, "y": 105.0}]
     assert L.outside_frames(places, frames) == [{"x": 140.0, "y": 105.0}]
+
+
+def test_a_frame_is_a_rectangle_not_a_river_of_a_frames_size():
+    # MONUSCO, September 2025: a bend of the Congo by Mbandaka is blue, 20 x 12 pt, and was read as a unit; over the
+    # 142 maps that passed, 274 places with no rectangle had no label, 4,702 of 4,712 labelled ones had one
+    blue = (39, 118, 181)
+    rect = {"stroke": blue, "fill": None, "box": (100.0, 100.0, 118.0, 110.0), "level": 0,
+            "segs": [(2, 100.0, 100.0), (0, 118.0, 100.0), (0, 118.0, 110.0), (0, 100.0, 110.0), (0, 100.0, 100.0)]}
+    cross = {"stroke": blue, "fill": None, "box": (100.0, 100.0, 118.0, 110.0), "level": 0,
+             "segs": [(2, 100.0, 100.0), (0, 118.0, 110.0), (2, 118.0, 100.0), (0, 100.0, 110.0)]}
+    river = {"stroke": blue, "fill": None, "box": (200.0, 100.0, 220.0, 112.0), "level": 0,
+             "segs": [(2, 200.0, 112.0), (0, 205.0, 104.0), (0, 212.0, 100.0), (0, 220.0, 101.0)]}
+    assert L.unit_frames([rect, cross, river]) == [rect, cross]

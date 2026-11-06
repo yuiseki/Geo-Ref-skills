@@ -179,7 +179,18 @@ def unit_frames(ps):
     fr = [p for p in ps if is_blue(p['stroke']) and 12 <= wh(p['box'])[0] <= 30 and 7 <= wh(p['box'])[1] <= 16
           and 1.3 <= wh(p['box'])[0] / wh(p['box'])[1] <= 2.4]
     top = min((p.get('level', 0) for p in fr), default=0)
-    return [p for p in fr if p.get('level', 0) == top]
+    fr = [p for p in fr if p.get('level', 0) == top]
+    # a frame is a rectangle: some path at its place has the box's four corners (its outline; the symbol inside may
+    # be another path of the same box). A blue river's bend of a frame's size is not (MONUSCO, September 2025)
+    rects = [p for p in fr if corners(p) == 4]
+    return [p for p in fr if any(abs(p['box'][0] - q['box'][0]) <= 3 and abs(p['box'][1] - q['box'][1]) <= 3 for q in rects)]
+
+
+def corners(p, tol=0.8):
+    """How many of its box's corners a path passes through."""
+    l, t, r, b = p['box']
+    pts = [(x, y) for _, x, y in p['segs']]
+    return sum(any(abs(x - cx) <= tol and abs(y - cy) <= tol for x, y in pts) for cx, cy in ((l, t), (r, t), (l, b), (r, b)))
 
 
 def leader_lines(ps, frames):
