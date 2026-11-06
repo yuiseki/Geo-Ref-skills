@@ -316,7 +316,7 @@ UNMISS の 2020 年 6 月から 2025 年 5 月までの 16 版 (同じ日付の�
 
 失敗と直し方の詳細は [記録](docs/failures/2026-11-06-un-pko-2025.md) にあります。この 24 枚を見ながら道具を直したので、数字は取っておいた課題での評価ではありません。
 
-残っている荒いところは、記号の脇の地名の拾い方 (最も近い大文字の語を取るだけで、拡大図の下に隠れた主図の文字も拾う) と、地図の作図上の移動です。MONUSCO の Kinshasa の印は、Brazzaville の印と重ならないよう東へ約 0.35 度ずらして描かれており、点もその印の位置に落ちます。GeoJSON は、正確性を一切保証しないことを明記して、Hugging Face の [yuiseki/un-pko-deployments](https://huggingface.co/datasets/yuiseki/un-pko-deployments) に公開しました (年ごとのサブセット、いまは 2025)。
+残っている荒いところは、記号の脇の地名の拾い方 (最も近い大文字の語を取るだけで、拡大図の下に隠れた主図の文字も拾う) と、地図の作図上の移動です。MONUSCO の Kinshasa の印は、Brazzaville の印と重ならないよう東へ約 0.35 度ずらして描かれており、点もその印の位置に落ちます。GeoJSON は、正確性を一切保証しないことを明記して、Hugging Face の [yuiseki/un-pko-deployments](https://huggingface.co/datasets/yuiseki/un-pko-deployments) に公開しました (年ごとのサブセット、いまは 2024 と 2025)。
 
 PDF が 1,310 件ある全体の処理は、新しい年から進めています。文字の層が無い古い地図 (406 件) と、ミッション名が分からないもの (294 件) は、これからです。
 
