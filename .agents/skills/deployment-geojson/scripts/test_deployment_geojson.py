@@ -41,3 +41,12 @@ def test_the_nearest_text_is_a_capitalised_word_close_to_the_point():
           {"kind": "phrase", "text": "Bunia Town", "x": 100, "y": 100, "w": 40}]
     assert G.nearest_text(ws, 105, 105) == "Bunia"
     assert G.nearest_text(ws, 200, 200) is None
+
+
+def test_a_point_just_outside_the_hull_within_the_pixel_tolerance_is_inside():
+    # MONUSCO's inset of 2025: its control points are towns along one road, and the units at those towns sit on
+    # their dots, 0.2 to 1.9 px from the control point read at the same town, outside the hull
+    src = [[0, 0], [100, 0], [100, 100], [0, 100]]
+    assert G.inside_hull(src, 102.0, 50.0, tol=3.0)
+    assert not G.inside_hull(src, 104.0, 50.0, tol=3.0)
+    assert not G.inside_hull(src, 102.0, 50.0)

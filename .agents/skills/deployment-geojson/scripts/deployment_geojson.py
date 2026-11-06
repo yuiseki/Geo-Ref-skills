@@ -33,6 +33,9 @@ import webmercator as wm
 HERE = Path(__file__).resolve().parent
 SKILLS = HERE.parents[1]
 LOCAL_STD_PX = 3.0
+# a unit at a town whose name is a control point sits on the town's dot, a pixel or two from the point read there;
+# on an inset whose towns lie along one road (MONUSCO 2025) that is outside the hull, by 0.2 to 1.9 px
+HULL_TOL_PX = 3.0
 
 
 def panel_use(failed, map_ok):
@@ -42,8 +45,9 @@ def panel_use(failed, map_ok):
     return "global" if map_ok and not failed else "local"
 
 
-def inside_hull(src, c, r):
-    """Whether (c, r) lies in the convex hull of the control points (monotone chain, edges included)."""
+def inside_hull(src, c, r, tol=0.0):
+    """Whether (c, r) lies in the convex hull of the control points (monotone chain, edges included), or within tol
+    pixels of it."""
     pts = sorted(map(tuple, np.asarray(src, float)))
 
     def half(ps):
@@ -57,10 +61,14 @@ def inside_hull(src, c, r):
     hull = half(pts) + half(pts[::-1])
     if len(hull) < 3:
         return False
+    out = 0.0
     for (x0, y0), (x1, y1) in zip(hull, hull[1:] + hull[:1]):
-        if (x1 - x0) * (r - y0) - (y1 - y0) * (c - x0) < 0:
-            return False
-    return True
+        cross = (x1 - x0) * (r - y0) - (y1 - y0) * (c - x0)
+        if cross < 0:
+            dx, dy = x1 - x0, y1 - y0
+            t = max(0.0, min(1.0, ((c - x0) * dx + (r - y0) * dy) / (dx * dx + dy * dy)))
+            out = max(out, math.hypot(c - x0 - t * dx, r - y0 - t * dy))
+    return out <= tol
 
 
 def point_std(P, c, r):
@@ -134,7 +142,7 @@ def features_of(units, panels, words, mission, date, map_ok):
         if P is None:
             why["outside_panels"] += n
             continue
-        if P["local"] and not inside_hull(P["src"], c, r):
+        if P["local"] and not inside_hull(P["src"], c, r, tol=HULL_TOL_PX):
             why["outside_hull"] += n
             continue
         std = point_std(P, c, r)
