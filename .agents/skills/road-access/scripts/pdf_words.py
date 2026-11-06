@@ -59,6 +59,41 @@ def display_box(l, b, r, t, rotation, W0, H0, x0=0.0, y0=0.0):
     return min(xs), min(ys), max(xs), max(ys)
 
 
+IDENTITY = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+
+
+def apply(m, x, y):
+    """A point through a PDF matrix (a, b, c, d, e, f)."""
+    a, b, c, d, e, f = m
+    return a * x + c * y + e, b * x + d * y + f
+
+
+def compose(outer, inner):
+    """The matrix that applies inner, then outer."""
+    a, b, c, d, e, f = inner
+    A, B, C, D, E, F = outer
+    return (a * A + b * C, a * B + b * D, c * A + d * C, c * B + d * D, e * A + f * C + E, e * B + f * D + F)
+
+
+def objects(page, max_depth=16):
+    """Every object on the page, inside forms too, as (object, outer): outer is the matrix of the forms around it.
+    pdfium gives an object in a form (its matrix, its bounds) in the form's own space, without the matrix the form is
+    drawn under; MONUSCO's map of June 2025 draws its whole base map in a form."""
+    chain = {0: IDENTITY}
+    for o in page.get_objects(max_depth=max_depth):
+        outer = chain[o.level]
+        if o.type == 5:
+            m = o.get_matrix()
+            chain[o.level + 1] = compose(outer, (m.a, m.b, m.c, m.d, m.e, m.f))
+        yield o, outer
+
+
+def outer_box(l, b, r, t, outer):
+    """A box in a form's space (left, bottom, right, top) in the page's space."""
+    xs, ys = zip(*(apply(outer, x, y) for x in (l, r) for y in (b, t)))
+    return min(xs), min(ys), max(xs), max(ys)
+
+
 def chars(path, page=1):
     import pypdfium2 as pdfium
     import pypdfium2.raw as R

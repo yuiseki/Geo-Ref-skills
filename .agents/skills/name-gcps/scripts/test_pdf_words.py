@@ -106,3 +106,41 @@ def test_a_cropped_and_rotated_page_gives_characters_where_they_are_shown(tmp_pa
     h = crop[3] - crop[1]
     # turned a quarter clockwise: a shown point (x, y) of the unturned crop goes to (h - y, x)
     assert abs(b["l"] - (h - a["b"])) < 0.5 and abs(b["t"] - a["l"]) < 0.5
+
+
+def pdf_with_form(path, cm, form_matrix, inner=b"0 0 1 rg 0 0 10 10 re f"):
+    """A one-page PDF (200 x 200 pt) that draws, under `cm`, a form XObject (its own /Matrix) holding `inner`."""
+    content = b"q %s cm /F1 Do Q 1 0 0 rg 5 5 4 4 re f" % " ".join(map(str, cm)).encode()
+    objs = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /XObject << /F1 5 0 R >> >>"
+            b" /Contents 4 0 R >>",
+            b"<< /Length %d >>\nstream\n%s\nendstream" % (len(content), content),
+            b"<< /Type /XObject /Subtype /Form /BBox [-1000 -1000 1000 1000] /Matrix [%s] /Length %d >>\nstream\n%s"
+            b"\nendstream" % (" ".join(map(str, form_matrix)).encode(), len(inner), inner)]
+    out, offs = b"%PDF-1.4\n", []
+    for i, o in enumerate(objs, 1):
+        offs.append(len(out))
+        out += b"%d 0 obj\n%s\nendobj\n" % (i, o)
+    x = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(objs) + 1) + b"".join(b"%010d 00000 n \n" % o for o in offs)
+    out += b"trailer << /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (len(objs) + 1, x)
+    path.write_bytes(out)
+    return path
+
+
+def test_paths_inside_a_form_are_placed_where_the_page_draws_them(tmp_path):
+    # MONUSCO's map of June 2025 draws its base map (the town dots the leaders end at) in a form XObject; pdfium
+    # gives what is inside a form in the form's own space, without the matrix the form is drawn under
+    import pypdfium2 as pdfium
+
+    page = pdfium.PdfDocument(str(pdf_with_form(tmp_path / "f.pdf", (2, 0, 0, 2, 10, 10), (1, 0, 0, 1, 100, 50))))[0]
+    got = {}
+    for o, outer in pw.objects(page):
+        if o.type == 2:
+            l, b, r, t = pw.outer_box(*o.get_bounds(), outer)
+            got[o.level] = ([round(v, 3) for v in (l, b, r, t)], o)
+    assert got[0][0] == [5, 5, 9, 9]
+    assert got[1][0] == [210, 110, 230, 130]
+    m = got[1][1].get_matrix()
+    outer = dict((o.level, out) for o, out in pw.objects(page))[1]
+    assert pw.apply(outer, *pw.apply((m.a, m.b, m.c, m.d, m.e, m.f), 10, 10)) == (230, 130)

@@ -51,24 +51,26 @@ def paths_of(page):
     # by a CropBox away from the origin
     rot, W0, H0, x0, y0 = pw.page_frame(page)
     out = []
-    for o in page.get_objects(max_depth=0):
+    # the base map may be drawn in a form XObject (MONUSCO, June 2025), its objects in the form's own space
+    for o, outer in pw.objects(page):
         if o.type != 2:
             continue
         raw = o.raw
         mode, st = ctypes.c_int(), ctypes.c_int()
         R.FPDFPath_GetDrawMode(raw, ctypes.byref(mode), ctypes.byref(st))
-        m = o.get_matrix()
+        mm = o.get_matrix()
+        m = pw.compose(outer, (mm.a, mm.b, mm.c, mm.d, mm.e, mm.f))
         segs = []
         for i in range(R.FPDFPath_CountSegments(raw)):
             s = R.FPDFPath_GetPathSegment(raw, i)
             x, y = ctypes.c_float(), ctypes.c_float()
             R.FPDFPathSegment_GetPoint(s, ctypes.byref(x), ctypes.byref(y))
-            X, Y = m.a * x.value + m.c * y.value + m.e, m.b * x.value + m.d * y.value + m.f
+            X, Y = pw.apply(m, x.value, y.value)
             segs.append((R.FPDFPathSegment_GetType(s), *pw.display(X, Y, rot, W0, H0, x0, y0)))
-        l, b, r, t = o.get_bounds()
+        l, b, r, t = pw.outer_box(*o.get_bounds(), outer)
         out.append({'fill': col(R.FPDFPageObj_GetFillColor, raw) if mode.value else None,
                     'stroke': col(R.FPDFPageObj_GetStrokeColor, raw) if st.value else None,
-                    'box': pw.display_box(l, b, r, t, rot, W0, H0, x0, y0), 'segs': segs})
+                    'box': pw.display_box(l, b, r, t, rot, W0, H0, x0, y0), 'segs': segs, 'level': o.level})
     return out
 
 
@@ -170,6 +172,121 @@ def marks_above(b, ps, band=8.0):
     return sorted(out, key=lambda p: p['box'][0])
 
 
+def unit_frames(ps):
+    """Blue frames 12 to 30 pt wide, 7 to 16 pt high, 1.3 to 2.4 times as wide as high, at the shallowest level
+    (page, form, form in a form) that has any: MONUSCO's map of June 2025 has its units on the page and its base
+    map, with 3 shapes of a frame's size, in a form."""
+    fr = [p for p in ps if is_blue(p['stroke']) and 12 <= wh(p['box'])[0] <= 30 and 7 <= wh(p['box'])[1] <= 16
+          and 1.3 <= wh(p['box'])[0] / wh(p['box'])[1] <= 2.4]
+    top = min((p.get('level', 0) for p in fr), default=0)
+    return [p for p in fr if p.get('level', 0) == top]
+
+
+def leader_lines(ps, frames):
+    """Blue lines of 2 to 8 points, longer than 6 pt, that are not a frame or drawn along one (a headquarters bar
+    drawn as its own line on the frame's top edge, MONUSCO, June 2025)."""
+    def along(p, f):
+        return all(inside((x, y), f['box'], pad=1.0) for _, x, y in p['segs'])
+    return [p for p in ps if is_blue(p['stroke']) and 2 <= len(p['segs']) <= 8 and max(wh(p['box'])) > 6
+            and not any(p is f or along(p, f) for f in frames)]
+
+
+def seg_dist(p, a, b):
+    (x, y), (x0, y0), (x1, y1) = p, a, b
+    dx, dy = x1 - x0, y1 - y0
+    L2 = dx * dx + dy * dy
+    t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((x - x0) * dx + (y - y0) * dy) / L2))
+    return math.hypot(x - x0 - t * dx, y - y0 - t * dy)
+
+
+def box_dist(p, b):
+    return math.hypot(max(b[0] - p[0], p[0] - b[2], 0), max(b[1] - p[1], p[1] - b[3], 0))
+
+
+def ends(L):
+    return (L['segs'][0][1], L['segs'][0][2]), (L['segs'][-1][1], L['segs'][-1][2])
+
+
+def follow(pt, came, leaders, places, near=5.0, join=1.5, depth=3, here=True):
+    """The places a leader's free end at pt leads to: a place within `near`, else, through any other leader line
+    that pt lies on (within `join`), the places at that line's ends (MONUSCO, June 2025: the Force stack's leader
+    ends on a short line hanging from Goma's symbol)."""
+    q = min(places, key=lambda q: math.hypot(q['x'] - pt[0], q['y'] - pt[1]), default=None)
+    if q is not None and math.hypot(q['x'] - pt[0], q['y'] - pt[1]) < near:
+        return [q]
+    if depth == 0:
+        return []
+    out = []
+    for M in leaders:
+        if any(M is c for c in came):
+            continue
+        s = M['segs']
+        if min((seg_dist(pt, s[i][1:], s[i + 1][1:]) for i in range(len(s) - 1)), default=99) > join:
+            continue
+        for e in ends(M):
+            if math.hypot(e[0] - pt[0], e[1] - pt[1]) > join:
+                out += follow(e, came + [M], leaders, places, near, join, depth - 1)
+    return out
+
+
+def outside_frames(places, frames):
+    """Places not inside a unit frame: a dot drawn in a frame is the unit's symbol (Pakistan's, MONUSCO 2025)."""
+    return [q for q in places if not any(inside((q['x'], q['y']), f['box']) for f in frames)]
+
+
+def box_of(units):
+    return (min(u['box'][0] for u in units), min(u['box'][1] for u in units),
+            max(u['box'][2] for u in units), max(u['box'][3] for u in units))
+
+
+def locate_column(blocks, leaders, places):
+    """[(units, place, how, candidates)] for a column of blocks: one stack, unless the column's leaders go to
+    several places and each block alone has one place, then one stack per block (two blocks of one column, each led
+    to its own town: MONUSCO, June 2025)."""
+    units = [u for b in blocks for u in b]
+    loc, how, cands = locate(box_of(units), leaders, places)
+    if how == 'ambiguous' and len(blocks) > 1:
+        each = [locate(box_of(b), leaders, places) for b in blocks]
+        if all(h == 'leader' for _, h, _ in each):
+            return [(b, l, h, c) for b, (l, h, c) in zip(blocks, each)]
+    return [(units, loc, how, cands)]
+
+
+def locate(sb, leaders, places, pad=12.0, tie=2.0):
+    """(place, how, candidates) of a stack with box sb: the place its leader ends at ('leader'); else the place
+    beside it ('adjacent'). A leader is a line with one end within `pad` of the stack and the other away from it;
+    of several, the ones starting closest to the stack count (stacks sit close, and a neighbour's leader may start
+    within the pad: two Morocco stacks of MONUSCO, June 2025); two places among those are 'ambiguous'."""
+    found = []
+    for L in leaders:
+        a, b = ends(L)
+        for e, other in ((a, b), (b, a)):
+            if inside(e, sb, pad=pad) and not inside(other, sb, pad=pad):
+                found += [(box_dist(e, sb), q) for q in follow(other, [L], leaders, places)]
+    if not found:
+        # the stack's own line, both ends within it, may end on a neighbour's leader (MONUSCO's FIB column, 2025)
+        for L in leaders:
+            a, b = ends(L)
+            if inside(a, sb, pad=pad) and inside(b, sb, pad=pad):
+                for e in (a, b):
+                    found += [(box_dist(e, sb), q) for q in follow(e, [L], leaders, places, here=False)]
+    if found:
+        best = min(d for d, _ in found)
+        found = [(d, q) for d, q in found if d <= best + tie]
+    uniq = []
+    for _, q in found:
+        if all(math.hypot(q['x'] - r['x'], q['y'] - r['y']) > 1 for r in uniq):
+            uniq.append(q)
+    if len(uniq) == 1:
+        return uniq[0], 'leader', []
+    if uniq:
+        return None, 'ambiguous', uniq
+    near = min(places, key=lambda q: box_dist((q['x'], q['y']), sb), default=None)
+    if near is not None and max(sb[0] - near['x'], near['x'] - sb[2], 0) + max(sb[1] - near['y'], near['y'] - sb[3], 0) < 12:
+        return near, 'adjacent', []
+    return None, None, []
+
+
 def main(pdf, out, debug=None):
     doc = pdfium.PdfDocument(pdf)
     page = doc[0]
@@ -177,8 +294,7 @@ def main(pdf, out, debug=None):
     ps = paths_of(page)
     words = [w for w in pw.words(pw.chars(pdf)) if w['kind'] == 'word']
     blue_words = [w for w in words if is_blue(w.get('colour'))]
-    frames = [p for p in ps if is_blue(p['stroke']) and 12 <= wh(p['box'])[0] <= 30 and 7 <= wh(p['box'])[1] <= 16
-              and 1.3 <= wh(p['box'])[0] / wh(p['box'])[1] <= 2.4]
+    frames = unit_frames(ps)
     # one frame per place: outline and inner symbol may be separate paths
     uniq = []
     for f in sorted(frames, key=lambda f: -wh(f['box'])[0] * wh(f['box'])[1]):
@@ -225,46 +341,31 @@ def main(pdf, out, debug=None):
     places = [{'x': (d['box'][0] + d['box'][2]) / 2, 'y': (d['box'][1] + d['box'][3]) / 2, 'kind': 'dot'} for d in dots] + \
              [{**m, 'kind': 'marker'} for m in marks] + \
              [{'x': (d['box'][0] + d['box'][2]) / 2, 'y': (d['box'][1] + d['box'][3]) / 2, 'kind': 'circle'} for d in circles]
-    # stacks one under another in one column are one stack (a column is drawn with gaps between its blocks)
+    # stacks one under another in one column are one stack (a column is drawn with gaps between its blocks); the
+    # blocks are kept, as a column's blocks may each have their own leader
+    columns = [[st] for st in stacks]
     merged = True
     while merged:
         merged = False
-        for a in range(len(stacks)):
-            for b in range(len(stacks)):
+        for a in range(len(columns)):
+            for b in range(len(columns)):
                 if a == b:
                     continue
-                A, B = stacks[a], stacks[b]
+                A, B = columns[a][-1], columns[b][0]
                 if abs(A[0]['box'][0] - B[0]['box'][0]) < 2 and 0 <= B[0]['box'][1] - A[-1]['box'][3] <= 30:
-                    stacks[a] = A + B
-                    del stacks[b]
+                    columns[a] = columns[a] + columns[b]
+                    del columns[b]
                     merged = True
                     break
             if merged:
                 break
-    leaders = [p for p in ps if is_blue(p['stroke']) and 2 <= len(p['segs']) <= 8 and max(wh(p['box'])) > 6
-               and not any(p is f for f in frames)]
+    leaders = leader_lines(ps, frames)
     res = []
-    for k, st in enumerate(stacks):
-        sb = (min(u['box'][0] for u in st), min(u['box'][1] for u in st), max(u['box'][2] for u in st), max(u['box'][3] for u in st))
-        found = []
-        for L in leaders:
-            ends = [(L['segs'][0][1], L['segs'][0][2]), (L['segs'][-1][1], L['segs'][-1][2])]
-            for e, other in ((ends[0], ends[1]), (ends[1], ends[0])):
-                if inside(e, sb, pad=12) and not inside(other, sb, pad=12):
-                    near = min(places, key=lambda q: math.hypot(q['x'] - other[0], q['y'] - other[1]), default=None)
-                    if near and math.hypot(near['x'] - other[0], near['y'] - other[1]) < 5:
-                        found.append(near)
-        uniq = []
-        for q in found:
-            if all(math.hypot(q['x'] - r['x'], q['y'] - r['y']) > 1 for r in uniq):
-                uniq.append(q)
-        loc, how = (uniq[0], 'leader') if len(uniq) == 1 else (None, 'ambiguous' if uniq else None)
-        if not uniq:
-            near = min(places, key=lambda q: max(sb[0] - q['x'], q['x'] - sb[2], 0) + max(sb[1] - q['y'], q['y'] - sb[3], 0), default=None)
-            if near is not None and max(sb[0] - near['x'], near['x'] - sb[2], 0) + max(sb[1] - near['y'], near['y'] - sb[3], 0) < 12:
-                loc, how = near, 'adjacent'
+    places = outside_frames(places, frames)
+    for st, loc, how, uniq in (x for col in columns for x in locate_column(col, leaders, places)):
+        k, sb = len(res), box_of(st)
         res.append({'stack': k, 'box': [round(v, 2) for v in sb], 'units': st, 'location': loc, 'located_by': how,
-                    'candidates': [{'x': q['x'], 'y': q['y']} for q in uniq] if len(uniq) > 1 else []})
+                    'candidates': [{'x': q['x'], 'y': q['y']} for q in uniq]})
     json.dump({'page_size_pt': [W, H], 'stacks': res}, open(out, 'w'), indent=1, ensure_ascii=False)
     n_units = sum(len(s['units']) for s in res)
     n_loc = sum(len(s['units']) for s in res if s['location'])
