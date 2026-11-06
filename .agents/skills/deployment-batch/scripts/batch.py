@@ -22,7 +22,12 @@ SKILLS = Path(__file__).resolve().parents[2]
 ROOT = SKILLS.parents[1]
 UVX = ["uvx", "--with", "numpy", "--with", "opencv-python-headless", "--with", "pypdfium2", "--with", "pillow", "--with", "pyproj", "python"]
 # every step in its own capped scope: one PDF that runs out of memory fails alone, not the batch
-CAP = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "MemorySwapMax=0", "-p", "CPUQuota=400%", "--"]
+# a step's time limit is the scope's own (RuntimeMaxSec): subprocess's timeout kills systemd-run's process only, and
+# left name-gcps with its tesseract running in the scope for 29 hours (2026-11-06)
+STEP_SECONDS = 1800
+STEP_TIMEOUT = STEP_SECONDS + 60
+CAP = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "MemorySwapMax=0", "-p", "CPUQuota=400%",
+       "-p", f"RuntimeMaxSec={STEP_SECONDS}", "--"]
 
 # mission acronym -> the countries its map can show (Nominatim country codes), so that a troop contributor's name on the
 # map (BANGLADESH beside a unit) is not taken for a place in Bangladesh
@@ -66,7 +71,7 @@ def to_try(cands, first=3, total=8):
 
 def run(cmd, log):
     with open(log, "a") as f:
-        return subprocess.run(CAP + cmd, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT, timeout=1800).returncode
+        return subprocess.run(CAP + cmd, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT, timeout=STEP_TIMEOUT).returncode
 
 
 def gates(answer):

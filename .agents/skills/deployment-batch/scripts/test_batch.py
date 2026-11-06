@@ -116,3 +116,10 @@ def test_the_graticule_writes_its_own_answer_beside_the_names(tmp_path, monkeypa
     monkeypatch.setattr(B, "run", run)
     B.attempt(tmp_path / "m.pdf", "MONUSCO", tmp_path, cand(), 0, [])
     assert outs == ["answer.c1.affine.json", "answer.c1.projective.json", "answer.c1.grid_affine.json"]
+
+
+def test_a_step_that_runs_too_long_is_stopped_with_everything_it_started():
+    # subprocess's timeout killed only systemd-run's own process; name-gcps and its tesseract were left running in
+    # the scope, one for 29 hours (2026-11-06). The scope itself must end at the step's time limit.
+    i = B.CAP.index("RuntimeMaxSec=%d" % B.STEP_SECONDS)
+    assert B.CAP[i - 1] == "-p" and B.STEP_SECONDS < B.STEP_TIMEOUT

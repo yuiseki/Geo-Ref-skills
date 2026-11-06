@@ -47,7 +47,7 @@ uvx --with pypdfium2 python scripts/batch.py --src pdfs --out work --min-year 20
 
 ## 資源の上限
 
-実データを読む工程は、1 つずつ、メモリ 8 GB、スワップなし、CPU 400% の枠の中で動く。1 件の PDF が上限を超えて落ちても、全体は止まらず、その PDF が `failed` か `error` になる。systemd の `systemd-run --user --scope` が使える環境が前提である。
+実データを読む工程は、1 つずつ、メモリ 8 GB、スワップなし、CPU 400% の枠の中で動く。1 件の PDF が上限を超えて落ちても、全体は止まらず、その PDF が `failed` か `error` になる。1 つの工程の時間の上限 (30 分) も、枠そのもの (`RuntimeMaxSec`) に掛ける。Python の `subprocess` の時間切れは systemd-run の 1 プロセスしか止めず、枠の中の name-gcps と tesseract が 29 時間動き続けていた (2026-11-06)。systemd の `systemd-run --user --scope` が使える環境が前提である。
 
 ## 後段
 
