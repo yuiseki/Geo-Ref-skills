@@ -36,6 +36,14 @@ LOCAL_STD_PX = 3.0
 # a unit at a town whose name is a control point sits on the town's dot, a pixel or two from the point read there;
 # on an inset whose towns lie along one road (MONUSCO 2025) that is outside the hull, by 0.2 to 1.9 px
 HULL_TOL_PX = 3.0
+# a map that passed every gate is a fit to its control points: beyond them it extrapolates. A stack in a corner of the
+# sheet (a table, a legend, an inset) with a town's name beside it came out 3 degrees outside them, in the Atlantic
+# (MONUSCO 2016-08-09). A unit may lie this share of the control points' larger side outside their hull. Chosen on the
+# 562 maps of 2000 to 2016 (8,503 units on passed panels): the stacks at 0.10 to 0.30 beside a town's name were at the
+# town (Robertsport, Plibo, Harper, Rutbah, Libreville: towns at the sheet's edge), those at 0.34 and more were not
+# (Panzi, Rwindi, Totota, Salala sat 5 to 12 degrees or 150 km from their towns). A sample looked at by eye, on the maps
+# the rule was drawn from: not an evaluation
+GLOBAL_HULL_MARGIN = 0.30
 
 
 def panel_use(failed, map_ok):
@@ -45,9 +53,9 @@ def panel_use(failed, map_ok):
     return "global" if map_ok and not failed else "local"
 
 
-def inside_hull(src, c, r, tol=0.0):
-    """Whether (c, r) lies in the convex hull of the control points (monotone chain, edges included), or within tol
-    pixels of it."""
+def hull_distance(src, c, r):
+    """How far (c, r) lies outside the convex hull of the control points, in pixels: 0 inside or on it, else the
+    distance to its nearest edge (monotone chain, edges included)."""
     pts = sorted(map(tuple, np.asarray(src, float)))
 
     def half(ps):
@@ -60,17 +68,28 @@ def inside_hull(src, c, r, tol=0.0):
 
     hull = half(pts) + half(pts[::-1])
     if len(hull) < 3:
-        return False
+        return float("inf")
     edges = list(zip(hull, hull[1:] + hull[:1]))
     if all((x1 - x0) * (r - y0) - (y1 - y0) * (c - x0) >= 0 for (x0, y0), (x1, y1) in edges):
-        return True
+        return 0.0
 
     def seg(x0, y0, x1, y1):
         dx, dy = x1 - x0, y1 - y0
         t = max(0.0, min(1.0, ((c - x0) * dx + (r - y0) * dy) / (dx * dx + dy * dy)))
         return math.hypot(c - x0 - t * dx, r - y0 - t * dy)
     # outside a convex polygon, the distance to it is the distance to its nearest edge
-    return min(seg(x0, y0, x1, y1) for (x0, y0), (x1, y1) in edges) <= tol
+    return min(seg(x0, y0, x1, y1) for (x0, y0), (x1, y1) in edges)
+
+
+def inside_hull(src, c, r, tol=0.0):
+    """Whether (c, r) lies in the convex hull of the control points, or within tol pixels of it."""
+    return hull_distance(src, c, r) <= tol
+
+
+def margin_px(src):
+    """How far outside its control points a map that passed every gate is still trusted: a share of their larger side."""
+    s = np.asarray(src, float)
+    return GLOBAL_HULL_MARGIN * float(max(np.ptp(s[:, 0]), np.ptp(s[:, 1])))
 
 
 def point_std(P, c, r):
@@ -150,6 +169,9 @@ def features_of(units, panels, words, mission, date, map_ok):
             why["outside_panels"] += n
             continue
         if P["local"] and not inside_hull(P["src"], c, r, tol=HULL_TOL_PX):
+            why["outside_hull"] += n
+            continue
+        if not P["local"] and not inside_hull(P["src"], c, r, tol=margin_px(P["src"])):
             why["outside_hull"] += n
             continue
         std = point_std(P, c, r)

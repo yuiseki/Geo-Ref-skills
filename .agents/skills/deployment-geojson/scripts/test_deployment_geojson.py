@@ -88,3 +88,48 @@ def test_a_failed_answer_with_no_points_is_not_read(tmp_path):
     (run / "answer.c1.grid_affine.json").write_text(json.dumps({"status": "failed", "reason": "no grid"}))
     (p,) = G.panels_of(run, False)
     assert p["local"]
+
+
+def test_the_distance_to_the_hull_is_zero_inside_and_to_the_nearest_edge_outside():
+    src = [[0, 0], [100, 0], [100, 100], [0, 100]]
+    assert G.hull_distance(src, 50, 50) == 0.0
+    assert G.hull_distance(src, 100, 40) == 0.0  # on an edge
+    assert abs(G.hull_distance(src, 130, 50) - 30.0) < 1e-9
+    assert abs(G.hull_distance(src, 103, 104) - 5.0) < 1e-9  # nearest to a corner
+
+
+def stack_at(x, y, n=1):
+    return {"stack": 1, "located_by": "leader", "location": {"x": x, "y": y},
+            "units": [{"label": "", "inner": "", "signature": "s", "arm": None, "echelon": None, "size_marks": []}] * n}
+
+
+def global_panel():
+    """A panel that passed every gate: control points over a 100 x 100 px square of a 1000 x 1000 px image, 72 dpi."""
+    wm, tf = G.wm, G.tf
+    src = np.array([[400, 400], [500, 400], [500, 500], [400, 500], [450, 450]], float)
+    dst = np.array([wm.lonlat_to_mercator(30 + (c - 400) / 1000, 10 - (r - 400) / 1000) for c, r in src])
+    return {"cand": 1, "local": False, "src": src, "dst": dst, "method": "affine", "k": 1.0, "o": [0, 0], "W": 1000,
+            "H": 1000, "model": tf.fit("affine", src, dst), "area": 1000 * 1000}
+
+
+def test_a_unit_far_outside_the_control_points_of_a_map_that_passed_is_not_used():
+    # MONUSCO 2016-08-09: a stack in the corner of the sheet, where the map has no towns, came out in the Atlantic
+    # (9.9 E, 11.9 S) on a map whose answer passed every gate: extrapolation, not a position
+    P = global_panel()
+    size = 100.0  # the control points' larger side in pixels
+    far = G.GLOBAL_HULL_MARGIN * size + 10
+    feats, n, why = G.features_of({"stacks": [stack_at(500 + far, 450)]}, [P], [], "M", "20160809", True)
+    assert feats == [] and why["outside_hull"] == 1
+
+
+def test_a_unit_just_outside_the_control_points_of_a_map_that_passed_is_used():
+    # units at the edge of the sheet's towns are real; the margin keeps them
+    P = global_panel()
+    near = G.GLOBAL_HULL_MARGIN * 100.0 - 10
+    feats, n, why = G.features_of({"stacks": [stack_at(500 + near, 450)]}, [P], [], "M", "20160809", True)
+    assert len(feats) == 1 and why["outside_hull"] == 0
+
+
+def test_a_unit_inside_the_control_points_is_used():
+    feats, n, why = G.features_of({"stacks": [stack_at(450, 450, 3)]}, [global_panel()], [], "M", "20160809", True)
+    assert len(feats) == 3 and why["outside_hull"] == 0
