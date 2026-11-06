@@ -177,6 +177,19 @@ def utm(zone):
     return lambda e, nn: t.transform(e, nn)
 
 
+MAX_SPAN_DEG = 3.0
+
+
+def too_wide(pts, max_span=MAX_SPAN_DEG):
+    """Whether crossings of a graticule span more than max_span degrees of longitude or latitude, where straight
+    lines through the ticks no longer follow the meridians and parallels (MINUSMA, 2024: 15 degrees, Bamako 20 km
+    off with every gate passed)."""
+    if not pts:
+        return False
+    lons, lats = [p[2] for p in pts], [p[3] for p in pts]
+    return max(lons) - min(lons) > max_span or max(lats) - min(lats) > max_span
+
+
 def dms(v, pos, neg):
     h = pos if v >= 0 else neg
     v = abs(v)
@@ -259,13 +272,16 @@ def main():
     grid = [(g["axis"], g["value"], *gl) for g in labs if g["axis"] in ("x", "y") for gl in [grid_line_of(g, segs)] if gl]
     # one grid line per value (a label on each side of the map finds the same line)
     grid = list({(ax, v): (ax, v, p, d) for ax, v, p, d in grid}.values())
-    gcps = to_pixels(crossings(lines(marks) + grid, zone=a.utm_zone), a.dpi, a.box_px)
+    deg = crossings(lines(marks))
+    wide = too_wide(deg)
+    gcps = to_pixels((crossings(grid, zone=a.utm_zone)) + ([] if wide else deg), a.dpi, a.box_px)
     x0, y0, x1, y1 = a.box_px
     info = {"image": {"width": round(x1 - x0), "height": round(y1 - y0)},
             "tool": {"name": "graticule-gcps", "words_from": "pdf"},
             "labels": len(labs), "ticked": len(marks), "grid_lines": len(grid), "utm_zone": a.utm_zone}
     if len(gcps) < a.min_gcps:
-        ans = {"status": "failed", "reason": f"{len(gcps)} graticule crossings in the crop (need {a.min_gcps})", **info}
+        why = f"the graticule spans over {MAX_SPAN_DEG:g} degrees; " if wide else ""
+        ans = {"status": "failed", "reason": f"{why}{len(gcps)} graticule crossings in the crop (need {a.min_gcps})", **info}
     else:
         ans = {"status": "ok", "method": a.method, "crs": "EPSG:4326", "gcps": gcps, **info}
     Path(a.out).write_text(json.dumps(ans, indent=1, ensure_ascii=False))

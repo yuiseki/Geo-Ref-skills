@@ -106,3 +106,11 @@ def test_a_path_is_straight_when_every_point_lies_on_its_ends_line():
     assert G.straight([(92.8, 35.3), (92.8, 77.4), (92.81, 130.7), (92.8, 562.6)]) == ((92.8, 35.3), (92.8, 562.6))
     assert G.straight([(0.0, 0.0), (5.0, 3.0), (10.0, 0.0)]) is None
     assert G.straight([(1.0, 1.0)]) is None
+
+
+def test_a_graticule_over_more_than_a_few_degrees_is_not_taken_as_straight():
+    # MINUSMA, 2024: ticks every degree over 15 x 15 degrees of Mali passed every gate with 12 crossings, and put
+    # Bamako 20 km and Gao 9 km off: meridians and parallels curve over that span. UNDOF spans 0.7 degrees.
+    small = [(0, 0, 35.7, 32.8), (0, 0, 36.3, 33.4)]
+    wide = [(0, 0, -15.0, 10.0), (0, 0, -5.0, 25.0)]
+    assert G.too_wide(wide) and not G.too_wide(small)
