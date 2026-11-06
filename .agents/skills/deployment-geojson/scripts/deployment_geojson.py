@@ -61,14 +61,16 @@ def inside_hull(src, c, r, tol=0.0):
     hull = half(pts) + half(pts[::-1])
     if len(hull) < 3:
         return False
-    out = 0.0
-    for (x0, y0), (x1, y1) in zip(hull, hull[1:] + hull[:1]):
-        cross = (x1 - x0) * (r - y0) - (y1 - y0) * (c - x0)
-        if cross < 0:
-            dx, dy = x1 - x0, y1 - y0
-            t = max(0.0, min(1.0, ((c - x0) * dx + (r - y0) * dy) / (dx * dx + dy * dy)))
-            out = max(out, math.hypot(c - x0 - t * dx, r - y0 - t * dy))
-    return out <= tol
+    edges = list(zip(hull, hull[1:] + hull[:1]))
+    if all((x1 - x0) * (r - y0) - (y1 - y0) * (c - x0) >= 0 for (x0, y0), (x1, y1) in edges):
+        return True
+
+    def seg(x0, y0, x1, y1):
+        dx, dy = x1 - x0, y1 - y0
+        t = max(0.0, min(1.0, ((c - x0) * dx + (r - y0) * dy) / (dx * dx + dy * dy)))
+        return math.hypot(c - x0 - t * dx, r - y0 - t * dy)
+    # outside a convex polygon, the distance to it is the distance to its nearest edge
+    return min(seg(x0, y0, x1, y1) for (x0, y0), (x1, y1) in edges) <= tol
 
 
 def point_std(P, c, r):

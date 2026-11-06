@@ -50,3 +50,11 @@ def test_a_point_just_outside_the_hull_within_the_pixel_tolerance_is_inside():
     assert G.inside_hull(src, 102.0, 50.0, tol=3.0)
     assert not G.inside_hull(src, 104.0, 50.0, tol=3.0)
     assert not G.inside_hull(src, 102.0, 50.0)
+
+
+def test_the_distance_to_a_thin_hull_is_to_its_nearest_edge():
+    # a point 2 px beside a long thin hull is behind the line of a far edge too, by much more
+    src = [[0, 0], [10, 300], [12, 600], [4, 300]]
+    assert G.inside_hull(src, 2.0, 302.0, tol=3.0) or G.inside_hull(src, 1.0, 301.0, tol=3.0)
+    assert G.inside_hull(src, 13.0, 598.0, tol=3.0)
+    assert not G.inside_hull(src, 30.0, 300.0, tol=3.0)
