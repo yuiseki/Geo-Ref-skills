@@ -58,3 +58,33 @@ def test_the_distance_to_a_thin_hull_is_to_its_nearest_edge():
     assert G.inside_hull(src, 2.0, 302.0, tol=3.0) or G.inside_hull(src, 1.0, 301.0, tol=3.0)
     assert G.inside_hull(src, 13.0, 598.0, tol=3.0)
     assert not G.inside_hull(src, 30.0, 300.0, tol=3.0)
+
+
+def write_run(tmp_path, answers):
+    """A run directory with one rendered candidate and, per (key, passed gates), an answer and its gates."""
+    import json
+    (tmp_path / "cands").mkdir()
+    (tmp_path / "cands/candidates.json").write_text(json.dumps({"candidates": [
+        {"dpi": 144, "from": {"kind": "rendered", "box_px": [0, 0, 100, 100]}}]}))
+    for key, method, failed in answers:
+        gcps = [{"col": c, "row": r, "lon": 30 + c / 1000, "lat": 10 - r / 1000} for c in (0, 50, 100) for r in (0, 50, 100)]
+        (tmp_path / f"answer.c1.{key}.json").write_text(json.dumps({"image": {"width": 100, "height": 100},
+                                                                       "method": method, "gcps": gcps}))
+        (tmp_path / f"gates.c1.{key}.json").write_text(json.dumps({"gates": [{"name": n, "passed": False} for n in failed]
+                                                                     + [{"name": "geometry", "passed": True}]}))
+    return tmp_path
+
+
+def test_of_a_candidates_answers_the_one_that_passed_is_used(tmp_path):
+    # UNDOF: the town names' answer failed on spread (it may be used locally); the graticule's passed every gate
+    run = write_run(tmp_path, [("affine", "affine", ["spread"]), ("grid_affine", "affine", [])])
+    (p,) = G.panels_of(run, True)
+    assert not p["local"] and p["method"] == "affine"
+
+
+def test_a_failed_answer_with_no_points_is_not_read(tmp_path):
+    import json
+    run = write_run(tmp_path, [("affine", "affine", ["spread"])])
+    (run / "answer.c1.grid_affine.json").write_text(json.dumps({"status": "failed", "reason": "no grid"}))
+    (p,) = G.panels_of(run, False)
+    assert p["local"]

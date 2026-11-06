@@ -99,7 +99,9 @@ def attempt(pdf, mission, d, cs, k, tried):
         if tool == "graticule-gcps" and not pdf_crop:
             break
         for method in ("affine", "projective"):
-            ans = d / f"answer.c{k + 1}.{method}.json"
+            # the graticule's answer has its own name: a declared failure must not overwrite the names' answer
+            key = method if tool == "name-gcps" else f"grid_{method}"
+            ans = d / f"answer.c{k + 1}.{key}.json"
             run(*step(ans, method))
             if not ans.exists():
                 tried.append({"cand": k + 1, "method": method, "from": tool, "why": "error"})
@@ -109,13 +111,13 @@ def attempt(pdf, mission, d, cs, k, tried):
                 tried.append({"cand": k + 1, "method": method, "from": tool, "why": a.get("reason")})
                 break  # a declared failure does not depend on the method
             g = gates(ans)
-            (d / f"gates.c{k + 1}.{method}.json").write_text(json.dumps(g))
+            (d / f"gates.c{k + 1}.{key}.json").write_text(json.dumps(g))
             failed = [x["name"] for x in g["gates"] if not x["passed"]]
             loo = next((x.get("max_px") for x in g["gates"] if x["name"] == "loo_residual"), None)
             tried.append({"cand": k + 1, "method": method, "from": tool, "gcps": len(a["gcps"]), "failed": failed,
                           "loo": loo, "words_from": a["tool"].get("words_from")})
             if g["passed"]:
-                return {"stage": "ok", "cand": k + 1, "method": method, "gcps": len(a["gcps"]), "loo": loo,
+                return {"stage": "ok", "cand": k + 1, "method": method, "answer": key, "gcps": len(a["gcps"]), "loo": loo,
                         "words_from": a["tool"].get("words_from"), "gcps_from": tool}
     return None
 

@@ -101,3 +101,18 @@ def test_a_mission_with_a_utm_grid_passes_its_zone_to_the_graticule(tmp_path, mo
     cmds.clear()
     B.attempt(tmp_path / "m.pdf", "UNDOF", tmp_path, cand(), 0, [])
     assert not any("--utm-zone" in c for c in cmds)
+
+
+def test_the_graticule_writes_its_own_answer_beside_the_names(tmp_path, monkeypatch):
+    # a graticule's declared failure must not overwrite the names' answer whose gates are kept (MONUSCO 2025)
+    calls = fake_steps(monkeypatch, "ok", "failed", False)
+    outs = []
+    run0 = B.run
+
+    def run(cmd, log):
+        outs.append(cmd[cmd.index("--out") + 1].rsplit("/", 1)[1])
+        return run0(cmd, log)
+
+    monkeypatch.setattr(B, "run", run)
+    B.attempt(tmp_path / "m.pdf", "MONUSCO", tmp_path, cand(), 0, [])
+    assert outs == ["answer.c1.affine.json", "answer.c1.projective.json", "answer.c1.grid_affine.json"]

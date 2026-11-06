@@ -105,7 +105,12 @@ def nearest_text(words, x, y, r=25):
 def panels_of(run, map_ok):
     cands = json.loads((run / "cands/candidates.json").read_text())["candidates"]
     panels = []  # every candidate panel whose answer may be used: the main map and its insets
-    for g in sorted(run.glob("gates.c*.json")):
+    # a candidate may have several answers (town names, then the graticule: UNDOF 2025); one that passed every gate
+    # comes first, then the others in name order
+    def rank(g):
+        failed = [x for x in json.loads(g.read_text())["gates"] if not x["passed"]]
+        return (bool(failed), g.name)
+    for g in sorted(run.glob("gates.c*.json"), key=rank):
         m = re.match(r"gates\.c(\d+)\.(\w+)\.json", g.name)
         if not m:
             continue
