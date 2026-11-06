@@ -3,7 +3,8 @@
     python scripts/batch.py --src pdfs --out work [--min-year 2017] [--limit N] [--missions missions.json] [--only a.pdf ...]
 
 Per PDF: map candidates (the map and its inset frames), then for the first three by rank and every vector frame among
-the first eight, name-gcps (text layer, else OCR) with an affine and then a projective model, and the gates. It stops at
+the first eight, name-gcps (text layer, else OCR) with an affine and then a projective model, and the gates, then the
+same with graticule-gcps (the latitude and longitude ticks of the frame) for a crop of a PDF. It stops at
 the first candidate and method that pass every gate; then the other panels (the first four by rank and every frame) are
 tried too, so that the insets have their own control points. Gates are never loosened here. Each step runs under its own memory
 and CPU cap, so a PDF that runs out of memory fails alone.
@@ -72,33 +73,46 @@ def gates(answer):
 
 
 def attempt(pdf, mission, d, cs, k, tried):
-    """name-gcps (affine, then projective) and the gates on candidate k; returns the passing result, else None."""
+    """name-gcps (affine, then projective) and the gates on candidate k; if that does not pass and the candidate is cut
+    from a PDF, graticule-gcps the same way (UNDOF's maps of the Golan: few towns a gazetteer places, a frame
+    ticked every 5 minutes). Returns the passing result, else None."""
     c = cs[k]
     img = d / "cands" / c["file"]
-    extra = []
-    if c["from"].get("kind") == "rendered" and "box_px" in c["from"] and c.get("dpi"):
-        extra = ["--pdf", str(pdf), "--page", str(c.get("page", 1)), "--dpi", str(c["dpi"]), "--box-px", *map(str, c["from"]["box_px"])]
-    for method in ("affine", "projective"):
-        ans = d / f"answer.c{k + 1}.{method}.json"
-        run(UVX + [str(SKILLS / "name-gcps/scripts/name_gcps.py"), str(img), "--out", str(ans), "--method", method,
-                   "--cache", str(d.parent / "nominatim-cache"), "--words", str(d / f"words.c{k + 1}.json")]
-            + (["--countrycodes", MISSIONS[mission]] if mission in MISSIONS else []) + extra, d / "name_gcps.log")
-        if not ans.exists():
-            tried.append({"cand": k + 1, "method": method, "why": "error"})
-            return None
-        a = json.loads(ans.read_text())
-        if a["status"] != "ok":
-            tried.append({"cand": k + 1, "method": method, "why": a.get("reason")})
-            return None  # a declared failure does not depend on the method: the names did not agree
-        g = gates(ans)
-        (d / f"gates.c{k + 1}.{method}.json").write_text(json.dumps(g))
-        failed = [x["name"] for x in g["gates"] if not x["passed"]]
-        loo = next((x.get("max_px") for x in g["gates"] if x["name"] == "loo_residual"), None)
-        tried.append({"cand": k + 1, "method": method, "gcps": len(a["gcps"]), "failed": failed, "loo": loo,
-                      "words_from": a["tool"].get("words_from")})
-        if g["passed"]:
-            return {"stage": "ok", "cand": k + 1, "method": method, "gcps": len(a["gcps"]), "loo": loo,
-                    "words_from": a["tool"].get("words_from")}
+    pdf_crop = c["from"].get("kind") == "rendered" and "box_px" in c["from"] and c.get("dpi")
+    extra = ["--pdf", str(pdf), "--page", str(c.get("page", 1)), "--dpi", str(c["dpi"]), "--box-px", *map(str, c["from"]["box_px"])] if pdf_crop else []
+
+    def names(ans, method):
+        return UVX + [str(SKILLS / "name-gcps/scripts/name_gcps.py"), str(img), "--out", str(ans), "--method", method,
+                      "--cache", str(d.parent / "nominatim-cache"), "--words", str(d / f"words.c{k + 1}.json")] \
+            + (["--countrycodes", MISSIONS[mission]] if mission in MISSIONS else []) + extra, d / "name_gcps.log"
+
+    def graticule(ans, method):
+        return UVX + [str(SKILLS / "graticule-gcps/scripts/graticule_gcps.py"), str(pdf), "--page", str(c.get("page", 1)),
+                      "--dpi", str(c.get("dpi")), "--box-px", *map(str, c["from"].get("box_px", [])), "--out", str(ans),
+                      "--method", method], d / "graticule_gcps.log"
+
+    for tool, step in (("name-gcps", names), ("graticule-gcps", graticule)):
+        if tool == "graticule-gcps" and not pdf_crop:
+            break
+        for method in ("affine", "projective"):
+            ans = d / f"answer.c{k + 1}.{method}.json"
+            run(*step(ans, method))
+            if not ans.exists():
+                tried.append({"cand": k + 1, "method": method, "from": tool, "why": "error"})
+                break
+            a = json.loads(ans.read_text())
+            if a["status"] != "ok":
+                tried.append({"cand": k + 1, "method": method, "from": tool, "why": a.get("reason")})
+                break  # a declared failure does not depend on the method
+            g = gates(ans)
+            (d / f"gates.c{k + 1}.{method}.json").write_text(json.dumps(g))
+            failed = [x["name"] for x in g["gates"] if not x["passed"]]
+            loo = next((x.get("max_px") for x in g["gates"] if x["name"] == "loo_residual"), None)
+            tried.append({"cand": k + 1, "method": method, "from": tool, "gcps": len(a["gcps"]), "failed": failed,
+                          "loo": loo, "words_from": a["tool"].get("words_from")})
+            if g["passed"]:
+                return {"stage": "ok", "cand": k + 1, "method": method, "gcps": len(a["gcps"]), "loo": loo,
+                        "words_from": a["tool"].get("words_from"), "gcps_from": tool}
     return None
 
 
