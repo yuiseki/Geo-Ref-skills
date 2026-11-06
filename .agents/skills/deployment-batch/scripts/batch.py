@@ -20,7 +20,7 @@ from pathlib import Path
 
 SKILLS = Path(__file__).resolve().parents[2]
 ROOT = SKILLS.parents[1]
-UVX = ["uvx", "--with", "numpy", "--with", "opencv-python-headless", "--with", "pypdfium2", "--with", "pillow", "python"]
+UVX = ["uvx", "--with", "numpy", "--with", "opencv-python-headless", "--with", "pypdfium2", "--with", "pillow", "--with", "pyproj", "python"]
 # every step in its own capped scope: one PDF that runs out of memory fails alone, not the batch
 CAP = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "MemorySwapMax=0", "-p", "CPUQuota=400%", "--"]
 
@@ -36,6 +36,9 @@ MISSIONS = {
     "MINUJUSTH": "ht,do", "MINURCAT": "td,cf,sd", "UNTSO": "il,lb,sy,eg,jo,ps", "UNMEE": "er,et,dj,sd",
     "UNMIN": "np,in,cn", "UNSMIS": "sy,lb,jo,iq,tr,il", "UNMOP": "hr,me,ba", "UNIKOM": "iq,kw,sa",
     "UNAMI": "iq,sy,tr,ir,kw,sa,jo", "UNMOT": "tj,af,uz,kg,cn", "UNITAMS": "sd"}
+
+# the UTM zone of a mission's maps that are gridded in metres without printing the zone (graticule-gcps)
+UTM_ZONES = {"UNIFIL": "36N"}
 
 
 def mission_of(*texts):
@@ -89,7 +92,8 @@ def attempt(pdf, mission, d, cs, k, tried):
     def graticule(ans, method):
         return UVX + [str(SKILLS / "graticule-gcps/scripts/graticule_gcps.py"), str(pdf), "--page", str(c.get("page", 1)),
                       "--dpi", str(c.get("dpi")), "--box-px", *map(str, c["from"].get("box_px", [])), "--out", str(ans),
-                      "--method", method], d / "graticule_gcps.log"
+                      "--method", method] + (["--utm-zone", UTM_ZONES[mission]] if mission in UTM_ZONES else []), \
+            d / "graticule_gcps.log"
 
     for tool, step in (("name-gcps", names), ("graticule-gcps", graticule)):
         if tool == "graticule-gcps" and not pdf_crop:

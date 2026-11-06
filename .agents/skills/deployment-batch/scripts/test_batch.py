@@ -80,3 +80,24 @@ def test_a_graticule_failing_the_gates_is_tried_projective_then_given_up(tmp_pat
     tried = []
     assert B.attempt(tmp_path / "m.pdf", "UNDOF", tmp_path, cand(), 0, tried) is None
     assert calls == [("name", "affine"), ("graticule", "affine"), ("graticule", "projective")]
+
+
+def test_a_mission_with_a_utm_grid_passes_its_zone_to_the_graticule(tmp_path, monkeypatch):
+    # UNIFIL's maps (2025) are gridded in UTM metres (700000E, 3700000N) and do not print the zone; south Lebanon
+    # is in zone 36 (30 to 36 E)
+    import json
+    cmds = []
+
+    def run(cmd, log):
+        cmds.append(cmd)
+        out = cmd[cmd.index("--out") + 1]
+        open(out, "w").write(json.dumps({"status": "failed", "reason": "no", "tool": {}}))
+        return 0
+
+    monkeypatch.setattr(B, "run", run)
+    B.attempt(tmp_path / "m.pdf", "UNIFIL", tmp_path, cand(), 0, [])
+    grat = [c for c in cmds if any("graticule_gcps.py" in str(x) for x in c)]
+    assert grat and grat[0][grat[0].index("--utm-zone") + 1] == "36N"
+    cmds.clear()
+    B.attempt(tmp_path / "m.pdf", "UNDOF", tmp_path, cand(), 0, [])
+    assert not any("--utm-zone" in c for c in cmds)

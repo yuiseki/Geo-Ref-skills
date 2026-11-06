@@ -70,3 +70,39 @@ def test_points_become_pixels_of_the_crop_and_those_outside_it_are_left_out():
     pts = [(300.0, 200.0, 36.0, 33.0), (10.0, 10.0, 35.0, 34.0)]
     got = G.to_pixels(pts, dpi=144.0, box_px=(100, 100, 900, 900))
     assert got == [{"col": 500.0, "row": 300.0, "lon": 36.0, "lat": 33.0, "name": "36°0'E 33°0'N"}]
+
+
+def test_a_grid_label_is_metres_east_or_north():
+    # UNIFIL, 2025: a UTM grid, labelled 700000E and 3700000N (the last three zeros smaller)
+    assert G.parse("700000E") == ("x", 700000.0)
+    assert G.parse("3700000N") == ("y", 3700000.0)
+    assert G.parse("1072m") is None and G.parse("2014") is None and G.parse("12E") is None
+
+
+def test_a_grid_label_takes_the_long_line_through_its_middle():
+    lab = {"axis": "x", "value": 700000.0, "box": (81.1, 40.0, 104.3, 46.2), "down": False}
+    lines = [((92.8, 35.3), (92.8, 562.6)), ((300.0, 35.3), (300.0, 562.6)), ((40.0, 100.0), (750.0, 100.0))]
+    got = G.grid_line_of(lab, lines)
+    assert got == ((92.8, 35.3), (0.0, 1.0))
+    lab_y = {"axis": "y", "value": 3700000.0, "box": (44.7, 74.9, 67.6, 81.0), "down": False}
+    assert G.grid_line_of(lab_y, lines) is None  # no horizontal line through it within 1.5 pt
+    assert G.grid_line_of({**lab_y, "box": (44.7, 97.0, 67.6, 103.0)}, lines) == ((40.0, 100.0), (1.0, 0.0))
+
+
+def test_grid_crossings_are_turned_into_degrees_by_the_utm_zone():
+    lines = [("x", 700000.0, (92.8, 0.0), (0.0, 1.0)), ("y", 3700000.0, (0.0, 78.0), (1.0, 0.0))]
+    (x, y, lon, lat), = G.crossings(lines, zone="36N")
+    assert (round(x, 6), round(y, 6)) == (92.8, 78.0)
+    assert math.isclose(lon, 35.15103, abs_tol=1e-5) and math.isclose(lat, 33.42074, abs_tol=1e-5)
+
+
+def test_a_grid_without_a_zone_gives_no_points():
+    lines = [("x", 700000.0, (92.8, 0.0), (0.0, 1.0)), ("y", 3700000.0, (0.0, 78.0), (1.0, 0.0))]
+    assert G.crossings(lines) == []
+
+
+def test_a_path_is_straight_when_every_point_lies_on_its_ends_line():
+    # UNIFIL's grid lines are paths of 12 to 15 points along one line
+    assert G.straight([(92.8, 35.3), (92.8, 77.4), (92.81, 130.7), (92.8, 562.6)]) == ((92.8, 35.3), (92.8, 562.6))
+    assert G.straight([(0.0, 0.0), (5.0, 3.0), (10.0, 0.0)]) is None
+    assert G.straight([(1.0, 1.0)]) is None

@@ -43,6 +43,8 @@ uvx --with pypdfium2 python scripts/batch.py --src pdfs --out work --min-year 20
 
 `MISSIONS` は、ミッションの略称から、その地図に出る国の国コードへの対応である。部隊の派遣国名 (BANGLADESH など) が地名として当たらないように、地名検索をこの国々に絞る。表にない略称の地図は絞らずに試す。略称は、題名、ファイル名の順で、単語全体として探す。
 
+`UTM_ZONES` は、UTM の方眼で描かれ、帯の番号を書いていない図の、ミッションごとの帯である (UNIFIL は 36N)。`graticule-gcps` に渡す。
+
 ## 資源の上限
 
 実データを読む工程は、1 つずつ、メモリ 8 GB、スワップなし、CPU 400% の枠の中で動く。1 件の PDF が上限を超えて落ちても、全体は止まらず、その PDF が `failed` か `error` になる。systemd の `systemd-run --user --scope` が使える環境が前提である。
