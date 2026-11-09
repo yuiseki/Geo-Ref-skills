@@ -1,6 +1,18 @@
 # Geo-Ref-skills: エージェントへの指示
 
-画像の地図を地上の座標に結び付ける (ジオリファレンスする) ことを頼まれたら、この指示に従う。手順は `.agents/skills/<スキル>/SKILL.md` にある (作り始めたところで、まだ無い)。
+画像の地図を地上の座標に結び付ける (ジオリファレンスする) ことを頼まれたら、この指示に従う。手順は `.agents/skills/<スキル>/SKILL.md` にある。
+
+## 入力ごとに、どのスキルから読むか
+
+| 入力 | 流れ (この順に SKILL.md を開く) |
+|---|---|
+| 地図の画像と、おおよその範囲 (経緯度の枠) | `tile-reference` で参照を作る。`feature-registration` で合わせる (描き方が違えば `cross-style-registration`)。`gcp-refinement`、`georef-gates` |
+| 場所の分からない地図の画像 | まず `place-hint` で範囲とズームを決め、上の流れへ。町の記号と名前がはっきりしていれば `name-gcps` も使える |
+| 文書 (PDF など) の中の地図 | `document-maps` で地図の候補を切り出し、候補ごとに上の流れへ。答えの画素を、候補の画像から元のページへ戻すことを忘れない (候補の出どころの記録にある) |
+| ベクタ PDF の地図で、町の記号と名前、または枠の経緯度の目盛りがあるもの | `name-gcps`、`graticule-gcps` |
+| 国連 PKO の部隊配置図 (PDF) から部隊の位置へ | `deployment-batch` (`batch.py`) で関門まで。`deployment-geojson` で、`deployment_geojson.py`、`sea_check.py`、`town_check.py` の順に流す。`--runs` は `batch.py` の `--out` の中の `runs` |
+
+どの流れでも、関門 (`georef-gates`、PKO の図では町の確かめまで) を通らなかったものは答えにしない。
 
 ## 原則
 
