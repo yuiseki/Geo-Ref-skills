@@ -1,5 +1,5 @@
 {
- "comment": "Held-out tasks for the agent benchmark: places, seeds and the negative pair are not in evals/matrices, so the skills were not tuned on them. Level 5 puts a map made the same way into an A4 document (make_doc_task.py). Level 6 is a UN PKO deployment map, scored against the points published for it in yuiseki/un-pko-deployments (made by this repository's tools, so it measures reaching what the tools reach, not the ground truth); these maps were used while the skills were built.",
+ "comment": "Held-out tasks for the agent benchmark: places, seeds and the negative pair are not in evals/matrices, so the skills were not tuned on them. Level 5 puts a map made the same way into an A4 document (make_doc_task.py). Level 6 is a UN PKO deployment map, scored against the points published for it in yuiseki/un-pko-deployments (made by this repository's tools, so it measures reaching what the tools reach, not the ground truth); these maps were used while the skills were built. The L6h tasks are held out: maps not looked at while the skills were changed after the first agent runs (2026-11-10).",
  "size": [
   900,
   700
@@ -162,6 +162,38 @@
    "level": "6",
    "type": "pko",
    "published": "2025/geojson/UNDOF_20250116_f6f4c1dc65c1.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6h-monusco-2025-01",
+   "level": "6",
+   "type": "pko",
+   "published": "2025/geojson/MONUSCO_20250121_54e254e641eb.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6h-unifil-2025-01",
+   "level": "6",
+   "type": "pko",
+   "published": "2025/geojson/UNIFIL_20250120_3cf74fe5b346.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6h-unoci-2014-11",
+   "level": "6",
+   "type": "pko",
+   "published": "2014/geojson/UNOCI_20141128_21441e3cd50e.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6h-minustah-2014-08",
+   "level": "6",
+   "type": "pko",
+   "published": "2014/geojson/MINUSTAH_20140804_6a000089e84f.geojson",
    "radius_km": 2.0,
    "threshold": 0.8
   }
