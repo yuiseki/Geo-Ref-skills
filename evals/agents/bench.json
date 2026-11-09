@@ -1,0 +1,95 @@
+{
+ "comment": "Held-out tasks for the agent benchmark: places, seeds and the negative pair are not in evals/matrices, so the skills were not tuned on them.",
+ "size": [
+  900,
+  700
+ ],
+ "zoom": 15,
+ "ref_style": "osm-liberty",
+ "tasks": [
+  {
+   "id": "L1-okayama",
+   "level": "1",
+   "place": [
+    133.9195,
+    34.6551
+   ],
+   "style": "osm-liberty",
+   "kind": "projective",
+   "strength": 0.5,
+   "seed": 101,
+   "hint": "bbox"
+  },
+  {
+   "id": "L2a-nagasaki",
+   "level": "2a",
+   "place": [
+    129.8737,
+    32.7503
+   ],
+   "style": "osm-liberty",
+   "photometric": "gray",
+   "kind": "projective",
+   "strength": 0.5,
+   "seed": 102,
+   "hint": "bbox"
+  },
+  {
+   "id": "L2-kumamoto",
+   "level": "2",
+   "place": [
+    130.7417,
+    32.7898
+   ],
+   "style": "osm-bright",
+   "kind": "projective",
+   "strength": 0.5,
+   "seed": 103,
+   "hint": "bbox"
+  },
+  {
+   "id": "L3-akita",
+   "level": "3",
+   "place": [
+    140.1024,
+    39.72
+   ],
+   "style": "osm-liberty-no-text-no-icons",
+   "kind": "similarity",
+   "strength": 0.5,
+   "seed": 104,
+   "hint": "bbox"
+  },
+  {
+   "id": "L4-toyama",
+   "level": "4",
+   "place": [
+    137.2137,
+    36.6953
+   ],
+   "style": "osm-liberty",
+   "kind": "similarity",
+   "strength": 0.5,
+   "seed": 105,
+   "hint": "country",
+   "country": "jp"
+  },
+  {
+   "id": "N-okayama-at-kochi",
+   "level": "negative",
+   "place": [
+    133.9195,
+    34.6551
+   ],
+   "style": "osm-liberty",
+   "kind": "projective",
+   "strength": 0.5,
+   "seed": 106,
+   "hint": "wrong-bbox",
+   "wrong_center": [
+    133.5311,
+    33.5597
+   ]
+  }
+ ]
+}
