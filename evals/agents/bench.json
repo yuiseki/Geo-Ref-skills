@@ -1,5 +1,5 @@
 {
- "comment": "Held-out tasks for the agent benchmark: places, seeds and the negative pair are not in evals/matrices, so the skills were not tuned on them.",
+ "comment": "Held-out tasks for the agent benchmark: places, seeds and the negative pair are not in evals/matrices, so the skills were not tuned on them. Level 5 puts a map made the same way into an A4 document (make_doc_task.py). Level 6 is a UN PKO deployment map, scored against the points published for it in yuiseki/un-pko-deployments (made by this repository's tools, so it measures reaching what the tools reach, not the ground truth); these maps were used while the skills were built.",
  "size": [
   900,
   700
@@ -90,6 +90,80 @@
     133.5311,
     33.5597
    ]
+  },
+  {
+   "id": "L5-oita-embedded",
+   "level": "5",
+   "type": "doc",
+   "document": "embedded",
+   "dpi": 150,
+   "page_px": [
+    1240,
+    1754
+   ],
+   "place": [
+    131.6126,
+    33.2382
+   ],
+   "style": "osm-liberty",
+   "kind": "similarity",
+   "strength": 0.5,
+   "seed": 107,
+   "hint": "country",
+   "country": "jp"
+  },
+  {
+   "id": "L5-utsunomiya-scan",
+   "level": "5",
+   "type": "doc",
+   "document": "scan",
+   "dpi": 150,
+   "page_px": [
+    1240,
+    1754
+   ],
+   "place": [
+    139.8836,
+    36.5551
+   ],
+   "style": "osm-liberty",
+   "kind": "projective",
+   "strength": 0.5,
+   "seed": 108,
+   "hint": "country",
+   "country": "jp"
+  },
+  {
+   "id": "L6-minusca-2025-09",
+   "level": "6",
+   "type": "pko",
+   "published": "2025/geojson/MINUSCA_20250919_5f89fb81c71c.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6-unmiss-2025-05",
+   "level": "6",
+   "type": "pko",
+   "published": "2025/geojson/UNMISS_20250509_ee630557dede.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6-unficyp-2025-06",
+   "level": "6",
+   "type": "pko",
+   "published": "2025/geojson/UNFICYP_20250630_07eb388729f8.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6-undof-2025-01",
+   "level": "6",
+   "type": "pko",
+   "published": "2025/geojson/UNDOF_20250116_f6f4c1dc65c1.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
   }
  ]
 }

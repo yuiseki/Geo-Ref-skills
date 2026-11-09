@@ -136,3 +136,68 @@ def test_public_osm_servers_are_found_in_a_log():
     assert bench.public_osm_hits("GET https://tile.openstreetmap.org/15/1/2.png and overpass-api.de") == [
         "overpass-api.de", "tile.openstreetmap.org"]
     assert bench.public_osm_hits("https://nominatim.yuiseki.net/search and tile.yuiseki.net") == []
+
+
+# Level 5: a map inside a document. Answers are in pixels of the page drawn at the task's dpi.
+
+def test_doc_answer_is_moved_into_the_map_rectangle():
+    a = {"status": "ok", "image": {"width": 1240, "height": 1754}, "method": "affine",
+         "gcps": [{"col": 110.0, "row": 220.0, "lon": 1, "lat": 2}]}
+    b = bench.doc_answer_in_box(a, (100.0, 200.0, 400.0, 500.0))
+    assert b["gcps"][0]["col"] == pytest.approx(10.0) and b["gcps"][0]["row"] == pytest.approx(20.0)
+    assert b["image"] == {"width": 300, "height": 300}
+    assert a["gcps"][0]["col"] == 110.0  # the answer itself is left as it was
+
+
+def test_doc_box_is_the_map_rectangle_in_page_pixels():
+    assert bench.doc_box({"map_pt": [72.0, 144.0, 360.0, 288.0]}, 150) == pytest.approx((150.0, 300.0, 900.0, 900.0))
+
+
+# Level 6: unit positions against the published points of the same map.
+
+def test_points_are_matched_one_to_one_within_the_radius():
+    ref = [(30.0, 5.0), (30.1, 5.0), (31.0, 6.0)]
+    pred = [(30.0, 5.001), (30.0, 5.002), (31.5, 6.0)]
+    m = bench.match_points(pred, ref, radius_km=2.0)
+    assert m["matched"] == 1  # two predictions near one reference count once
+    assert m["precision"] == pytest.approx(1 / 3) and m["recall"] == pytest.approx(1 / 3)
+
+
+def test_no_prediction_has_zero_recall_and_no_precision():
+    m = bench.match_points([], [(30.0, 5.0)], radius_km=2.0)
+    assert m["recall"] == 0 and m["precision"] is None
+
+
+def test_points_of_a_geojson_are_read_in_lon_lat():
+    fc = {"type": "FeatureCollection", "features": [
+        {"type": "Feature", "geometry": {"type": "Point", "coordinates": [30.5, 4.5]}, "properties": {}},
+        {"type": "Feature", "geometry": {"type": "MultiPoint", "coordinates": [[1, 2], [3, 4]]}, "properties": {}},
+        {"type": "Feature", "geometry": None, "properties": {}}]}
+    assert bench.points_of(fc) == [(30.5, 4.5), (1, 2), (3, 4)]
+
+
+@pytest.mark.parametrize("m,expected", [
+    ({"precision": 0.9, "recall": 0.85}, "accurate"),
+    ({"precision": 0.9, "recall": 0.5}, "inaccurate"),
+    ({"precision": None, "recall": 0.0}, "inaccurate"),
+])
+def test_pko_outcome(m, expected):
+    assert bench.pko_outcome(m, threshold=0.8) == expected
+
+
+def test_doc_and_pko_workdirs_hold_the_document_and_a_hint(tmp_path):
+    t = tmp_path / "tasks" / "D"
+    (t / "task").mkdir(parents=True)
+    (t / "truth").mkdir()
+    (t / "task" / "document.pdf").write_bytes(b"%PDF")
+    (t / "truth" / "truth.json").write_text("{}")
+    d = bench.prepare_workdir(ROOT, "HEAD", tmp_path / "w", t, {"type": "doc", "hint": "country", "country": "jp",
+                                                                  "page_px": [1240, 1754], "dpi": 150}, "osm-liberty", False)
+    assert sorted(p.name for p in (d / "task").iterdir()) == ["document.pdf", "hint.json"]
+    h = json.loads((d / "task" / "hint.json").read_text())
+    assert h["country"] == "jp" and h["dpi"] == 150 and h["page_px"] == [1240, 1754]
+    t2 = tmp_path / "tasks" / "P"
+    (t2 / "task").mkdir(parents=True)
+    (t2 / "task" / "map.pdf").write_bytes(b"%PDF")
+    d2 = bench.prepare_workdir(ROOT, "HEAD", tmp_path / "w2", t2, {"type": "pko"}, "osm-liberty", False)
+    assert sorted(p.name for p in (d2 / "task").iterdir()) == ["hint.json", "map.pdf"]

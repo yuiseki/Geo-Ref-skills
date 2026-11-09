@@ -49,6 +49,11 @@ def agent_hint(task_hint, t, ref_style):
 
 
 def hint_text(t):
+    if t.get("type") == "pko":
+        return "- Nothing else is known about it beyond what is printed on it."
+    if t.get("type") == "doc":
+        return (f"- The map shows a place in the country with ISO code {t['country']!r}; you are not told where or at "
+                "what scale.")
     if t.get("hint") == "country":
         return f"- The map shows a place in the country with ISO code {t['country']!r}; you are not told where or at what scale."
     return ("- bbox in hint.json is a rough area (longitude and latitude, west south east north) around the map, with a "
@@ -71,9 +76,21 @@ def prepare_workdir(repo, rev, dest, task_dir, t, ref_style, skills):
         subprocess.run(["tar", "-x", "-C", str(dest)], input=tar, check=True)
         shutil.rmtree(dest / "evals", ignore_errors=True)
     (dest / "task").mkdir()
-    shutil.copyfile(Path(task_dir) / "task" / "image.png", dest / "task" / "image.png")
-    th = json.loads((Path(task_dir) / "task" / "hint.json").read_text(encoding="utf-8"))
-    (dest / "task" / "hint.json").write_text(json.dumps(agent_hint(th, t, ref_style), indent=2), encoding="utf-8")
+    kind = t.get("type", "raster")
+    if kind == "raster":
+        shutil.copyfile(Path(task_dir) / "task" / "image.png", dest / "task" / "image.png")
+        th = json.loads((Path(task_dir) / "task" / "hint.json").read_text(encoding="utf-8"))
+        hint = agent_hint(th, t, ref_style)
+    elif kind == "doc":
+        shutil.copyfile(Path(task_dir) / "task" / "document.pdf", dest / "task" / "document.pdf")
+        hint = {"document": "document.pdf", "country": t["country"], "dpi": t["dpi"], "page_px": t["page_px"],
+                "reference_style": ref_style, "tile_size": 256}
+    elif kind == "pko":
+        shutil.copyfile(Path(task_dir) / "task" / "map.pdf", dest / "task" / "map.pdf")
+        hint = {"document": "map.pdf"}
+    else:
+        raise ValueError(f"unknown task type {kind!r}")
+    (dest / "task" / "hint.json").write_text(json.dumps(hint, indent=2), encoding="utf-8")
     leaks = [str(p) for p in dest.rglob("*") if p.name == "truth.json" or p.name == "evals"]
     if leaks:
         raise SystemExit(f"the workdir holds evaluation material: {leaks}")
@@ -96,6 +113,60 @@ def outcome(answer, score, negative, exit_code, accurate_pct, provider_error=Fal
     return "accurate" if score["max_pct_radius"] <= accurate_pct else "inaccurate"
 
 
+def doc_box(placement, dpi):
+    """The map's rectangle (x0, y0, x1, y1) in pixels of the page drawn at dpi."""
+    left, top, w, h = placement["map_pt"]
+    k = dpi / 72.0
+    return (left * k, top * k, (left + w) * k, (top + h) * k)
+
+
+def doc_answer_in_box(answer, box):
+    """An answer in page pixels, as an answer for the crop box: it is scored over the map only, not over the page."""
+    x0, y0, x1, y1 = box
+    return {**answer, "image": {"width": int(round(x1 - x0)), "height": int(round(y1 - y0))},
+            "gcps": [{**g, "col": g["col"] - x0, "row": g["row"] - y0} for g in answer["gcps"]]}
+
+
+def points_of(fc):
+    out = []
+    for f in fc.get("features", []):
+        g = f.get("geometry") or {}
+        if g.get("type") == "Point":
+            out.append(tuple(g["coordinates"][:2]))
+        elif g.get("type") == "MultiPoint":
+            out.extend(tuple(c[:2]) for c in g["coordinates"])
+    return out
+
+
+def match_points(pred, ref, radius_km):
+    """Greedy one-to-one matching, nearest pairs first, within radius_km (great circle)."""
+    import math
+
+    def km(a, b):
+        p1, p2 = math.radians(a[1]), math.radians(b[1])
+        dl = math.radians(b[0] - a[0])
+        h = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+        return 2 * 6371.0088 * math.asin(min(1.0, math.sqrt(h)))
+
+    pairs = sorted((km(p, r), i, j) for i, p in enumerate(pred) for j, r in enumerate(ref))
+    used_p, used_r, n = set(), set(), 0
+    for d, i, j in pairs:
+        if d > radius_km:
+            break
+        if i in used_p or j in used_r:
+            continue
+        used_p.add(i)
+        used_r.add(j)
+        n += 1
+    return {"matched": n, "n_pred": len(pred), "n_ref": len(ref),
+            "precision": n / len(pred) if pred else None, "recall": n / len(ref) if ref else None}
+
+
+def pko_outcome(m, threshold):
+    ok = m["precision"] is not None and m["precision"] >= threshold and (m["recall"] or 0) >= threshold
+    return "accurate" if ok else "inaccurate"
+
+
 PUBLIC_OSM = re.compile(r"\b((?:[a-z]\.)?tile\.openstreetmap\.org|nominatim\.openstreetmap\.org|overpass-api\.de|"
                         r"overpass\.kumi\.systems|api\.openstreetmap\.org)")
 
@@ -109,18 +180,45 @@ def load_spec():
     return json.loads((HERE / "bench.json").read_text(encoding="utf-8"))
 
 
-def make(spec):
+PKO_SRC = Path("/sata_hdd_24tb/can_not_publish/un/pko/deployments")
+PKO_PUBLISHED = Path("/Workspaces/repos/__yuiseki/_hf_data/un-pko-deployments/data")
+PDF_UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-python-headless", "--with",
+           "pypdfium2==5.14.0", "python"]
+
+
+def make_raster(spec, t, task_out, truth_out):
     W, H = spec["size"]
+    cmd = PDF_UVX + [str(ROOT / "evals/scripts/make_task.py"), "--style", t["style"], "--center", *map(str, t["place"]),
+                     "--zoom", str(t.get("zoom", spec["zoom"])), "--size", str(W), str(H), "--distortion", t["kind"],
+                     "--strength", str(t["strength"]), "--seed", str(t["seed"]), "--cache", str(ROOT / "tmp/tiles"),
+                     "--photometric", t.get("photometric", "none"), "--task-out", str(task_out), "--truth-out", str(truth_out)]
+    return subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT / "evals/scripts")
+
+
+def make(spec):
     for t in spec["tasks"]:
         d = WORK / "tasks" / t["id"]
-        if (d / "truth" / "truth.json").exists():
+        if (d / "truth").exists() and any((d / "truth").iterdir()):
             continue
-        cmd = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-python-headless", "python",
-               str(ROOT / "evals/scripts/make_task.py"), "--style", t["style"], "--center", *map(str, t["place"]),
-               "--zoom", str(t.get("zoom", spec["zoom"])), "--size", str(W), str(H), "--distortion", t["kind"],
-               "--strength", str(t["strength"]), "--seed", str(t["seed"]), "--cache", str(ROOT / "tmp/tiles"),
-               "--photometric", t.get("photometric", "none"), "--task-out", str(d / "task"), "--truth-out", str(d / "truth")]
-        r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT / "evals/scripts")
+        kind = t.get("type", "raster")
+        if kind == "raster":
+            r = make_raster(spec, t, d / "task", d / "truth")
+        elif kind == "doc":
+            r = make_raster(spec, t, d / "base" / "task", d / "truth")
+            if r.returncode == 0:
+                r = subprocess.run(PDF_UVX + [str(ROOT / "evals/scripts/make_doc_task.py"), str(d / "base/task/image.png"),
+                                              "--out", str(d / "doc"), "--seed", str(t["seed"]), "--dpi", str(t["dpi"])],
+                                   capture_output=True, text=True, cwd=ROOT / "evals/scripts")
+            if r.returncode == 0:
+                (d / "task").mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(d / "doc" / f"{t['document']}.pdf", d / "task" / "document.pdf")
+                shutil.copyfile(d / "doc" / "placement.json", d / "truth" / "placement.json")
+        elif kind == "pko":
+            (d / "task").mkdir(parents=True, exist_ok=True)
+            (d / "truth").mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(PKO_SRC / t["file"], d / "task" / "map.pdf")
+            shutil.copyfile(PKO_PUBLISHED / t["published"], d / "truth" / "published.geojson")
+            r = subprocess.CompletedProcess([], 0, "", "")
         print(t["id"], r.returncode, r.stderr.strip()[-300:], file=sys.stderr)
 
 
@@ -130,7 +228,8 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
     if (d / "meta.json").exists():
         raise SystemExit(f"{d} has already run")
     wd = prepare_workdir(ROOT, rev, d / "work", WORK / "tasks" / task_id, t, spec["ref_style"], cond == "skills")
-    prompt = fill_prompt((HERE / "prompt.md").read_text(encoding="utf-8"), "/work", cond == "skills", minutes, hint_text(t))
+    template = {"raster": "prompt.md", "doc": "prompt-doc.md", "pko": "prompt-pko.md"}[t.get("type", "raster")]
+    prompt = fill_prompt((HERE / template).read_text(encoding="utf-8"), "/work", cond == "skills", minutes, hint_text(t))
     (d / "prompt.md").write_text(prompt, encoding="utf-8")
     cmd = [str(RUNNERS[agent]), "--prompt", str(d / "prompt.md"), str(wd), *MODELS[agent]]
     env = {**__import__("os").environ, "EVAL_MINUTES": str(minutes)}
@@ -148,27 +247,43 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
 def score_all(spec, accurate_pct):
     sys.path.insert(0, str(ROOT / "evals/scripts"))
     import score_task
+    from make_doc_task import crop_truth
     tasks = {t["id"]: t for t in spec["tasks"]}
     cols = ["agent", "cond", "task", "rep", "outcome", "max_pct_radius", "median_m", "n_gcps", "exit", "seconds", "public_osm", "reason"]
     print("\t".join(cols))
     for m in sorted((WORK / "runs").glob("*/*/*/meta.json")):
         meta = json.loads(m.read_text())
         d, t = m.parent, tasks[meta["task"]]
-        truth = json.loads((WORK / "tasks" / meta["task"] / "truth" / "truth.json").read_text())
-        ap = d / "work" / "answer.json"
+        kind = t.get("type", "raster")
+        tdir = WORK / "tasks" / meta["task"] / "truth"
+        ap = d / "work" / ("answer.geojson" if kind == "pko" else "answer.json")
         answer, sc = None, None
         if ap.exists():
             try:
                 answer = json.loads(ap.read_text())
             except ValueError:
                 answer = "unreadable"
-        if isinstance(answer, dict) and answer.get("status") == "ok":
+        if kind == "pko" and isinstance(answer, dict) and answer.get("type") == "FeatureCollection":
+            ref = points_of(json.loads((tdir / "published.geojson").read_text()))
+            sc = match_points(points_of(answer), ref, radius_km=t.get("radius_km", 2.0))
+            sc = {**sc, "status": "matched", "max_pct_radius": "", "median_m": "",
+                  "n_gcps": f"{sc['matched']}/{sc['n_pred']}/{sc['n_ref']}"}
+        elif isinstance(answer, dict) and answer.get("status") == "ok":
             try:
+                truth = json.loads((tdir / "truth.json").read_text())
+                if kind == "doc":
+                    pl = json.loads((tdir / "placement.json").read_text())
+                    box = doc_box(pl, t["dpi"])
+                    truth = crop_truth(truth, pl, box, t["dpi"])
+                    answer = doc_answer_in_box(answer, box)
                 sc = score_task.score(answer, truth)
             except Exception as e:  # a malformed answer is the agent's, not ours
                 sc = {"status": "error", "error": repr(e)}
         perr = meta["exit"] not in (0, 124) and answer is None
-        o = outcome(answer, sc, t["level"] == "negative", meta["exit"], accurate_pct, provider_error=perr)
+        if sc and sc.get("status") == "matched":
+            o = pko_outcome(sc, threshold=t.get("threshold", 0.8))
+        else:
+            o = outcome(answer, sc, t["level"] == "negative", meta["exit"], accurate_pct, provider_error=perr)
         reason = answer.get("reason", "") if isinstance(answer, dict) else ""
         logs = "".join(p.read_text(errors="replace") for p in (d / "log.jsonl", d / "stderr.log") if p.exists())
         row = [meta["agent"], meta["cond"], meta["task"], meta["rep"], o, (sc or {}).get("max_pct_radius", ""),
