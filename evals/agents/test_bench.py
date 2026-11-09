@@ -133,8 +133,9 @@ def test_gemini_runner_dry_run_puts_the_time_limit_inside_the_container(tmp_path
 
 def test_public_osm_servers_are_found_in_a_log():
     assert bench.public_osm_hits("curl https://nominatim.openstreetmap.org/search?q=x") == ["nominatim.openstreetmap.org"]
-    assert bench.public_osm_hits("GET https://tile.openstreetmap.org/15/1/2.png and overpass-api.de") == [
+    assert bench.public_osm_hits("GET https://tile.openstreetmap.org/15/1/2.png and https://overpass-api.de/api") == [
         "overpass-api.de", "tile.openstreetmap.org"]
+    assert bench.public_osm_hits("Do not call nominatim.openstreetmap.org, tile.openstreetmap.org, overpass-api.de") == []
     assert bench.public_osm_hits("https://nominatim.yuiseki.net/search and tile.yuiseki.net") == []
 
 

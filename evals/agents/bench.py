@@ -167,12 +167,13 @@ def pko_outcome(m, threshold):
     return "accurate" if ok else "inaccurate"
 
 
-PUBLIC_OSM = re.compile(r"\b((?:[a-z]\.)?tile\.openstreetmap\.org|nominatim\.openstreetmap\.org|overpass-api\.de|"
-                        r"overpass\.kumi\.systems|api\.openstreetmap\.org)")
+PUBLIC_OSM = re.compile(r"https?://((?:[a-z]\.)?tile\.openstreetmap\.org|nominatim\.openstreetmap\.org|overpass-api\.de|"
+                        r"overpass\.kumi\.systems|api\.openstreetmap\.org)/")
 
 
 def public_osm_hits(text):
-    """Public OSM servers named in an agent's log; the prompt forbids them."""
+    """Public OSM servers in URLs of an agent's log; the prompt forbids them. Only URLs count: the prompt (which
+    Codex echoes into its log) and the skills name the servers to say they are not to be called."""
     return sorted(set(PUBLIC_OSM.findall(text)))
 
 
