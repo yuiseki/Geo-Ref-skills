@@ -18,7 +18,6 @@ import io
 import json
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 import cv2
@@ -143,14 +142,15 @@ def _merge(run):
 
 
 def _tesseract(img, langs, psm):
-    with tempfile.TemporaryDirectory() as d:
-        p = Path(d) / "in.png"
-        cv2.imwrite(str(p), img)
-        r = subprocess.run(["tesseract", str(p), "-", "-l", langs, "--psm", str(psm), "tsv"],
-                           capture_output=True, text=True)
+    # the image goes on stdin, not through a temporary file: a step stopped by its time limit is killed outright and
+    # its TemporaryDirectory is never removed (60 directories, 3.3 GB of in.png left in /tmp, 2026-11-09)
+    ok, png = cv2.imencode(".png", img)
+    if not ok:
+        raise RuntimeError("could not encode the image for tesseract")
+    r = subprocess.run(["tesseract", "stdin", "-", "-l", langs, "--psm", str(psm), "tsv"], input=png.tobytes(), capture_output=True)
     if r.returncode != 0:
-        raise RuntimeError(f"tesseract failed: {r.stderr[-500:]}")
-    return r.stdout
+        raise RuntimeError(f"tesseract failed: {r.stderr.decode(errors='replace')[-500:]}")
+    return r.stdout.decode("utf-8", errors="replace")
 
 
 def read_words(image_path, langs="jpn+eng", scale=2.0, psm=11, angles=(0.0,), modes=("grey", "colour")):

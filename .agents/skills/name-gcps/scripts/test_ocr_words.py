@@ -110,3 +110,34 @@ def test_a_word_stacked_on_another_is_joined():
     words = ocr_words.parse_tsv(PHRASE_TSV)
     texts = [j["text"] for j in ocr_words.join_chome(words)]
     assert "COVENT GARDEN" in texts
+
+
+def test_the_image_goes_to_tesseract_on_stdin_and_nothing_is_left_on_disk(tmp_path, monkeypatch):
+    # a step stopped by its time limit is killed outright, and a TemporaryDirectory is then never removed:
+    # 60 directories and 3.3 GB of in.png were left in /tmp by the 2017-2019 batches (2026-11-09)
+    import subprocess
+    import tempfile
+    import numpy as np
+    import ocr_words as O
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen["cmd"], seen["input"] = cmd, kw.get("input")
+        return subprocess.CompletedProcess(cmd, 0, b"level\tpage_num\n", b"")
+
+    monkeypatch.setattr(O.subprocess, "run", fake_run)
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    out = O._tesseract(np.full((10, 10), 255, np.uint8), "eng", 11)
+    assert seen["cmd"][1] == "stdin" and seen["input"][:8] == b"\x89PNG\r\n\x1a\n"
+    assert out == "level\tpage_num\n"
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_tesseract_failure_is_an_error(monkeypatch):
+    import subprocess
+    import numpy as np
+    import pytest
+    import ocr_words as O
+    monkeypatch.setattr(O.subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, b"", b"bad image"))
+    with pytest.raises(RuntimeError, match="bad image"):
+        O._tesseract(np.full((10, 10), 255, np.uint8), "eng", 11)
