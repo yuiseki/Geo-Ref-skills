@@ -68,3 +68,16 @@ def test_the_town_check_is_recorded_in_the_file():
     out = T.with_town(fc, s, limit_km=10)
     assert out["checks"] == {"hull_margin": 0.3, "town": {"n": 5, "median_km": 2.0, "limit_km": 10, "passed": True}}
     assert fc["checks"] == {"hull_margin": 0.3}   # the given collection is not changed
+
+
+def test_a_round_shape_inside_the_name_is_not_its_town_symbol():
+    # MINUSCA 2025: a round path inside the label (part of the lettering) was taken for the town, and the map's
+    # median came out 30 km though its control points, the same towns' symbols, agreed within 2 px (2026-11-10)
+    w = {**word("Bangui", 300, 444, w=33), "h": 8}
+    syms = [(301.0, 444.5), (280.0, 452.0)]
+    assert T.pairs([w], syms) == [("Bangui", (280.0, 452.0))]
+
+
+def test_a_name_with_only_a_round_shape_inside_it_has_no_town():
+    w = {**word("Bangui", 300, 444, w=33), "h": 8}
+    assert T.pairs([w], [(301.0, 444.5)]) == []

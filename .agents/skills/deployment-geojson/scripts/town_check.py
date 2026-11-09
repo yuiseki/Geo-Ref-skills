@@ -42,14 +42,23 @@ def town_symbols(paths):
     return out
 
 
+def inside(q, w):
+    return abs(q[0] - w["x"]) <= w["w"] / 2 and abs(q[1] - w["y"]) <= w.get("h", 0) / 2
+
+
 def pairs(words, symbols):
-    """(name, symbol) for a capitalised word (not all capitals: a country beside a unit) with a town symbol beside it."""
+    """(name, symbol) for a capitalised word (not all capitals: a country beside a unit) with a town symbol beside it.
+    A round shape inside the word's box is part of its lettering, not its town (as name-gcps's symbol_options): on
+    MINUSCA 2025 one was taken for every town and the median came out 30 km for a map right within 2 px."""
     out = []
     for w in words:
         t = w["text"]
-        if not t[:1].isupper() or t.isupper() or len(t) < 3 or any(ch.isdigit() for ch in t) or not symbols:
+        if not t[:1].isupper() or t.isupper() or len(t) < 3 or any(ch.isdigit() for ch in t):
             continue
-        c = min(symbols, key=lambda q: math.hypot(q[0] - w["x"], q[1] - w["y"]))
+        outside = [q for q in symbols if not inside(q, w)]
+        if not outside:
+            continue
+        c = min(outside, key=lambda q: math.hypot(q[0] - w["x"], q[1] - w["y"]))
         if math.hypot(c[0] - w["x"], c[1] - w["y"]) <= w["w"] / 2 + 8:
             out.append((t, c))
     return out
