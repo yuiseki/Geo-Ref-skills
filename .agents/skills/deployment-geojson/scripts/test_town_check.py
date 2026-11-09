@@ -19,8 +19,8 @@ def test_town_symbols_are_the_small_round_paths():
     assert T.town_symbols(paths) == [(100.0, 100.0)]
 
 
-def word(text, x, y, w=30):
-    return {"text": text, "x": x, "y": y, "w": w, "kind": "word"}
+def word(text, x, y, w=30, h=8):
+    return {"text": text, "x": x, "y": y, "w": w, "h": h, "kind": "word"}
 
 
 def test_a_name_is_paired_with_the_town_symbol_beside_it():
@@ -130,3 +130,20 @@ def test_the_longest_phrase_is_the_label_not_its_shorter_phrases():
     ab = {"text": "Jubata al", "kind": "phrase", "x": 15, "y": 5, "w": 30, "h": 6}
     abc = {"text": "Jubata al Khashab", "kind": "phrase", "x": 30, "y": 5, "w": 60, "h": 6}
     assert [w["text"] for w in T.labels([a, ab, abc])] == ["Jubata al Khashab"]
+
+
+def test_a_symbol_two_names_reach_is_the_town_of_the_nearer_name_only():
+    # MONUSCO 2025: Lubumbashi (drawn with another symbol) took the ring of Kolwezi beside it and came out 254 km off
+    syms = [(100.0, 100.0)]
+    kolwezi = {**word("Kolwezi", 112, 100, w=20), "h": 6}
+    lubumbashi = {**word("Lubumbashi", 120, 108, w=36), "h": 6}
+    assert T.pairs([lubumbashi, kolwezi], syms) == [("Kolwezi", (100.0, 100.0))]
+
+
+def test_a_long_name_reaches_no_farther_than_a_short_one():
+    # the reach is from the label's box, 1.2 times its height (name-gcps's symbol_options), not from its centre:
+    # from the centre, a long name reached the ring of the town beside it (Lubumbashi and Kolwezi, MONUSCO 2025)
+    lub = word("Lubumbashi", 331.5, 467.9, w=45.4, h=6.5)
+    kol = word("Kolwezi", 336.7, 446.9, w=28.2, h=6.5)
+    assert T.pairs([lub, kol], [(319.1, 454.1)]) == [("Kolwezi", (319.1, 454.1))]
+    assert T.pairs([lub], [(319.1, 454.1)]) == []

@@ -52,26 +52,36 @@ def labels(words):
     return [w for w in words if w["kind"] in ("word", "phrase") and not any(holds(p, w) for p in phrases)]
 
 
-def inside(q, w):
-    return abs(q[0] - w["x"]) <= w["w"] / 2 and abs(q[1] - w["y"]) <= w.get("h", 0) / 2
+REACH = 1.2  # a town's symbol lies within this many label heights of the label's box (name-gcps's symbol_options)
+
+
+def box_distance(q, w):
+    """How far point q lies outside the word's box (0 inside it)."""
+    dx = max(abs(q[0] - w["x"]) - w["w"] / 2, 0.0)
+    dy = max(abs(q[1] - w["y"]) - w.get("h", 0) / 2, 0.0)
+    return math.hypot(dx, dy), bool(dx or dy)
 
 
 def pairs(words, symbols):
-    """(name, symbol) for a capitalised word (not all capitals: a country beside a unit) with a town symbol beside it.
-    A round shape inside the word's box is part of its lettering, not its town (as name-gcps's symbol_options): on
-    MINUSCA 2025 one was taken for every town and the median came out 30 km for a map right within 2 px."""
+    """(name, symbol) for a capitalised word (not all capitals: a country beside a unit) with a town symbol beside it:
+    outside its box (a round shape inside it is part of its lettering: on MINUSCA 2025 one was taken for every town
+    and the median came out 30 km for a map right within 2 px) and within REACH label heights of the box (from the
+    centre, a long name reached the ring of the town beside it). A symbol is the town of the nearest name only: a
+    capital drawn with another symbol (Lubumbashi on MONUSCO 2025) otherwise takes the ring of its neighbour."""
     out = []
     for w in words:
         t = w["text"]
         if not t[:1].isupper() or t.isupper() or len(t) < 3 or any(ch.isdigit() for ch in t):
             continue
-        outside = [q for q in symbols if not inside(q, w)]
-        if not outside:
-            continue
-        c = min(outside, key=lambda q: math.hypot(q[0] - w["x"], q[1] - w["y"]))
-        if math.hypot(c[0] - w["x"], c[1] - w["y"]) <= w["w"] / 2 + 8:
-            out.append((t, c))
-    return out
+        near = [(d, q) for q in symbols for d, out_of_box in [box_distance(q, w)] if out_of_box and d <= REACH * w.get("h", 0)]
+        if near:
+            d, c = min(near)
+            out.append((d, t, c))
+    best = {}
+    for d, t, c in out:
+        if c not in best or d < best[c][0]:
+            best[c] = (d, t)
+    return [(t, c) for d, t, c in out if best[c] == (d, t)]
 
 
 def distances(named, panels, places):
