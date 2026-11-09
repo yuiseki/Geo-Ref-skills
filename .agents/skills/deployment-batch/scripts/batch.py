@@ -17,6 +17,10 @@ work/runs/<pdf stem>/: candidates, words, answers and gate results of that PDF (
 import argparse
 import json
 import re
+import functools
+import os
+import shutil
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -31,6 +35,38 @@ STEP_SECONDS = 1800
 STEP_TIMEOUT = STEP_SECONDS + 60
 CAP = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "MemorySwapMax=0", "-p", "CPUQuota=400%",
        "-p", f"RuntimeMaxSec={STEP_SECONDS}", "--"]
+
+
+@functools.lru_cache(maxsize=None)
+def has_systemd():
+    """Whether steps can run in a capped systemd scope. Not in a container (an agent running the skills in Docker,
+    where the container's own limits hold instead) or with GEOREF_NO_SYSTEMD=1."""
+    if os.environ.get("GEOREF_NO_SYSTEMD") == "1" or not shutil.which("systemd-run"):
+        return False
+    try:
+        return subprocess.run(CAP[:4] + ["true"], capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def capped(cmd):
+    return CAP + cmd if has_systemd() else list(cmd)
+
+
+def run_bare(cmd, seconds, **kw):
+    """Run cmd in its own process group; at the time limit end the whole group (a step's tesseract with it), then
+    raise TimeoutExpired. subprocess.run's own timeout would kill only the first process."""
+    p = subprocess.Popen(cmd, start_new_session=True, **kw)
+    try:
+        out, err = p.communicate(timeout=seconds)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(p.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        p.communicate()
+        raise
+    return subprocess.CompletedProcess(cmd, p.returncode, out, err)
 
 # mission acronym -> the countries its map can show (Nominatim country codes), so that a troop contributor's name on the
 # map (BANGLADESH beside a unit) is not taken for a place in Bangladesh
@@ -100,6 +136,9 @@ def to_try(cands, first=3, total=8):
 def run(cmd, log):
     """The step's return code. A step ended by the scope's time limit raises TimeoutExpired, as one that outlives
     subprocess's own timeout does, so that the map is retried and not recorded as failed."""
+    if not has_systemd():
+        with open(log, "a") as f:
+            return run_bare(cmd, STEP_SECONDS, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT).returncode
     t0 = time.monotonic()
     with open(log, "a") as f:
         rc = subprocess.run(CAP + cmd, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT, timeout=STEP_TIMEOUT).returncode
@@ -109,7 +148,7 @@ def run(cmd, log):
 
 
 def gates(answer):
-    r = subprocess.run(CAP + ["uvx", "--with", "numpy", "python", str(SKILLS / "georef-gates/scripts/check_gcps.py"), str(answer)],
+    r = subprocess.run(capped(["uvx", "--with", "numpy", "python", str(SKILLS / "georef-gates/scripts/check_gcps.py"), str(answer)]),
                        cwd=ROOT, capture_output=True, text=True)
     return json.loads(r.stdout)
 

@@ -48,7 +48,7 @@ uvx --with pypdfium2 python scripts/batch.py --src pdfs --out work --min-year 20
 
 ## 資源の上限
 
-実データを読む工程は、1 つずつ、メモリ 8 GB、スワップなし、CPU 400% の枠の中で動く。1 件の PDF が上限を超えて落ちても、全体は止まらず、その PDF が `failed` か `error` になる。1 つの工程の時間の上限 (30 分) も、枠そのもの (`RuntimeMaxSec`) に掛ける。Python の `subprocess` の時間切れは systemd-run の 1 プロセスしか止めず、枠の中の name-gcps と tesseract が 29 時間動き続けていた (2026-11-06)。systemd の `systemd-run --user --scope` が使える環境が前提である。
+実データを読む工程は、1 つずつ、メモリ 8 GB、スワップなし、CPU 400% の枠の中で動く。1 件の PDF が上限を超えて落ちても、全体は止まらず、その PDF が `failed` か `error` になる。1 つの工程の時間の上限 (30 分) も、枠そのもの (`RuntimeMaxSec`) に掛ける。Python の `subprocess` の時間切れは systemd-run の 1 プロセスしか止めず、枠の中の name-gcps と tesseract が 29 時間動き続けていた (2026-11-06)。`systemd-run --user --scope` が使えない環境 (Docker のコンテナの中など。`GEOREF_NO_SYSTEMD=1` でも同じ) では、枠を作らずに工程を流す。メモリと CPU の上限は、コンテナの側の上限に任せる。時間の上限は残す。工程を自分のプロセスグループで動かし、30 分で、そのグループごと (tesseract も) 止める。
 
 時間切れは、地図の結論として記録しない。2017〜2019 年のバッチで時間切れになった 23 件は、やり直すと全て `ok` か `failed` になった。時間切れは、地図ではなく、そのときの母艦の負荷で決まる。枠の時間の上限で止められた工程も、答えが無いだけの失敗とは区別し、時間切れとして扱う。
 

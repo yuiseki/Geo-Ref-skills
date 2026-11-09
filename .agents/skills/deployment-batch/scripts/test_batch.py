@@ -1,4 +1,4 @@
-# uvx --with pytest pytest scripts/test_batch.py
+# uvx --with pytest --with pypdfium2 pytest scripts/test_batch.py
 import batch as B
 
 
@@ -181,6 +181,7 @@ def test_a_step_ended_by_the_scope_time_limit_counts_as_a_timeout(tmp_path, monk
     import subprocess
     import pytest
     clock = iter([0.0, B.STEP_SECONDS + 0.5])
+    monkeypatch.setattr(B, "has_systemd", lambda: True)
     monkeypatch.setattr(B.time, "monotonic", lambda: next(clock))
     monkeypatch.setattr(B.subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1))
     with pytest.raises(subprocess.TimeoutExpired):
@@ -190,6 +191,49 @@ def test_a_step_ended_by_the_scope_time_limit_counts_as_a_timeout(tmp_path, monk
 def test_a_step_that_fails_quickly_is_not_a_timeout(tmp_path, monkeypatch):
     import subprocess
     clock = iter([0.0, 3.0])
+    monkeypatch.setattr(B, "has_systemd", lambda: True)
     monkeypatch.setattr(B.time, "monotonic", lambda: next(clock))
     monkeypatch.setattr(B.subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1))
     assert B.run(["false"], tmp_path / "log") == 1
+
+
+# Without systemd (a container, as when an agent runs the skills in Docker): no scope, the step runs in its own
+# process group, and the time limit ends the whole group, tesseract included.
+
+def test_without_systemd_the_step_runs_bare_and_its_code_passes_through(tmp_path, monkeypatch):
+    monkeypatch.setattr(B, "has_systemd", lambda: False)
+    assert B.run(["bash", "-c", "echo hi; exit 3"], tmp_path / "log") == 3
+    assert "hi" in (tmp_path / "log").read_text()
+
+
+def test_without_systemd_the_time_limit_ends_everything_the_step_started(tmp_path, monkeypatch):
+    import os
+    import subprocess
+    import time
+    import pytest
+    monkeypatch.setattr(B, "has_systemd", lambda: False)
+    monkeypatch.setattr(B, "STEP_SECONDS", 1)
+    pidf = tmp_path / "child.pid"
+    t0 = time.monotonic()
+    with pytest.raises(subprocess.TimeoutExpired):
+        B.run(["bash", "-c", f"sleep 60 & echo $! > {pidf}; wait"], tmp_path / "log")
+    assert time.monotonic() - t0 < 10
+    time.sleep(0.2)
+    with pytest.raises(ProcessLookupError):
+        os.kill(int(pidf.read_text()), 0)
+
+
+def test_capped_adds_the_scope_only_where_systemd_is(monkeypatch):
+    monkeypatch.setattr(B, "has_systemd", lambda: True)
+    assert B.capped(["x"])[0] == "systemd-run" and B.capped(["x"])[-1] == "x"
+    monkeypatch.setattr(B, "has_systemd", lambda: False)
+    assert B.capped(["x"]) == ["x"]
+
+
+def test_has_systemd_can_be_turned_off_by_the_environment(monkeypatch):
+    B.has_systemd.cache_clear()
+    monkeypatch.setenv("GEOREF_NO_SYSTEMD", "1")
+    try:
+        assert B.has_systemd() is False
+    finally:
+        B.has_systemd.cache_clear()
