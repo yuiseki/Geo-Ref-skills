@@ -210,10 +210,12 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     commit = a.tool_commit or publish.tool_commit(
         [SKILLS / n for n in ("deployment-batch", "unit-symbols", "deployment-geojson")], SKILLS)
-    seen, summary = set(), open(out / "summary.jsonl", "w")
+    seen, summary, missing = set(), open(out / "summary.jsonl", "w"), []
     for line in open(a.results):
         r = json.loads(line)
         run = Path(a.runs) / Path(r["file"]).stem
+        if r["stage"] in ("ok", "failed") and not run.is_dir():
+            missing.append(run.name)
         if r["stage"] not in ("ok", "failed") or not (run / "cands/candidates.json").exists():
             continue
         pdf = Path(a.src) / r["file"]
@@ -235,6 +237,9 @@ def main():
                                   "units": n_units, "located": len(feats), "panels": [p["cand"] for p in panels], **why}) + "\n")
         summary.flush()
         print(name, n_units, len(feats), why, flush=True)
+    if missing:
+        raise SystemExit(f"no run directory under --runs {a.runs} for {len(missing)} maps ({', '.join(missing[:5])}): "
+                         "--runs is the runs directory inside batch.py's --out (work/runs), not --out itself")
 
 
 if __name__ == "__main__":

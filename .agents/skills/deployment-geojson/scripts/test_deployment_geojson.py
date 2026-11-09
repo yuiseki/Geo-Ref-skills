@@ -1,4 +1,6 @@
 # uvx --with numpy --with pypdfium2 --with pytest pytest scripts/test_deployment_geojson.py
+import json
+
 import numpy as np
 
 import deployment_geojson as G
@@ -133,3 +135,17 @@ def test_a_unit_just_outside_the_control_points_of_a_map_that_passed_is_used():
 def test_a_unit_inside_the_control_points_is_used():
     feats, n, why = G.features_of({"stacks": [stack_at(450, 450, 3)]}, [global_panel()], [], "M", "20160809", True)
     assert len(feats) == 3 and why["outside_hull"] == 0
+
+
+def test_a_runs_directory_without_the_maps_stops_with_the_reason(tmp_path, monkeypatch):
+    # --runs work instead of work/runs: every map was skipped and nothing was written, without a word (2026-11-09)
+    import sys
+    import pytest
+    (tmp_path / "work" / "runs" / "a").mkdir(parents=True)
+    res = tmp_path / "work" / "results.jsonl"
+    res.write_text(json.dumps({"file": "a.pdf", "stage": "ok", "mission": "X", "date": "20250101"}) + "\n")
+    monkeypatch.setattr(sys, "argv", ["deployment_geojson.py", "--results", str(res), "--runs", str(tmp_path / "work"),
+                                      "--src", str(tmp_path), "--out", str(tmp_path / "gj"), "--tool-commit", "x"])
+    with pytest.raises(SystemExit) as e:
+        G.main()
+    assert "runs" in str(e.value) and "a" in str(e.value)
