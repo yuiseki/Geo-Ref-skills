@@ -1,5 +1,5 @@
 {
- "comment": "Held-out tasks for the agent benchmark: places, seeds and the negative pair are not in evals/matrices, so the skills were not tuned on them. Level 5 puts a map made the same way into an A4 document (make_doc_task.py). Level 6 is a UN PKO deployment map, scored against the points published for it in yuiseki/un-pko-deployments (made by this repository's tools, so it measures reaching what the tools reach, not the ground truth); these maps were used while the skills were built. The L6h tasks are held out: maps not looked at while the skills were changed after the first agent runs (2026-11-10).",
+ "comment": "Held-out tasks for the agent benchmark: places, seeds and the negative pair are not in evals/matrices, so the skills were not tuned on them. Level 5 puts a map made the same way into an A4 document (make_doc_task.py). Level 6 is a UN PKO deployment map, scored against the points published for it in yuiseki/un-pko-deployments (made by this repository's tools, so it measures reaching what the tools reach, not the ground truth); these maps were used while the skills were built. The L6h tasks are held out: maps not looked at while the skills were changed after the first agent runs (2026-11-10). The L6g tasks are a second held-out set, made after the town check was fixed on L6h (2026-11-10).",
  "size": [
   900,
   700
@@ -194,6 +194,38 @@
    "level": "6",
    "type": "pko",
    "published": "2014/geojson/MINUSTAH_20140804_6a000089e84f.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6g-minusma-2022-07",
+   "level": "6",
+   "type": "pko",
+   "published": "2022/geojson/MINUSMA_20220728_65f25fa3596b.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6g-monusco-2024-01",
+   "level": "6",
+   "type": "pko",
+   "published": "2024/geojson/MONUSCO_20240115_78577dbd3dc6.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6g-minusca-2022-10",
+   "level": "6",
+   "type": "pko",
+   "published": "2022/geojson/MINUSCA_20221012_5b58f67880f3.geojson",
+   "radius_km": 2.0,
+   "threshold": 0.8
+  },
+  {
+   "id": "L6g-unmik-2023-07",
+   "level": "6",
+   "type": "pko",
+   "published": "2023/geojson/UNMIK_20230703_b10c6f9ebe45.geojson",
    "radius_km": 2.0,
    "threshold": 0.8
   }
