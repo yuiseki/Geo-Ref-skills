@@ -123,3 +123,73 @@ def test_a_step_that_runs_too_long_is_stopped_with_everything_it_started():
     # the scope, one for 29 hours (2026-11-06). The scope itself must end at the step's time limit.
     i = B.CAP.index("RuntimeMaxSec=%d" % B.STEP_SECONDS)
     assert B.CAP[i - 1] == "-p" and B.STEP_SECONDS < B.STEP_TIMEOUT
+
+
+def test_a_timed_out_map_is_marked_for_retry_not_as_its_result():
+    # the 23 maps that timed out in the 2017-2019 batches all gave ok or failed when run again: the time limit
+    # depends on the machine's load, not on the map (2026-11-09)
+    import subprocess
+    e = subprocess.TimeoutExpired(["systemd-run"], 1860)
+    assert B.outcome_of(e, retries=0) == {"stage": "retry", "retries": 1, "why": repr(e)[:300]}
+    assert B.outcome_of(e, retries=B.MAX_RETRIES - 1)["stage"] == "error"   # timed out every time: a result
+    assert B.outcome_of(ValueError("x"), retries=0)["stage"] == "error"
+
+
+def test_resuming_drops_the_lines_to_retry_and_counts_them():
+    import json
+    lines = [json.dumps(x) for x in (
+        {"file": "a.pdf", "stage": "ok"},
+        {"file": "b.pdf", "stage": "retry", "retries": 1},
+        {"file": "c.pdf", "stage": "error", "why": "TimeoutExpired(['systemd-run', ...], 1860)"},  # before retries existed
+        {"file": "d.pdf", "stage": "error", "why": "ValueError('x')"})]
+    keep, retries = B.pending(lines)
+    assert [json.loads(l)["file"] for l in keep] == ["a.pdf", "d.pdf"]
+    assert retries == {"b.pdf": 1, "c.pdf": 1}
+
+
+def test_a_resumed_batch_has_one_line_per_pdf(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    import sys
+    src = tmp_path / "pdfs"; src.mkdir()
+    for n in ("a.pdf", "b.pdf"):
+        (src / n).write_bytes(b"%PDF-1.4\n")
+    out = tmp_path / "work"
+    calls = []
+
+    def one(pdf, mission, d):
+        calls.append(pdf.name)
+        if pdf.name == "b.pdf" and calls.count("b.pdf") == 1:
+            raise subprocess.TimeoutExpired(["x"], 1)
+        return {"stage": "failed", "tried": []}
+
+    monkeypatch.setattr(B, "one", one)
+    monkeypatch.setattr(sys, "argv", ["batch.py", "--src", str(src), "--out", str(out)])
+    B.main()
+    first = [json.loads(l) for l in open(out / "results.jsonl")]
+    assert {r["file"]: r["stage"] for r in first} == {"a.pdf": "failed", "b.pdf": "retry"}
+    B.main()
+    rows = [json.loads(l) for l in open(out / "results.jsonl")]
+    assert sorted(r["file"] for r in rows) == ["a.pdf", "b.pdf"]
+    assert {r["file"]: r["stage"] for r in rows} == {"a.pdf": "failed", "b.pdf": "failed"}
+    assert calls == ["a.pdf", "b.pdf", "b.pdf"]
+
+
+def test_a_step_ended_by_the_scope_time_limit_counts_as_a_timeout(tmp_path, monkeypatch):
+    # the scope's RuntimeMaxSec ends the step before subprocess's own timeout: without this the step only leaves no
+    # answer, and the map is recorded as failed though it was never given the time to finish
+    import subprocess
+    import pytest
+    clock = iter([0.0, B.STEP_SECONDS + 0.5])
+    monkeypatch.setattr(B.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(B.subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1))
+    with pytest.raises(subprocess.TimeoutExpired):
+        B.run(["true"], tmp_path / "log")
+
+
+def test_a_step_that_fails_quickly_is_not_a_timeout(tmp_path, monkeypatch):
+    import subprocess
+    clock = iter([0.0, 3.0])
+    monkeypatch.setattr(B.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(B.subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1))
+    assert B.run(["false"], tmp_path / "log") == 1

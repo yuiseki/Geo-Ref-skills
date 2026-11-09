@@ -37,7 +37,8 @@ uvx --with pypdfium2 python scripts/batch.py --src pdfs --out work --min-year 20
 | `ok` | 関門を全て通った。`cand`、`method`、`gcps`、`loo`、基準点の出どころ `gcps_from` (`name-gcps` か `graticule-gcps`) が入る |
 | `failed` | どの候補も通らなかった。`tried` に候補、手法、落ちた関門が入る |
 | `candidates` | 地図の候補が 1 つも取れなかった (文字の層がなく、描かれた地図もない PDF など) |
-| `error` | 例外。理由が入る |
+| `error` | 例外。理由が入る。時間切れが `MAX_RETRIES` (2) 回続いた PDF もここになる |
+| `retry` | 時間切れ。結論ではない。再開したバッチが、この行を消してやり直す |
 
 ## ミッションの表
 
@@ -48,6 +49,8 @@ uvx --with pypdfium2 python scripts/batch.py --src pdfs --out work --min-year 20
 ## 資源の上限
 
 実データを読む工程は、1 つずつ、メモリ 8 GB、スワップなし、CPU 400% の枠の中で動く。1 件の PDF が上限を超えて落ちても、全体は止まらず、その PDF が `failed` か `error` になる。1 つの工程の時間の上限 (30 分) も、枠そのもの (`RuntimeMaxSec`) に掛ける。Python の `subprocess` の時間切れは systemd-run の 1 プロセスしか止めず、枠の中の name-gcps と tesseract が 29 時間動き続けていた (2026-11-06)。systemd の `systemd-run --user --scope` が使える環境が前提である。
+
+時間切れは、地図の結論として記録しない。2017〜2019 年のバッチで時間切れになった 23 件は、やり直すと全て `ok` か `failed` になった。時間切れは、地図ではなく、そのときの母艦の負荷で決まる。枠の時間の上限で止められた工程も、答えが無いだけの失敗とは区別し、時間切れとして扱う。
 
 ## 後段
 

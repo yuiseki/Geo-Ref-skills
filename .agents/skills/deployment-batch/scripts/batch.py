@@ -9,13 +9,16 @@ the first candidate and method that pass every gate; then the other panels (the 
 tried too, so that the insets have their own control points. Gates are never loosened here. Each step runs under its own memory
 and CPU cap, so a PDF that runs out of memory fails alone.
 
-work/results.jsonl: one line per PDF: file, mission, date, title, stage (ok, failed, candidates, error), and what was tried.
+work/results.jsonl: one line per PDF: file, mission, date, title, stage (ok, failed, candidates, error, retry), and what
+was tried. A PDF whose step ran out of time is marked "retry", not given a result: the time limit depends on the
+machine's load. A resumed batch runs it again, up to MAX_RETRIES times in all, and then records it as an error.
 work/runs/<pdf stem>/: candidates, words, answers and gate results of that PDF (what deployment_geojson.py reads).
 """
 import argparse
 import json
 import re
 import subprocess
+import time
 from pathlib import Path
 
 SKILLS = Path(__file__).resolve().parents[2]
@@ -46,6 +49,31 @@ MISSIONS = {
 UTM_ZONES = {"UNIFIL": "36N"}
 
 
+MAX_RETRIES = 2
+
+
+def outcome_of(e, retries):
+    """The line for a PDF whose run raised e, after `retries` earlier timeouts: a timeout is retried (the 23 maps that
+    timed out in the 2017-2019 batches all gave ok or failed when run again, 2026-11-09), until MAX_RETRIES."""
+    why = repr(e)[:300]
+    if isinstance(e, subprocess.TimeoutExpired) and retries + 1 < MAX_RETRIES:
+        return {"stage": "retry", "retries": retries + 1, "why": why}
+    return {"stage": "error", "why": why} | ({"retries": retries + 1} if isinstance(e, subprocess.TimeoutExpired) else {})
+
+
+def pending(lines):
+    """The result lines to keep, and per PDF to run again the timeouts it already had. A line marked retry, or an error
+    that was a timeout (written before retries existed), is dropped so the PDF is run again and keeps one line."""
+    keep, retries = [], {}
+    for l in lines:
+        r = json.loads(l)
+        if r["stage"] == "retry" or (r["stage"] == "error" and "TimeoutExpired" in r.get("why", "") and "retries" not in r):
+            retries[r["file"]] = r.get("retries", 1)
+        else:
+            keep.append(l)
+    return keep, retries
+
+
 def mission_of(*texts):
     """The first mission acronym found as a whole word in the texts (a title, then the file name, then the page text)."""
     for t in texts:
@@ -70,8 +98,14 @@ def to_try(cands, first=3, total=8):
 
 
 def run(cmd, log):
+    """The step's return code. A step ended by the scope's time limit raises TimeoutExpired, as one that outlives
+    subprocess's own timeout does, so that the map is retried and not recorded as failed."""
+    t0 = time.monotonic()
     with open(log, "a") as f:
-        return subprocess.run(CAP + cmd, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT, timeout=STEP_TIMEOUT).returncode
+        rc = subprocess.run(CAP + cmd, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT, timeout=STEP_TIMEOUT).returncode
+    if rc != 0 and time.monotonic() - t0 >= STEP_SECONDS:
+        raise subprocess.TimeoutExpired(CAP + cmd, STEP_SECONDS)
+    return rc
 
 
 def gates(answer):
@@ -176,7 +210,12 @@ def main():
     recs = [r for r in recs if int(r["date"][:4]) >= a.min_year]
     recs.sort(key=lambda r: r["date"], reverse=True)
     res_p = out / "results.jsonl"
-    done = {json.loads(l)["file"] for l in open(res_p)} if res_p.exists() else set()
+    keep, retries = pending([l for l in open(res_p) if l.strip()]) if res_p.exists() else ([], {})
+    if retries:
+        tmp = res_p.with_suffix(".tmp")
+        tmp.write_text("".join(l if l.endswith("\n") else l + "\n" for l in keep))
+        tmp.replace(res_p)
+    done = {json.loads(l)["file"] for l in keep}
     n = 0
     for r in recs:
         if r["file"] in done:
@@ -186,7 +225,7 @@ def main():
         try:
             res = one(Path(a.src) / r["file"], r["mission"], out / "runs" / Path(r["file"]).stem)
         except Exception as e:
-            res = {"stage": "error", "why": repr(e)[:300]}
+            res = outcome_of(e, retries.get(r["file"], 0))
         line = {**r, **res}
         with open(res_p, "a") as f:
             f.write(json.dumps(line, ensure_ascii=False) + "\n")
