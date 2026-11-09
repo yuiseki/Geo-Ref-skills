@@ -16,6 +16,7 @@ answer) is not an outcome of the agent and is to be run again, not graded.
 """
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -187,6 +188,19 @@ PDF_UVX = ["uvx", "--with", "numpy", "--with", "pillow", "--with", "opencv-pytho
            "pypdfium2==5.14.0", "python"]
 
 
+def pdf_by_sha(src, sha, index):
+    """The PDF under `src` whose SHA-256 is `sha`. The tasks name a PDF only by the hash the published file carries, since
+    the UN file names hold the map reference numbers. Hashes are kept in `index` (rebuilt when a hash is not in it)."""
+    idx = json.loads(index.read_text()) if index.exists() else {}
+    if sha not in idx:
+        idx = {hashlib.sha256(p.read_bytes()).hexdigest(): p.relative_to(src).as_posix() for p in sorted(src.rglob("*.pdf"))}
+        index.parent.mkdir(parents=True, exist_ok=True)
+        index.write_text(json.dumps(idx, indent=0, sort_keys=True))
+    if sha not in idx:
+        raise SystemExit(f"no PDF under {src} has SHA-256 {sha}")
+    return src / idx[sha]
+
+
 def make_raster(spec, t, task_out, truth_out):
     W, H = spec["size"]
     cmd = PDF_UVX + [str(ROOT / "evals/scripts/make_task.py"), "--style", t["style"], "--center", *map(str, t["place"]),
@@ -217,7 +231,8 @@ def make(spec):
         elif kind == "pko":
             (d / "task").mkdir(parents=True, exist_ok=True)
             (d / "truth").mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(PKO_SRC / t["file"], d / "task" / "map.pdf")
+            sha = json.loads((PKO_PUBLISHED / t["published"]).read_text())["source_sha256"]
+            shutil.copyfile(pdf_by_sha(PKO_SRC, sha, WORK / "pdf-index.json"), d / "task" / "map.pdf")
             shutil.copyfile(PKO_PUBLISHED / t["published"], d / "truth" / "published.geojson")
             r = subprocess.CompletedProcess([], 0, "", "")
         print(t["id"], r.returncode, r.stderr.strip()[-300:], file=sys.stderr)

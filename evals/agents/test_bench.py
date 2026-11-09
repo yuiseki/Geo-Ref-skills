@@ -202,3 +202,23 @@ def test_doc_and_pko_workdirs_hold_the_document_and_a_hint(tmp_path):
     (t2 / "task" / "map.pdf").write_bytes(b"%PDF")
     d2 = bench.prepare_workdir(ROOT, "HEAD", tmp_path / "w2", t2, {"type": "pko"}, "osm-liberty", False)
     assert sorted(p.name for p in (d2 / "task").iterdir()) == ["hint.json", "map.pdf"]
+
+
+def test_pdf_by_sha_finds_the_source_without_its_name(tmp_path):
+    import hashlib
+    src = tmp_path / "src"; (src / "2025").mkdir(parents=True)
+    (src / "2025" / "a.pdf").write_bytes(b"one"); (src / "b.pdf").write_bytes(b"two")
+    index = tmp_path / "index.json"
+    sha = hashlib.sha256(b"one").hexdigest()
+    assert bench.pdf_by_sha(src, sha, index) == src / "2025" / "a.pdf"
+    assert json.loads(index.read_text())[sha] == "2025/a.pdf"
+    (src / "c.pdf").write_bytes(b"three")  # not in the index yet: the index is rebuilt
+    assert bench.pdf_by_sha(src, hashlib.sha256(b"three").hexdigest(), index) == src / "c.pdf"
+    with pytest.raises(SystemExit):
+        bench.pdf_by_sha(src, "0" * 64, index)
+
+
+def test_pko_tasks_name_no_source_file():
+    for t in bench.load_spec()["tasks"]:
+        if t.get("type") == "pko":
+            assert "file" not in t, t["id"]
