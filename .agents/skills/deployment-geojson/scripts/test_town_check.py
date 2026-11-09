@@ -147,3 +147,15 @@ def test_a_long_name_reaches_no_farther_than_a_short_one():
     kol = word("Kolwezi", 336.7, 446.9, w=28.2, h=6.5)
     assert T.pairs([lub, kol], [(319.1, 454.1)]) == [("Kolwezi", (319.1, 454.1))]
     assert T.pairs([lub], [(319.1, 454.1)]) == []
+
+
+def test_the_main_panel_s_ground_diagonal_is_recorded_beside_the_median():
+    # a median in km means more on a city map than on a map of the DRC: the record carries the scale too
+    X0, Y0 = wm.lonlat_to_mercator(20.0, 0.0)
+    X1, Y1 = wm.lonlat_to_mercator(21.0, 0.0)
+
+    class Lin:
+        def predict(self, pts):
+            return [[X0 + (X1 - X0) * c / 100.0, Y0] for c, r in pts]
+    p = whole_panel(Lin())
+    assert T.extent_km([p]) == pytest.approx(111.3, abs=0.5)  # (0,0) to (100,100): 1 degree east at the equator

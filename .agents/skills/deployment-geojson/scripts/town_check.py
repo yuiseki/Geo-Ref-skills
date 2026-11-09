@@ -105,6 +105,14 @@ def distances(named, panels, places):
     return out
 
 
+def extent_km(panels):
+    """The ground length of the largest panel's diagonal (km), through its model: the scale a median is read against."""
+    P = max(panels, key=lambda q: q["area"])
+    (x0, y0), (x1, y1) = P["model"].predict([[0.0, 0.0], [float(P["W"]), float(P["H"])]])
+    _, lat = wm.mercator_to_lonlat((x0 + x1) / 2, (y0 + y1) / 2)
+    return math.hypot(x1 - x0, y1 - y0) * math.cos(math.radians(lat)) / 1000
+
+
 def summarise(d):
     d = sorted(d)
     xs = [x for x, _ in d]
@@ -166,6 +174,7 @@ def main():
             words = labels(pw.words(pw.chars(pdf)))
             cc = batch.MISSIONS.get(r["mission"])
             s = summarise(distances(pairs(words, syms), panels, lambda n: ng.place_candidates(cl, n, cc)))
+            s["extent_km"] = round(extent_km(panels), 1)
         except Exception as e:  # a failure is a failure: the map is not passed
             s = {**summarise([]), "error": repr(e)[:200]}
         ok = passes(s, a.limit_km)
