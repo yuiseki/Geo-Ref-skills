@@ -47,3 +47,9 @@ def test_reference_numbers_are_the_four_or_five_digit_runs_of_a_name():
 def test_the_file_name_carries_mission_date_and_hash_not_the_reference():
     assert P.out_name("MONUSCO", "20250601", "ab" * 32) == "MONUSCO_20250601_abababababab.geojson"
     assert P.out_name(None, "20250601", "cd" * 32).startswith("UNKNOWN_")
+
+
+def test_the_checks_applied_go_into_the_provenance():
+    fc = P.publishable([SRC], **META, checks={"hull_margin": 0.3})
+    assert fc["checks"] == {"hull_margin": 0.3}
+    assert "checks" not in P.publishable([SRC], **META)

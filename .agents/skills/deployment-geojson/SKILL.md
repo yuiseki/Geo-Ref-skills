@@ -40,9 +40,33 @@ uvx --with numpy --with opencv-python-headless --with pypdfium2 --with pillow --
 - `outside_hull`: 局所のパネルで、基準点の範囲の外 (3 px を超える)。関門を通ったパネルで、凸包から広がりの 0.30 を超えて外
 - `uncertain`: 局所のパネルで、点の動きが 3 px を超えた
 
+## 公開の前の確かめ (海と町)
+
+関門は、基準点どうしが合っていることしか確かめない。公開の前に、関門とは別に次の 2 つを、この順に流す。どちらも、渡したファイルは書き換えず、`--out` に書く。
+
+```sh
+python scripts/sea_check.py --src geojson --out geojson-sea --cache sea-cache.json
+python scripts/town_check.py --results work/results.jsonl --runs work/runs --src pdfs --geojson geojson-sea --out geojson-checked
+```
+
+- `sea_check.py`: 点と、その上下左右 0.05 度の 4 点のどれにも陸が無ければ、海の点として捨てる。陸かどうかは、自前の Nominatim の逆ジオコーディング (zoom 5) で調べる。サーバーは Python の既定の User-Agent を拒む (403)。UNOCI の 2006 年の図は、ギニア湾の沖 100 km に部隊を置いていた。
+- `town_check.py`: 地図の町の印を、その地図のモデルで経緯度にし、そばの名前で Nominatim が返す町と比べる。距離の中央値が 10 km 以下で、測れた町が 3 つ以上の地図だけを書く。全ての地図の測定は `town_check.jsonl` に残る。
+  - 10 km は、2004〜2019 年の地図の分布を見て決めた。9.8 km と 13.4 km の間に、地図が 1 つも無かった。外れた地図は 13〜320 km だった (MONUSCO の 2019 年は 144〜320 km)。
+  - 最大値ではなく、中央値を見る。同じ名前の別の町や、表の中の名前は、数十 km から数千 km 離れる。
+
+どの確かめを通したかは、各ファイルの `checks` に残る。
+
+| 欄 | 書く道具 | 中身 |
+|---|---|---|
+| `checks.hull_margin` | `deployment_geojson.py` | 関門を通った図に当てた余白 (0.30) |
+| `checks.sea` | `sea_check.py` | 升目の大きさ (度) と、捨てた点の数 |
+| `checks.town` | `town_check.py` | 測れた町の数、中央値 (km)、しきい値、通ったか |
+
+`checks` が無いファイルは、この記録を始める前 (2026-11-09 より前) に作ったものである。確かめていないとは限らないが、ファイルからは分からない。
+
 ## 出力
 
-FeatureCollection の最上位に、`based_on` ("Based on United Nations map")、`disclaimer` (無保証、間違いの可能性、国連の製品でないこと)、`mission`、`map_date`、`source_sha256`、`tool`、`tool_commit` を持つ。各点には次が入る。
+FeatureCollection の最上位に、`based_on` ("Based on United Nations map")、`disclaimer` (無保証、間違いの可能性、国連の製品でないこと)、`mission`、`map_date`、`source_sha256`、`tool`、`tool_commit`、`checks` を持つ。各点には次が入る。
 
 | 欄 | 意味 |
 |---|---|

@@ -26,7 +26,8 @@ def reference_numbers(*names):
     return sorted({m for n in names if n for m in re.findall(r"(?<!\d)\d{4,5}(?!\d)", n)})
 
 
-def publishable(features, sha256, commit, date, mission, references=()):
+def publishable(features, sha256, commit, date, mission, references=(), checks=None):
+    """checks: what was applied to choose the points (the hull margin, later the sea and town checks), kept with them."""
     fs = []
     for f in features:
         p = {k: v for k, v in f["properties"].items() if k not in DROP}
@@ -34,6 +35,8 @@ def publishable(features, sha256, commit, date, mission, references=()):
         fs.append({"type": "Feature", "geometry": f["geometry"], "properties": p})
     fc = {"type": "FeatureCollection", "based_on": BASED_ON, "disclaimer": DISCLAIMER, "mission": mission, "map_date": date,
           "source_sha256": sha256, "tool": "https://github.com/yuiseki/Geo-Ref-skills", "tool_commit": commit, "features": fs}
+    if checks is not None:
+        fc = {**{k: v for k, v in fc.items() if k != "features"}, "checks": checks, "features": fs}
     import json
     text = json.dumps(fc, ensure_ascii=False)
     for ref in references:

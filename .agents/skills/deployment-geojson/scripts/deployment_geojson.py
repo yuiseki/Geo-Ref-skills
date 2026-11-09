@@ -227,7 +227,8 @@ def main():
         feats, n_units, why = features_of(units_of(pdf, run, a.units_script), panels, pw.words(pw.chars(pdf)),
                                           r["mission"], r["date"], r["stage"] == "ok")
         refs = publish.reference_numbers(Path(r["file"]).stem, r.get("title"))
-        fc = publish.publishable(feats, sha, commit, r["date"], r["mission"], refs)
+        fc = publish.publishable(feats, sha, commit, r["date"], r["mission"], refs,
+                                 checks={"hull_margin": GLOBAL_HULL_MARGIN})
         name = publish.out_name(r["mission"], r["date"], sha)
         (out / name).write_text(json.dumps(fc, ensure_ascii=False))
         summary.write(json.dumps({"file": name, "mission": r["mission"], "date": r["date"], "map_ok": r["stage"] == "ok",
