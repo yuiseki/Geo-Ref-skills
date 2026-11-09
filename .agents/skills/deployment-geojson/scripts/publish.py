@@ -6,6 +6,7 @@ commit of the tool that read it, and a plain statement that nothing is guarantee
 2026-11-05.)
 """
 import re
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -45,8 +46,24 @@ def publishable(features, sha256, commit, date, mission, references=(), checks=N
     return fc
 
 
+def files_hash(paths):
+    """sha256 over the tool's files (path and content, in order), for a copy of the skills that is not in git."""
+    h = hashlib.sha256()
+    for root in map(Path, paths):
+        for f in sorted(p for p in ([root] if root.is_file() else root.rglob("*")) if p.is_file() and "__pycache__" not in p.parts):
+            h.update(str(f.relative_to(root.parent)).encode() + b"\0" + f.read_bytes() + b"\0")
+    return h.hexdigest()
+
+
 def tool_commit(paths, repo):
-    """The commit that holds the tool as it is run; refuses if the files are untracked or changed."""
+    """The commit that holds the tool as it is run; refuses if the files are untracked or changed. A copy of the
+    skills outside git (no git, or no repository: an agent's workdir in a container) is named by the hash of the
+    tool's files instead, as unversioned-sha256:<hex>."""
+    import shutil
+    inside = shutil.which("git") and subprocess.run(["git", "rev-parse", "--is-inside-work-tree"], cwd=repo,
+                                                    capture_output=True, text=True).stdout.strip() == "true"
+    if not inside:
+        return "unversioned-sha256:" + files_hash(paths)
     st = subprocess.run(["git", "status", "--porcelain", "--", *map(str, paths)], cwd=repo, capture_output=True, text=True).stdout
     if st.strip():
         raise RuntimeError("commit the tool first, its commit hash goes into the output:\n" + st)

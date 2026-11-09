@@ -66,7 +66,7 @@ python scripts/town_check.py --results work/results.jsonl --runs work/runs --src
 
 ## 出力
 
-FeatureCollection の最上位に、`based_on` ("Based on United Nations map")、`disclaimer` (無保証、間違いの可能性、国連の製品でないこと)、`mission`、`map_date`、`source_sha256`、`tool`、`tool_commit`、`checks` を持つ。各点には次が入る。
+FeatureCollection の最上位に、`based_on` ("Based on United Nations map")、`disclaimer` (無保証、間違いの可能性、国連の製品でないこと)、`mission`、`map_date`、`source_sha256`、`tool`、`tool_commit`、`checks` を持つ。`tool_commit` は道具の入ったコミットで、道具のファイルが変更されたままなら止まる。git の外の写し (コンテナの中の作業場所など) では、道具のファイルのハッシュを `unversioned-sha256:<16 進>` として入れる。各点には次が入る。
 
 | 欄 | 意味 |
 |---|---|

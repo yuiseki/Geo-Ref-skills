@@ -53,3 +53,22 @@ def test_the_checks_applied_go_into_the_provenance():
     fc = P.publishable([SRC], **META, checks={"hull_margin": 0.3})
     assert fc["checks"] == {"hull_margin": 0.3}
     assert "checks" not in P.publishable([SRC], **META)
+
+
+def test_without_git_the_tool_is_named_by_the_hash_of_its_files(tmp_path, monkeypatch):
+    # a copy of the skills without .git (an agent's workdir in a container): the output still names what made it
+    d = tmp_path / "skill"
+    d.mkdir()
+    (d / "a.py").write_text("x = 1\n")
+    monkeypatch.setenv("PATH", str(tmp_path / "nothing"))  # no git on PATH
+    c1 = P.tool_commit([d], tmp_path)
+    (d / "a.py").write_text("x = 2\n")
+    c2 = P.tool_commit([d], tmp_path)
+    assert c1.startswith("unversioned-sha256:") and c1 != c2
+
+
+def test_outside_a_repository_the_tool_is_named_by_the_hash_of_its_files(tmp_path):
+    d = tmp_path / "skill"
+    d.mkdir()
+    (d / "a.py").write_text("x = 1\n")
+    assert P.tool_commit([d], tmp_path).startswith("unversioned-sha256:")
