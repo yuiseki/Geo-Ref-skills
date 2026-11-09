@@ -81,3 +81,19 @@ def test_a_round_shape_inside_the_name_is_not_its_town_symbol():
 def test_a_name_with_only_a_round_shape_inside_it_has_no_town():
     w = {**word("Bangui", 300, 444, w=33), "h": 8}
     assert T.pairs([w], [(301.0, 444.5)]) == []
+
+
+def test_a_word_inside_a_longer_label_is_not_a_name_of_its_own():
+    # UNDOF 2025: "Kafr" of "Kafr Shams" was looked up alone and matched a Kafr 120 km away, three times (2026-11-10)
+    kafr = {"text": "Kafr", "kind": "word", "x": 100, "y": 50, "w": 20, "h": 6}
+    shams = {"text": "Shams", "kind": "word", "x": 126, "y": 50, "w": 24, "h": 6}
+    both = {"text": "Kafr Shams", "kind": "phrase", "x": 114, "y": 50, "w": 48, "h": 6}
+    alone = {"text": "Nawa", "kind": "word", "x": 300, "y": 80, "w": 20, "h": 6}
+    assert [w["text"] for w in T.labels([kafr, shams, both, alone])] == ["Kafr Shams", "Nawa"]
+
+
+def test_the_longest_phrase_is_the_label_not_its_shorter_phrases():
+    a = {"text": "Jubata", "kind": "word", "x": 10, "y": 5, "w": 20, "h": 6}
+    ab = {"text": "Jubata al", "kind": "phrase", "x": 15, "y": 5, "w": 30, "h": 6}
+    abc = {"text": "Jubata al Khashab", "kind": "phrase", "x": 30, "y": 5, "w": 60, "h": 6}
+    assert [w["text"] for w in T.labels([a, ab, abc])] == ["Jubata al Khashab"]

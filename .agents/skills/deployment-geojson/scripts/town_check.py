@@ -42,6 +42,16 @@ def town_symbols(paths):
     return out
 
 
+def labels(words):
+    """The labels of a map: words and phrases (pdf_words) that no longer phrase holds. A word of a longer name ("Kafr"
+    of "Kafr Shams" on UNDOF 2025) looked up alone is another place, far away."""
+    def holds(a, b):  # a's text has b's as whole words and a's box covers b's centre
+        return (a is not b and len(a["text"]) > len(b["text"]) and f" {b['text']} " in f" {a['text']} "
+                and abs(b["x"] - a["x"]) <= a["w"] / 2 and abs(b["y"] - a["y"]) <= max(a.get("h", 0), b.get("h", 0)) / 2 + 1e-6)
+    phrases = [w for w in words if w["kind"] == "phrase"]
+    return [w for w in words if w["kind"] in ("word", "phrase") and not any(holds(p, w) for p in phrases)]
+
+
 def inside(q, w):
     return abs(q[0] - w["x"]) <= w["w"] / 2 and abs(q[1] - w["y"]) <= w.get("h", 0) / 2
 
@@ -137,7 +147,7 @@ def main():
         try:
             panel = max(G.panels_of(run, r["stage"] == "ok"), key=lambda q: q["area"])  # the main map
             syms = town_symbols(us.paths_of(pdfium.PdfDocument(str(pdf))[0]))
-            words = [w for w in pw.words(pw.chars(pdf)) if w["kind"] in ("word", "phrase")]
+            words = labels(pw.words(pw.chars(pdf)))
             cc = batch.MISSIONS.get(r["mission"])
             s = summarise(distances(pairs(words, syms), panel, lambda n: ng.place_candidates(cl, n, cc)))
         except Exception as e:  # a failure is a failure: the map is not passed
