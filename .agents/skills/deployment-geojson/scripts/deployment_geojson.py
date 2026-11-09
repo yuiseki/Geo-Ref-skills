@@ -150,6 +150,27 @@ def panels_of(run, map_ok):
     return panels
 
 
+def place(panels, x, y, need_std=True):
+    """The panel that places page point (x, y) (pt): the first, so the smallest, holding it, and the point within it
+    in the panel's pixels. Returns (panel, col, row, std_px, None), or (None, ..., reason) with reason one of
+    outside_panels, outside_hull, uncertain. The town check places towns by the same rule as the units (need_std
+    False: the spread is then worked out only where it decides, on a local panel)."""
+    P = None
+    for p in panels:
+        c, r = x * p["k"] - p["o"][0], y * p["k"] - p["o"][1]
+        if 0 <= c <= p["W"] and 0 <= r <= p["H"]:
+            P = p
+            break
+    if P is None:
+        return None, None, None, None, "outside_panels"
+    if not inside_hull(P["src"], c, r, tol=HULL_TOL_PX if P["local"] else margin_px(P["src"])):
+        return P, c, r, None, "outside_hull"
+    std = point_std(P, c, r) if P["local"] or need_std else None
+    if P["local"] and std > LOCAL_STD_PX:
+        return P, c, r, std, "uncertain"
+    return P, c, r, std, None
+
+
 def features_of(units, panels, words, mission, date, map_ok):
     feats, n_units, why = [], 0, {"no_location": 0, "outside_panels": 0, "outside_hull": 0, "uncertain": 0}
     for s in units["stacks"]:
@@ -159,24 +180,9 @@ def features_of(units, panels, words, mission, date, map_ok):
         if not loc:
             why["no_location"] += n
             continue
-        P = None
-        for p in panels:
-            c, r = loc["x"] * p["k"] - p["o"][0], loc["y"] * p["k"] - p["o"][1]
-            if 0 <= c <= p["W"] and 0 <= r <= p["H"]:
-                P = p
-                break
-        if P is None:
-            why["outside_panels"] += n
-            continue
-        if P["local"] and not inside_hull(P["src"], c, r, tol=HULL_TOL_PX):
-            why["outside_hull"] += n
-            continue
-        if not P["local"] and not inside_hull(P["src"], c, r, tol=margin_px(P["src"])):
-            why["outside_hull"] += n
-            continue
-        std = point_std(P, c, r)
-        if P["local"] and std > LOCAL_STD_PX:
-            why["uncertain"] += n
+        P, c, r, std, reason = place(panels, loc["x"], loc["y"])
+        if reason:
+            why[reason] += n
             continue
         lon, lat = wm.mercator_to_lonlat(*P["model"].predict([[c, r]])[0])
         text = nearest_text(words, loc["x"], loc["y"])

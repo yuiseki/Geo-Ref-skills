@@ -36,16 +36,49 @@ def test_distances_are_kilometres_on_the_ground_to_the_nearest_place_of_that_nam
     class Model:
         def predict(self, pts):
             return [[X, Y] for _ in pts]
-    panel = {"model": Model(), "k": 1.0, "o": (0.0, 0.0)}
+    panel = whole_panel(Model())
     X2, Y2 = wm.lonlat_to_mercator(30.01, 1.5)
     far = complex(*wm.lonlat_to_mercator(31.0, 1.5))
-    d = T.distances([("Bunia", (1.0, 1.0))], panel, lambda name: [far, complex(X2, Y2)])
+    d = T.distances([("Bunia", (50.0, 50.0))], [panel], lambda name: [far, complex(X2, Y2)])
     assert d[0][1] == "Bunia" and d[0][0] == pytest.approx(1.11, abs=0.02)   # 0.01 degree at the equator
 
 
 def test_a_name_with_no_place_is_not_measured():
-    panel = {"model": None, "k": 1.0, "o": (0.0, 0.0)}
-    assert T.distances([("Nowhere", (1.0, 1.0))], panel, lambda name: []) == []
+    assert T.distances([("Nowhere", (50.0, 50.0))], [whole_panel(None)], lambda name: []) == []
+
+
+def whole_panel(model, box=(0, 0, 100, 100), cand=1):
+    import numpy as np
+    x0, y0, x1, y1 = box
+    src = np.array([[0, 0], [x1 - x0, 0], [x1 - x0, y1 - y0], [0, y1 - y0]], float)
+    return {"model": model, "k": 1.0, "o": (x0, y0), "W": x1 - x0, "H": y1 - y0, "src": src, "local": False,
+            "cand": cand, "area": (x1 - x0) * (y1 - y0)}
+
+
+def test_a_town_in_an_inset_is_placed_by_the_inset_not_by_the_main_map():
+    # MONUSCO 2025: the towns of the eastern inset went through the main map's model and came out 1,000 km off
+    # (Komanda, Eringeti), so the map's median was 136 km; the units are placed by the inset (2026-11-10)
+    main_at, inset_at = wm.lonlat_to_mercator(20.0, 0.0), wm.lonlat_to_mercator(29.8, 1.4)
+
+    class At:
+        def __init__(self, xy):
+            self.xy = xy
+
+        def predict(self, pts):
+            return [list(self.xy) for _ in pts]
+    inset = whole_panel(At(inset_at), box=(60, 60, 100, 100), cand=2)
+    main = whole_panel(At(main_at), box=(0, 0, 100, 100), cand=1)
+    d = T.distances([("Komanda", (80.0, 80.0))], [inset, main], lambda name: [complex(*inset_at)])
+    assert d[0][0] == pytest.approx(0.0, abs=0.01)
+
+
+def test_a_town_outside_every_panel_is_not_measured():
+    X, Y = wm.lonlat_to_mercator(30.0, 1.5)
+
+    class Model:
+        def predict(self, pts):
+            return [[X, Y] for _ in pts]
+    assert T.distances([("Kampala", (500.0, 500.0))], [whole_panel(Model())], lambda name: [complex(X, Y)]) == []
 
 
 def test_the_summary_reads_the_middle_not_the_worst():

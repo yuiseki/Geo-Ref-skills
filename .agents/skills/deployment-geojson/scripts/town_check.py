@@ -74,15 +74,21 @@ def pairs(words, symbols):
     return out
 
 
-def distances(named, panel, places):
-    """(km, name) per pair: the symbol through the panel's model, to the nearest place of that name (places(name):
-    mercator complex numbers). Ground km: mercator metres times the cosine of the latitude."""
+def distances(named, panels, places):
+    """(km, name) per pair: the symbol through the model of the panel that would place a unit there (the smallest
+    panel holding it, a local panel only near its control points: deployment_geojson.place), to the nearest place
+    of that name (places(name): mercator complex numbers). A symbol no panel places is not measured: no unit there
+    is placed either. Ground km: mercator metres times the cosine of the latitude."""
+    import deployment_geojson as G
     out = []
     for name, (x, y) in named:
+        P, c, r, _, reason = G.place(panels, x, y, need_std=False)
+        if reason:
+            continue
         cands = places(name)
         if not cands:
             continue
-        X, Y = panel["model"].predict([[x * panel["k"] - panel["o"][0], y * panel["k"] - panel["o"][1]]])[0]
+        X, Y = P["model"].predict([[c, r]])[0]
         q = min(cands, key=lambda q: abs(q - complex(X, Y)))
         _, lat = wm.mercator_to_lonlat(X, Y)
         out.append((abs(q - complex(X, Y)) * math.cos(math.radians(lat)) / 1000, name))
@@ -145,11 +151,11 @@ def main():
             continue
         p, fc = have.pop(sha)
         try:
-            panel = max(G.panels_of(run, r["stage"] == "ok"), key=lambda q: q["area"])  # the main map
+            panels = G.panels_of(run, r["stage"] == "ok")
             syms = town_symbols(us.paths_of(pdfium.PdfDocument(str(pdf))[0]))
             words = labels(pw.words(pw.chars(pdf)))
             cc = batch.MISSIONS.get(r["mission"])
-            s = summarise(distances(pairs(words, syms), panel, lambda n: ng.place_candidates(cl, n, cc)))
+            s = summarise(distances(pairs(words, syms), panels, lambda n: ng.place_candidates(cl, n, cc)))
         except Exception as e:  # a failure is a failure: the map is not passed
             s = {**summarise([]), "error": repr(e)[:200]}
         ok = passes(s, a.limit_km)
