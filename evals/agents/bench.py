@@ -228,7 +228,9 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
     d = WORK / "runs" / agent / cond / f"{task_id}-r{rep}"
     if (d / "meta.json").exists():
         raise SystemExit(f"{d} has already run")
-    wd = prepare_workdir(ROOT, rev, d / "work", WORK / "tasks" / task_id, t, spec["ref_style"], cond == "skills")
+    # the commit is fixed before the workdir is made from it: a commit made while the agent runs must not be recorded
+    commit = subprocess.run(["git", "-C", str(ROOT), "rev-parse", rev], capture_output=True, text=True, check=True).stdout.strip()
+    wd = prepare_workdir(ROOT, commit, d / "work", WORK / "tasks" / task_id, t, spec["ref_style"], cond == "skills")
     template = {"raster": "prompt.md", "doc": "prompt-doc.md", "pko": "prompt-pko.md"}[t.get("type", "raster")]
     prompt = fill_prompt((HERE / template).read_text(encoding="utf-8"), "/work", cond == "skills", minutes, hint_text(t))
     (d / "prompt.md").write_text(prompt, encoding="utf-8")
@@ -237,7 +239,6 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
     t0 = time.time()
     with open(d / "log.jsonl", "w") as log, open(d / "stderr.log", "w") as err:
         r = subprocess.run(cmd, stdout=log, stderr=err, env=env)
-    commit = subprocess.run(["git", "-C", str(ROOT), "rev-parse", rev], capture_output=True, text=True).stdout.strip()
     (d / "meta.json").write_text(json.dumps({"agent": agent, "cond": cond, "task": task_id, "rep": rep,
                                              "model": MODELS[agent] or ["gemini-3.8-flash-low"], "exit": r.returncode,
                                              "seconds": round(time.time() - t0), "minutes": minutes, "rev": commit},
