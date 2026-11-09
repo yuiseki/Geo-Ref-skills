@@ -96,6 +96,15 @@ def outcome(answer, score, negative, exit_code, accurate_pct, provider_error=Fal
     return "accurate" if score["max_pct_radius"] <= accurate_pct else "inaccurate"
 
 
+PUBLIC_OSM = re.compile(r"\b((?:[a-z]\.)?tile\.openstreetmap\.org|nominatim\.openstreetmap\.org|overpass-api\.de|"
+                        r"overpass\.kumi\.systems|api\.openstreetmap\.org)")
+
+
+def public_osm_hits(text):
+    """Public OSM servers named in an agent's log; the prompt forbids them."""
+    return sorted(set(PUBLIC_OSM.findall(text)))
+
+
 def load_spec():
     return json.loads((HERE / "bench.json").read_text(encoding="utf-8"))
 
@@ -140,7 +149,7 @@ def score_all(spec, accurate_pct):
     sys.path.insert(0, str(ROOT / "evals/scripts"))
     import score_task
     tasks = {t["id"]: t for t in spec["tasks"]}
-    cols = ["agent", "cond", "task", "rep", "outcome", "max_pct_radius", "median_m", "n_gcps", "exit", "seconds", "reason"]
+    cols = ["agent", "cond", "task", "rep", "outcome", "max_pct_radius", "median_m", "n_gcps", "exit", "seconds", "public_osm", "reason"]
     print("\t".join(cols))
     for m in sorted((WORK / "runs").glob("*/*/*/meta.json")):
         meta = json.loads(m.read_text())
@@ -161,8 +170,10 @@ def score_all(spec, accurate_pct):
         perr = meta["exit"] not in (0, 124) and answer is None
         o = outcome(answer, sc, t["level"] == "negative", meta["exit"], accurate_pct, provider_error=perr)
         reason = answer.get("reason", "") if isinstance(answer, dict) else ""
+        logs = "".join(p.read_text(errors="replace") for p in (d / "log.jsonl", d / "stderr.log") if p.exists())
         row = [meta["agent"], meta["cond"], meta["task"], meta["rep"], o, (sc or {}).get("max_pct_radius", ""),
                (sc or {}).get("median_m", ""), (sc or {}).get("n_gcps", ""), meta["exit"], meta["seconds"],
+               ",".join(public_osm_hits(logs)) or "-",
                str(reason).replace("\t", " ").replace("\n", " ")[:120]]
         print("\t".join(f"{v:.3g}" if isinstance(v, float) else str(v) for v in row))
 

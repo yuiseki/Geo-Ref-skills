@@ -129,3 +129,10 @@ def test_gemini_runner_dry_run_puts_the_time_limit_inside_the_container(tmp_path
                                                             "EVAL_GEMINI_HOME": str(state), "EVAL_MINUTES": "7"})
     assert r.returncode == 0, r.stderr
     assert "exec\\ timeout" in r.stdout and " 7m " in r.stdout and "gemini-3.8-flash-low" in r.stdout
+
+
+def test_public_osm_servers_are_found_in_a_log():
+    assert bench.public_osm_hits("curl https://nominatim.openstreetmap.org/search?q=x") == ["nominatim.openstreetmap.org"]
+    assert bench.public_osm_hits("GET https://tile.openstreetmap.org/15/1/2.png and overpass-api.de") == [
+        "overpass-api.de", "tile.openstreetmap.org"]
+    assert bench.public_osm_hits("https://nominatim.yuiseki.net/search and tile.yuiseki.net") == []
