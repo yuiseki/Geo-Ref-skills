@@ -44,7 +44,7 @@ DEFAULTS = {
     "min_valid": 0.6,          # share of a patch that must be inside the map (patches at a rotated map's edge)
     "min_peak_ratio": 1.2,     # best MI / best MI more than 8 px away
     "min_gcps": 12,
-    "measure": "auto",         # second pass: "mi", "chamfer", or "auto" (chamfer for lines, mi for water)
+    "measure": "auto",         # second pass: "mi", "chamfer", or "auto" (chamfer for lines unless it gives under min_gcps points, then mi)
     "chamfer_cap": 8.0,        # distances beyond this many pixels count as this (a far line is just "not here")
     "chamfer_min_px": 30,      # line pixels a patch needs
     "chamfer_clear": (3, 1.3, 0.2),  # a minimum is clear when every shift over 3 px away costs > 1.3 x best + 0.2
@@ -342,7 +342,12 @@ def register(image, ref_img, ref_meta, mask="water", **opts):
     if measure == "chamfer":
         pts = chamfer_patches(wa, wb, Hm, o)
         info = pts
-    else:
+        stats["chamfer_gcps"] = len(pts)
+        if o["measure"] == "auto" and len(pts) < o["min_gcps"]:
+            # gently curving lines (rivers) and full-style maps on a roads-only reference leave few patches with
+            # a clear minimum; then measure by mutual information as before (its points still go to the gates)
+            measure = base["tool"]["measure"] = "mi"
+    if measure == "mi":
         pts, info, _, _ = refine_patches(image, ref_img, Hm, o, search=o["search2"], la_task=la_task, lb=lb)
     stats["second_pass"] = True
     stats.update(patches=len(info), gcps=len(pts))

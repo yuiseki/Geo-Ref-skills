@@ -176,3 +176,16 @@ def test_a_single_straight_line_gives_no_chamfer_point():
     cv2.line(ref, (200, 0), (200, 399), 1, 5)  # a crossing fixes both directions
     pts = rcs.chamfer_patches(ref.copy(), ref, np.eye(3), {**rcs.DEFAULTS, "grid": (3, 3), "half": 48}, search=10)
     assert any(np.hypot(*(t - r)) < 0.5 for t, r in pts)
+
+
+def test_auto_falls_back_to_mutual_information_when_the_lines_give_too_few_chamfer_points(monkeypatch):
+    # gently curving lines (rivers) leave few patches with a clear minimum; the mutual-information points are kept
+    ref = lines_scene(1)
+    task = warp(lines_scene(4, fg=(70, 130, 200)), D, 900, 700)
+    monkeypatch.setattr(rcs, "chamfer_patches", lambda *a, **k: [])
+    ans = rcs.register(task, ref, meta(), mask="lines")
+    assert ans["status"] == "ok", ans.get("reason")
+    assert ans["tool"]["measure"] == "mi"
+    assert ans["stats"]["chamfer_gcps"] == 0
+    ans = rcs.register(task, ref, meta(), mask="lines", measure="chamfer")
+    assert ans["status"] == "failed"
