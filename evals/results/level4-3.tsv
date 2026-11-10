@@ -47,3 +47,27 @@ L4-aomori-osm-liberty-z16-similarity-s0.5-r22	aomori	osm-liberty	none	similarity
 L4-aomori-osm-liberty-z16-similarity-s1.0-r22	aomori	osm-liberty	none	similarity	1	22	ok	ok	True		0.05205	0.01137	0.006046	336	0	feature-registration	False	0.4846		16
 L4-aomori-osm-liberty-z16-projective-s0.5-r22	aomori	osm-liberty	none	projective	0.5	22	ok	ok	True		0.1149	0.03862	0.01159	337	0	feature-registration	False	1.016		16
 L4-aomori-osm-liberty-z16-projective-s1.0-r22	aomori	osm-liberty	none	projective	1	22	ok	ok	True		0.3299	0.07781	0.03421	255	0	feature-registration	False	2.215		16
+N4-matsuyama-on-takamatsu-z14-projective-s0.5-r22	matsuyama	osm-liberty	none	projective	0.5	22	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-matsuyama-on-takamatsu-z14-projective-s1.0-r22	matsuyama	osm-liberty	none	projective	1	22	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	14
+N4-matsuyama-on-takamatsu-z15-projective-s0.5-r22	matsuyama	osm-liberty	none	projective	0.5	22	correct_reject	not run	False	place_hint									place-hint: support 4 names (need 3), weight 1.41 (need 1.5)	15
+N4-matsuyama-on-takamatsu-z15-projective-s1.0-r22	matsuyama	osm-liberty	none	projective	1	22	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-matsuyama-on-takamatsu-z16-projective-s0.5-r22	matsuyama	osm-liberty	none	projective	0.5	22	correct_reject	not run	False	place_hint									place-hint: 3 of 3 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	16
+N4-matsuyama-on-takamatsu-z16-projective-s1.0-r22	matsuyama	osm-liberty	none	projective	1	22	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-takamatsu-on-nagasaki-z14-projective-s0.5-r22	takamatsu	osm-liberty	none	projective	0.5	22	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-takamatsu-on-nagasaki-z14-projective-s1.0-r22	takamatsu	osm-liberty	none	projective	1	22	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-takamatsu-on-nagasaki-z15-projective-s0.5-r22	takamatsu	osm-liberty	none	projective	0.5	22	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-takamatsu-on-nagasaki-z15-projective-s1.0-r22	takamatsu	osm-liberty	none	projective	1	22	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-takamatsu-on-nagasaki-z16-projective-s0.5-r22	takamatsu	osm-liberty	none	projective	0.5	22	correct_reject	not run	False	place_hint									place-hint: 2 of 3 names agree on one scale and rotation, 2 of them precise (need 5 and 50%)	16
+N4-takamatsu-on-nagasaki-z16-projective-s1.0-r22	takamatsu	osm-liberty	none	projective	1	22	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-nagasaki-on-aomori-z14-projective-s0.5-r22	nagasaki	osm-liberty	none	projective	0.5	22	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-nagasaki-on-aomori-z14-projective-s1.0-r22	nagasaki	osm-liberty	none	projective	1	22	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 0.33 (need 1.5)	14
+N4-nagasaki-on-aomori-z15-projective-s0.5-r22	nagasaki	osm-liberty	none	projective	0.5	22	correct_reject	not run	False	place_hint									place-hint: 3 of 3 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	15
+N4-nagasaki-on-aomori-z15-projective-s1.0-r22	nagasaki	osm-liberty	none	projective	1	22	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-nagasaki-on-aomori-z16-projective-s0.5-r22	nagasaki	osm-liberty	none	projective	0.5	22	correct_reject	not run	False	place_hint									place-hint: support 3 names (need 3), weight 1.11 (need 1.5)	16
+N4-nagasaki-on-aomori-z16-projective-s1.0-r22	nagasaki	osm-liberty	none	projective	1	22	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-aomori-on-matsuyama-z14-projective-s0.5-r22	aomori	osm-liberty	none	projective	0.5	22	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 0.50 (need 1.5)	14
+N4-aomori-on-matsuyama-z14-projective-s1.0-r22	aomori	osm-liberty	none	projective	1	22	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 0.50 (need 1.5)	14
+N4-aomori-on-matsuyama-z15-projective-s0.5-r22	aomori	osm-liberty	none	projective	0.5	22	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-aomori-on-matsuyama-z15-projective-s1.0-r22	aomori	osm-liberty	none	projective	1	22	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-aomori-on-matsuyama-z16-projective-s0.5-r22	aomori	osm-liberty	none	projective	0.5	22	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-aomori-on-matsuyama-z16-projective-s1.0-r22	aomori	osm-liberty	none	projective	1	22	correct_reject	failed	False					0	0	feature-registration	True			16

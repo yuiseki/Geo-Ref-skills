@@ -48,5 +48,6 @@
     {
       "registrar": "feature-registration"
     }
-  ]
+  ],
+  "negatives": {"pairs": [["matsuyama", "takamatsu"], ["takamatsu", "nagasaki"], ["nagasaki", "aomori"], ["aomori", "matsuyama"]], "kinds": ["projective"], "strengths": [0.5, 1.0], "seeds": [22]}
 }

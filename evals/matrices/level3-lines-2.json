@@ -1,0 +1,80 @@
+{
+  "level": 3,
+  "zoom": 15,
+  "size": [
+    900,
+    700
+  ],
+  "ref_style": "railways",
+  "ref_style_for": {
+    "railways-w4": "railways",
+    "rivers-w4": "rivers",
+    "rivers-w8": "rivers"
+  },
+  "registrars": [
+    "cross-style-registration"
+  ],
+  "registrar_args": {
+    "cross-style-registration": [
+      "--mask",
+      "lines"
+    ]
+  },
+  "places": {
+    "chiba": [
+      140.1233,
+      35.6074
+    ],
+    "himeji": [
+      134.6853,
+      34.8151
+    ],
+    "hakodate": [
+      140.729,
+      41.7687
+    ]
+  },
+  "styles": [
+    "railways-w4",
+    "rivers-w4"
+  ],
+  "kinds": [
+    "similarity",
+    "projective"
+  ],
+  "strengths": [
+    0.5,
+    1.0
+  ],
+  "seeds": [
+    52,
+    53
+  ],
+  "negatives": {
+    "pairs": [
+      [
+        "chiba",
+        "himeji"
+      ],
+      [
+        "himeji",
+        "hakodate"
+      ],
+      [
+        "hakodate",
+        "chiba"
+      ]
+    ],
+    "kinds": [
+      "projective"
+    ],
+    "strengths": [
+      0.5
+    ],
+    "seeds": [
+      52,
+      53
+    ]
+  },
+  "comment": "Held out (2026-11-10): places and seeds not used while the line measure was changed (chamfer with a mutual-information fallback)."
+}

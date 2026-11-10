@@ -47,3 +47,27 @@ L4-morioka-osm-liberty-z16-similarity-s0.5-r20	morioka	osm-liberty	none	similari
 L4-morioka-osm-liberty-z16-similarity-s1.0-r20	morioka	osm-liberty	none	similarity	1	20	refused	not run	False	place_hint									place-hint: 3 located names (need 4)	16
 L4-morioka-osm-liberty-z16-projective-s0.5-r20	morioka	osm-liberty	none	projective	0.5	20	refused	not run	False	place_hint									place-hint: 3 located names (need 4)	16
 L4-morioka-osm-liberty-z16-projective-s1.0-r20	morioka	osm-liberty	none	projective	1	20	ok	ok	True		0.1471	0.0766	0.01329	317	0	feature-registration	False	2.185		16
+N4-nagoya-on-kobe-z14-projective-s0.5-r20	nagoya	osm-liberty	none	projective	0.5	20	correct_reject	not run	False	place_hint									place-hint: support 3 names (need 3), weight 0.31 (need 1.5)	14
+N4-nagoya-on-kobe-z14-projective-s1.0-r20	nagoya	osm-liberty	none	projective	1	20	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-nagoya-on-kobe-z15-projective-s0.5-r20	nagoya	osm-liberty	none	projective	0.5	20	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-nagoya-on-kobe-z15-projective-s1.0-r20	nagoya	osm-liberty	none	projective	1	20	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-nagoya-on-kobe-z16-projective-s0.5-r20	nagoya	osm-liberty	none	projective	0.5	20	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-nagoya-on-kobe-z16-projective-s1.0-r20	nagoya	osm-liberty	none	projective	1	20	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	16
+N4-kobe-on-kagoshima-z14-projective-s0.5-r20	kobe	osm-liberty	none	projective	0.5	20	correct_reject	not run	False	place_hint									place-hint: 2 of 2 names agree on one scale and rotation, 0 of them precise (need 5 and 50%)	14
+N4-kobe-on-kagoshima-z14-projective-s1.0-r20	kobe	osm-liberty	none	projective	1	20	correct_reject	not run	False	place_hint									place-hint: 1 of 1 names agree on one scale and rotation, 0 of them precise (need 5 and 50%)	14
+N4-kobe-on-kagoshima-z15-projective-s0.5-r20	kobe	osm-liberty	none	projective	0.5	20	correct_reject	not run	False	place_hint									place-hint: 3 of 3 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	15
+N4-kobe-on-kagoshima-z15-projective-s1.0-r20	kobe	osm-liberty	none	projective	1	20	correct_reject	not run	False	place_hint									place-hint: 3 of 3 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	15
+N4-kobe-on-kagoshima-z16-projective-s0.5-r20	kobe	osm-liberty	none	projective	0.5	20	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-kobe-on-kagoshima-z16-projective-s1.0-r20	kobe	osm-liberty	none	projective	1	20	correct_reject	not run	False	place_hint									place-hint: 2 of 4 names agree on one scale and rotation, 2 of them precise (need 5 and 50%)	16
+N4-kagoshima-on-morioka-z14-projective-s0.5-r20	kagoshima	osm-liberty	none	projective	0.5	20	correct_reject	not run	False	place_hint									place-hint: support 2 names (need 3), weight 1.50 (need 1.5)	14
+N4-kagoshima-on-morioka-z14-projective-s1.0-r20	kagoshima	osm-liberty	none	projective	1	20	correct_reject	not run	False	place_hint									place-hint: support 2 names (need 3), weight 1.50 (need 1.5)	14
+N4-kagoshima-on-morioka-z15-projective-s0.5-r20	kagoshima	osm-liberty	none	projective	0.5	20	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-kagoshima-on-morioka-z15-projective-s1.0-r20	kagoshima	osm-liberty	none	projective	1	20	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-kagoshima-on-morioka-z16-projective-s0.5-r20	kagoshima	osm-liberty	none	projective	0.5	20	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-kagoshima-on-morioka-z16-projective-s1.0-r20	kagoshima	osm-liberty	none	projective	1	20	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-morioka-on-nagoya-z14-projective-s0.5-r20	morioka	osm-liberty	none	projective	0.5	20	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-morioka-on-nagoya-z14-projective-s1.0-r20	morioka	osm-liberty	none	projective	1	20	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-morioka-on-nagoya-z15-projective-s0.5-r20	morioka	osm-liberty	none	projective	0.5	20	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-morioka-on-nagoya-z15-projective-s1.0-r20	morioka	osm-liberty	none	projective	1	20	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-morioka-on-nagoya-z16-projective-s0.5-r20	morioka	osm-liberty	none	projective	0.5	20	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-morioka-on-nagoya-z16-projective-s1.0-r20	morioka	osm-liberty	none	projective	1	20	correct_reject	failed	False					0	0	feature-registration	True			16

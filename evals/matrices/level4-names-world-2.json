@@ -53,5 +53,6 @@
     {
       "registrar": "feature-registration"
     }
-  ]
+  ],
+  "negatives": {"pairs": [["dublin", "chicago"], ["chicago", "vancouver"], ["vancouver", "auckland"], ["auckland", "dublin"]], "kinds": ["projective"], "strengths": [0.5, 1.0], "seeds": [31]}
 }

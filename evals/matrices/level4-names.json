@@ -17,5 +17,6 @@
   "seeds": [20],
   "attempts": [
     {"registrar": "feature-registration"}
-  ]
+  ],
+  "negatives": {"pairs": [["nagoya", "kobe"], ["kobe", "kagoshima"], ["kagoshima", "morioka"], ["morioka", "nagoya"]], "kinds": ["projective"], "strengths": [0.5, 1.0], "seeds": [20]}
 }

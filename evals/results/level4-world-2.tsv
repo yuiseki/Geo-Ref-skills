@@ -47,3 +47,27 @@ L4-auckland-osm-liberty-z16-similarity-s0.5-r31	auckland	osm-liberty	none	simila
 L4-auckland-osm-liberty-z16-similarity-s1.0-r31	auckland	osm-liberty	none	similarity	1	31	ok	ok	True		0.071	0.02088	0.008435	325	0	feature-registration	False	0.9318		16
 L4-auckland-osm-liberty-z16-projective-s0.5-r31	auckland	osm-liberty	none	projective	0.5	31	ok	ok	True		0.1031	0.04034	0.01062	346	0	feature-registration	False	2.142		16
 L4-auckland-osm-liberty-z16-projective-s1.0-r31	auckland	osm-liberty	none	projective	1	31	ok	ok	True		0.2204	0.04183	0.02542	317	0	feature-registration	False	1.807		16
+N4-dublin-on-chicago-z14-projective-s0.5-r31	dublin	osm-liberty	none	projective	0.5	31	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-dublin-on-chicago-z14-projective-s1.0-r31	dublin	osm-liberty	none	projective	1	31	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-dublin-on-chicago-z15-projective-s0.5-r31	dublin	osm-liberty	none	projective	0.5	31	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-dublin-on-chicago-z15-projective-s1.0-r31	dublin	osm-liberty	none	projective	1	31	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-dublin-on-chicago-z16-projective-s0.5-r31	dublin	osm-liberty	none	projective	0.5	31	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-dublin-on-chicago-z16-projective-s1.0-r31	dublin	osm-liberty	none	projective	1	31	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-chicago-on-vancouver-z14-projective-s0.5-r31	chicago	osm-liberty	none	projective	0.5	31	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	14
+N4-chicago-on-vancouver-z14-projective-s1.0-r31	chicago	osm-liberty	none	projective	1	31	correct_reject	not run	False	place_hint									place-hint: 3 of 3 names agree on one scale and rotation, 1 of them precise (need 5 and 50%)	14
+N4-chicago-on-vancouver-z15-projective-s0.5-r31	chicago	osm-liberty	none	projective	0.5	31	correct_reject	not run	False	place_hint									place-hint: support 2 names (need 3), weight 1.14 (need 1.5)	15
+N4-chicago-on-vancouver-z15-projective-s1.0-r31	chicago	osm-liberty	none	projective	1	31	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	15
+N4-chicago-on-vancouver-z16-projective-s0.5-r31	chicago	osm-liberty	none	projective	0.5	31	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 0.50 (need 1.5)	16
+N4-chicago-on-vancouver-z16-projective-s1.0-r31	chicago	osm-liberty	none	projective	1	31	correct_reject	not run	False	place_hint									place-hint: support 2 names (need 3), weight 1.03 (need 1.5)	16
+N4-vancouver-on-auckland-z14-projective-s0.5-r31	vancouver	osm-liberty	none	projective	0.5	31	correct_reject	failed	False					0	0	feature-registration	True			14
+N4-vancouver-on-auckland-z14-projective-s1.0-r31	vancouver	osm-liberty	none	projective	1	31	correct_reject	failed	False					0	0	feature-registration	True			14
+N4-vancouver-on-auckland-z15-projective-s0.5-r31	vancouver	osm-liberty	none	projective	0.5	31	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-vancouver-on-auckland-z15-projective-s1.0-r31	vancouver	osm-liberty	none	projective	1	31	correct_reject	not run	False	place_hint									place-hint: 3 of 5 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	15
+N4-vancouver-on-auckland-z16-projective-s0.5-r31	vancouver	osm-liberty	none	projective	0.5	31	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-vancouver-on-auckland-z16-projective-s1.0-r31	vancouver	osm-liberty	none	projective	1	31	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-auckland-on-dublin-z14-projective-s0.5-r31	auckland	osm-liberty	none	projective	0.5	31	correct_reject	failed	False					0	0	feature-registration	True			14
+N4-auckland-on-dublin-z14-projective-s1.0-r31	auckland	osm-liberty	none	projective	1	31	correct_reject	failed	False					0	0	feature-registration	True			14
+N4-auckland-on-dublin-z15-projective-s0.5-r31	auckland	osm-liberty	none	projective	0.5	31	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-auckland-on-dublin-z15-projective-s1.0-r31	auckland	osm-liberty	none	projective	1	31	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-auckland-on-dublin-z16-projective-s0.5-r31	auckland	osm-liberty	none	projective	0.5	31	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-auckland-on-dublin-z16-projective-s1.0-r31	auckland	osm-liberty	none	projective	1	31	correct_reject	failed	False					0	0	feature-registration	True			16
