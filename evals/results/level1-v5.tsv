@@ -1,0 +1,71 @@
+id	place	style	photometric	kind	strength	seed	outcome	register	gates_passed	failed_gates	max_m	median_m	max_pct_radius	n_gcps	n_removed	registrar	asift	loo_max_px	error	zoom
+L1-tokyo-osm-liberty-similarity-s0.25-r1	tokyo	osm-liberty	none	similarity	0.25	1	ok	ok	True		0.2048	0.07075	0.008656	383	0	feature-registration	False	0.9763		15
+L1-tokyo-osm-liberty-similarity-s0.25-r2	tokyo	osm-liberty	none	similarity	0.25	2	ok	ok	True		0.1685	0.05146	0.007852	393	0	feature-registration	False	0.4574		15
+L1-tokyo-osm-liberty-similarity-s0.5-r1	tokyo	osm-liberty	none	similarity	0.5	1	ok	ok	True		0.1527	0.08982	0.006032	390	0	feature-registration	False	1.688		15
+L1-tokyo-osm-liberty-similarity-s0.5-r2	tokyo	osm-liberty	none	similarity	0.5	2	ok	ok	True		0.09161	0.02664	0.004398	388	0	feature-registration	False	0.8683		15
+L1-tokyo-osm-liberty-similarity-s1.0-r1	tokyo	osm-liberty	none	similarity	1	1	ok	ok	True		0.274	0.07959	0.009455	393	0	feature-registration	False	0.9914		15
+L1-tokyo-osm-liberty-similarity-s1.0-r2	tokyo	osm-liberty	none	similarity	1	2	ok	ok	True		0.111	0.04101	0.005658	376	0	feature-registration	False	1.463		15
+L1-tokyo-osm-liberty-affine-s0.25-r1	tokyo	osm-liberty	none	affine	0.25	1	ok	ok	True		0.3026	0.07797	0.01241	391	0	feature-registration	False	1.598		15
+L1-tokyo-osm-liberty-affine-s0.25-r2	tokyo	osm-liberty	none	affine	0.25	2	ok	ok	True		0.2653	0.04789	0.01229	387	0	feature-registration	False	1.11		15
+L1-tokyo-osm-liberty-affine-s0.5-r1	tokyo	osm-liberty	none	affine	0.5	1	ok	ok	True		0.9469	0.2751	0.03506	393	0	feature-registration	False	2.038		15
+L1-tokyo-osm-liberty-affine-s0.5-r2	tokyo	osm-liberty	none	affine	0.5	2	ok	ok	True		0.3822	0.09322	0.01808	382	0	feature-registration	False	1.829		15
+L1-tokyo-osm-liberty-affine-s1.0-r1	tokyo	osm-liberty	none	affine	1	1	ok	ok	True		1.251	0.3188	0.03744	275	0	feature-registration	False	2.271		15
+L1-tokyo-osm-liberty-affine-s1.0-r2	tokyo	osm-liberty	none	affine	1	2	ok	ok	True		0.517	0.1661	0.02535	296	1	feature-registration	False	2.976		15
+L1-tokyo-osm-liberty-projective-s0.25-r1	tokyo	osm-liberty	none	projective	0.25	1	ok	ok	True		0.2979	0.1088	0.01221	390	0	feature-registration	False	1.753		15
+L1-tokyo-osm-liberty-projective-s0.25-r2	tokyo	osm-liberty	none	projective	0.25	2	ok	ok	True		0.163	0.114	0.007545	385	0	feature-registration	False	1.462		15
+L1-tokyo-osm-liberty-projective-s0.5-r1	tokyo	osm-liberty	none	projective	0.5	1	ok	ok	True		0.6122	0.1768	0.02266	386	0	feature-registration	False	2.489		15
+L1-tokyo-osm-liberty-projective-s0.5-r2	tokyo	osm-liberty	none	projective	0.5	2	ok	ok	True		0.2319	0.1597	0.01095	379	0	feature-registration	False	2.677		15
+L1-tokyo-osm-liberty-projective-s1.0-r1	tokyo	osm-liberty	none	projective	1	1	ok	ok	True		1.626	0.4317	0.04858	268	0	feature-registration	False	2.286		15
+L1-tokyo-osm-liberty-projective-s1.0-r2	tokyo	osm-liberty	none	projective	1	2	ok	ok	True		0.5468	0.2481	0.02663	287	3	feature-registration	False	2.91		15
+L1-sapporo-osm-liberty-similarity-s0.25-r1	sapporo	osm-liberty	none	similarity	0.25	1	ok	ok	True		0.2277	0.05027	0.01069	393	0	feature-registration	False	0.5683		15
+L1-sapporo-osm-liberty-similarity-s0.25-r2	sapporo	osm-liberty	none	similarity	0.25	2	ok	ok	True		0.1251	0.03958	0.006476	387	0	feature-registration	False	0.8166		15
+L1-sapporo-osm-liberty-similarity-s0.5-r1	sapporo	osm-liberty	none	similarity	0.5	1	ok	ok	True		0.1463	0.06302	0.006421	390	0	feature-registration	False	0.9282		15
+L1-sapporo-osm-liberty-similarity-s0.5-r2	sapporo	osm-liberty	none	similarity	0.5	2	ok	ok	True		0.1602	0.04103	0.008546	394	0	feature-registration	False	0.8623		15
+L1-sapporo-osm-liberty-similarity-s1.0-r1	sapporo	osm-liberty	none	similarity	1	1	ok	ok	True		0.3794	0.0998	0.01455	398	0	feature-registration	False	1.311		15
+L1-sapporo-osm-liberty-similarity-s1.0-r2	sapporo	osm-liberty	none	similarity	1	2	ok	ok	True		0.1493	0.05606	0.008458	357	0	feature-registration	False	1.424		15
+L1-sapporo-osm-liberty-affine-s0.25-r1	sapporo	osm-liberty	none	affine	0.25	1	ok	ok	True		0.2789	0.1119	0.0127	386	0	feature-registration	False	0.9179		15
+L1-sapporo-osm-liberty-affine-s0.25-r2	sapporo	osm-liberty	none	affine	0.25	2	ok	ok	True		0.1321	0.03469	0.006795	386	0	feature-registration	False	0.6885		15
+L1-sapporo-osm-liberty-affine-s0.5-r1	sapporo	osm-liberty	none	affine	0.5	1	ok	ok	True		0.4397	0.1314	0.01809	334	0	feature-registration	False	1.73		15
+L1-sapporo-osm-liberty-affine-s0.5-r2	sapporo	osm-liberty	none	affine	0.5	2	ok	ok	True		0.3413	0.08371	0.01794	356	0	feature-registration	False	2.691		15
+L1-sapporo-osm-liberty-affine-s1.0-r1	sapporo	osm-liberty	none	affine	1	1	ok	ok	True		1.046	0.6119	0.03478	127	0	feature-registration	False	2.263		15
+L1-sapporo-osm-liberty-affine-s1.0-r2	sapporo	osm-liberty	none	affine	1	2	ok	ok	True		1.09	0.3777	0.0594	152	1	feature-registration	False	2.729		15
+L1-sapporo-osm-liberty-projective-s0.25-r1	sapporo	osm-liberty	none	projective	0.25	1	ok	ok	True		0.2712	0.07096	0.01235	377	0	feature-registration	False	1.054		15
+L1-sapporo-osm-liberty-projective-s0.25-r2	sapporo	osm-liberty	none	projective	0.25	2	ok	ok	True		0.2112	0.0718	0.01086	384	0	feature-registration	False	0.728		15
+L1-sapporo-osm-liberty-projective-s0.5-r1	sapporo	osm-liberty	none	projective	0.5	1	ok	ok	True		0.6086	0.1934	0.02502	343	0	feature-registration	False	2.232		15
+L1-sapporo-osm-liberty-projective-s0.5-r2	sapporo	osm-liberty	none	projective	0.5	2	ok	ok	True		0.2354	0.09593	0.01235	355	0	feature-registration	False	1.412		15
+L1-sapporo-osm-liberty-projective-s1.0-r1	sapporo	osm-liberty	none	projective	1	1	ok	ok	True		2.856	0.5086	0.09482	119	0	feature-registration	False	2.112		15
+L1-sapporo-osm-liberty-projective-s1.0-r2	sapporo	osm-liberty	none	projective	1	2	ok	ok	True		1.254	0.4102	0.06787	155	1	feature-registration	False	2.576		15
+L1-tokachi-osm-liberty-similarity-s0.25-r1	tokachi	osm-liberty	none	similarity	0.25	1	ok	ok	True		0.8244	0.2448	0.03858	38	0	feature-registration	False	0.4913		15
+L1-tokachi-osm-liberty-similarity-s0.25-r2	tokachi	osm-liberty	none	similarity	0.25	2	ok	ok	True		0.3524	0.07224	0.01818	50	0	feature-registration	False	0.5014		15
+L1-tokachi-osm-liberty-similarity-s0.5-r1	tokachi	osm-liberty	none	similarity	0.5	1	ok	ok	True		0.5825	0.2499	0.02548	43	0	feature-registration	False	1.366		15
+L1-tokachi-osm-liberty-similarity-s0.5-r2	tokachi	osm-liberty	none	similarity	0.5	2	ok	ok	True		0.1836	0.08397	0.009759	56	0	feature-registration	False	0.381		15
+L1-tokachi-osm-liberty-similarity-s1.0-r1	tokachi	osm-liberty	none	similarity	1	1	ok	ok	True		1.756	0.3747	0.06709	34	0	feature-registration	False	0.7111		15
+L1-tokachi-osm-liberty-similarity-s1.0-r2	tokachi	osm-liberty	none	similarity	1	2	ok	ok	True		0.1477	0.04962	0.008338	35	0	feature-registration	False	0.3965		15
+L1-tokachi-osm-liberty-affine-s0.25-r1	tokachi	osm-liberty	none	affine	0.25	1	ok	ok	True		0.1561	0.0575	0.007086	39	0	feature-registration	False	0.332		15
+L1-tokachi-osm-liberty-affine-s0.25-r2	tokachi	osm-liberty	none	affine	0.25	2	ok	ok	True		0.3523	0.1202	0.01806	47	0	feature-registration	False	0.4534		15
+L1-tokachi-osm-liberty-affine-s0.5-r1	tokachi	osm-liberty	none	affine	0.5	1	ok	ok	True		1.935	0.5359	0.07932	22	0	feature-registration	False	0.6928		15
+L1-tokachi-osm-liberty-affine-s0.5-r2	tokachi	osm-liberty	none	affine	0.5	2	ok	ok	True		0.4732	0.1877	0.02479	28	0	feature-registration	False	0.5375		15
+L1-tokachi-osm-liberty-affine-s1.0-r1	tokachi	osm-liberty	none	affine	1	1	ok	ok	True		2.657	0.7635	0.08805	36	0	feature-registration	True	1.351		15
+L1-tokachi-osm-liberty-affine-s1.0-r2	tokachi	osm-liberty	none	affine	1	2	ok	ok	True		1.296	0.5332	0.07034	30	0	feature-registration	True	1.328		15
+L1-tokachi-osm-liberty-projective-s0.25-r1	tokachi	osm-liberty	none	projective	0.25	1	ok	ok	True		0.2483	0.06134	0.01127	41	0	feature-registration	False	0.6191		15
+L1-tokachi-osm-liberty-projective-s0.25-r2	tokachi	osm-liberty	none	projective	0.25	2	ok	ok	True		0.434	0.1714	0.02224	42	0	feature-registration	False	0.5175		15
+L1-tokachi-osm-liberty-projective-s0.5-r1	tokachi	osm-liberty	none	projective	0.5	1	ok	ok	True		2.082	0.601	0.08529	26	0	feature-registration	False	0.5998		15
+L1-tokachi-osm-liberty-projective-s0.5-r2	tokachi	osm-liberty	none	projective	0.5	2	ok	ok	True		1.097	0.4077	0.05736	30	0	feature-registration	False	0.722		15
+L1-tokachi-osm-liberty-projective-s1.0-r1	tokachi	osm-liberty	none	projective	1	1	ok	ok	True		2.472	0.7306	0.08179	42	0	feature-registration	True	2.39		15
+L1-tokachi-osm-liberty-projective-s1.0-r2	tokachi	osm-liberty	none	projective	1	2	ok	ok	True		1.807	0.4743	0.09741	33	0	feature-registration	True	1.176		15
+N1-tokyo-on-sapporo-similarity-s0.5-r1	tokyo	osm-liberty	none	similarity	0.5	1	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-tokyo-on-sapporo-similarity-s0.5-r2	tokyo	osm-liberty	none	similarity	0.5	2	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-tokyo-on-sapporo-projective-s0.5-r1	tokyo	osm-liberty	none	projective	0.5	1	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-tokyo-on-sapporo-projective-s0.5-r2	tokyo	osm-liberty	none	projective	0.5	2	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-sapporo-on-tokachi-similarity-s0.5-r1	sapporo	osm-liberty	none	similarity	0.5	1	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-sapporo-on-tokachi-similarity-s0.5-r2	sapporo	osm-liberty	none	similarity	0.5	2	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-sapporo-on-tokachi-projective-s0.5-r1	sapporo	osm-liberty	none	projective	0.5	1	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-sapporo-on-tokachi-projective-s0.5-r2	sapporo	osm-liberty	none	projective	0.5	2	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-tokachi-on-tokyo-similarity-s0.5-r1	tokachi	osm-liberty	none	similarity	0.5	1	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-tokachi-on-tokyo-similarity-s0.5-r2	tokachi	osm-liberty	none	similarity	0.5	2	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-tokachi-on-tokyo-projective-s0.5-r1	tokachi	osm-liberty	none	projective	0.5	1	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-tokachi-on-tokyo-projective-s0.5-r2	tokachi	osm-liberty	none	projective	0.5	2	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-sapporo-on-tokyo-similarity-s0.5-r1	sapporo	osm-liberty	none	similarity	0.5	1	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-sapporo-on-tokyo-similarity-s0.5-r2	sapporo	osm-liberty	none	similarity	0.5	2	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-sapporo-on-tokyo-projective-s0.5-r1	sapporo	osm-liberty	none	projective	0.5	1	correct_reject	failed	False					0	0	feature-registration	True			15
+N1-sapporo-on-tokyo-projective-s0.5-r2	sapporo	osm-liberty	none	projective	0.5	2	correct_reject	failed	False					0	0	feature-registration	True			15

@@ -35,6 +35,7 @@
 
 - スキルの独立とコピーの一致、テストの有無、文章の装飾: `python3 .agents/skills/check_skills.py`
 - 各スクリプトのテストは、テストのファイルの 1 行目に書いた `uvx` のコマンドで、そのスキルのディレクトリから流す。全部まとめて流すのは `python3 run_tests.py` (名前の一部を渡すと絞れる)。
+- README の結果の表は手で直さない。行列の結果 (tsv) を `evals/results/` に置き、`evals/results/table.json` に行を足して、`python3 evals/scripts/results_table.py` で作り直す。関門 (georef-gates) を直したら、`run_matrix.py --gates-only` で同じ作業場所の答えを当て直してから置き換える。
 
 ## 文章
 

@@ -1,0 +1,19 @@
+id	place	style	photometric	kind	strength	seed	outcome	register	gates_passed	failed_gates	max_m	median_m	max_pct_radius	n_gcps	n_removed	registrar	asift	loo_max_px	error	zoom
+L2-fukuoka-e-paper-ez-sign-similarity-s0.5-r10	fukuoka	e-paper-ez-sign	none	similarity	0.5	10	ok	ok	True		1.466	0.5152	0.07051	80	0	cross-style-registration		0.5323		15
+L2-fukuoka-e-paper-ez-sign-similarity-s0.5-r11	fukuoka	e-paper-ez-sign	none	similarity	0.5	11	ok	ok	True		0.7087	0.5631	0.03123	80	0	cross-style-registration		0.4543		15
+L2-fukuoka-e-paper-ez-sign-similarity-s1.0-r10	fukuoka	e-paper-ez-sign	none	similarity	1	10	ok	ok	True		1.73	0.4577	0.09076	80	0	cross-style-registration		1.137		15
+L2-fukuoka-e-paper-ez-sign-similarity-s1.0-r11	fukuoka	e-paper-ez-sign	none	similarity	1	11	ok	ok	True		1.713	0.8201	0.07545	80	0	cross-style-registration		0.4986		15
+L2-fukuoka-e-paper-ez-sign-projective-s0.5-r10	fukuoka	e-paper-ez-sign	none	projective	0.5	10	ok	ok	True		1.83	0.6377	0.08659	80	0	cross-style-registration		0.4585		15
+L2-fukuoka-e-paper-ez-sign-projective-s0.5-r11	fukuoka	e-paper-ez-sign	none	projective	0.5	11	refused	failed	False					0	0	cross-style-registration				15
+L2-fukuoka-e-paper-ez-sign-projective-s1.0-r10	fukuoka	e-paper-ez-sign	none	projective	1	10	refused	failed	False					0	0	cross-style-registration				15
+L2-fukuoka-e-paper-ez-sign-projective-s1.0-r11	fukuoka	e-paper-ez-sign	none	projective	1	11	refused	failed	False					0	0	cross-style-registration				15
+L2-sendai-e-paper-ez-sign-similarity-s0.5-r10	sendai	e-paper-ez-sign	none	similarity	0.5	10	ok	ok	True		1.011	0.6216	0.05159	80	0	cross-style-registration		0.8627		15
+L2-sendai-e-paper-ez-sign-similarity-s0.5-r11	sendai	e-paper-ez-sign	none	similarity	0.5	11	ok	ok	True		0.5731	0.3035	0.02679	80	0	cross-style-registration		1.206		15
+L2-sendai-e-paper-ez-sign-similarity-s1.0-r10	sendai	e-paper-ez-sign	none	similarity	1	10	ok	ok	True		1.713	1.187	0.09536	80	0	cross-style-registration		0.7552		15
+L2-sendai-e-paper-ez-sign-similarity-s1.0-r11	sendai	e-paper-ez-sign	none	similarity	1	11	refused	failed	False					0	0	cross-style-registration				15
+L2-sendai-e-paper-ez-sign-projective-s0.5-r10	sendai	e-paper-ez-sign	none	projective	0.5	10	ok	ok	True		1.325	0.7821	0.06648	79	0	cross-style-registration		2.683		15
+L2-sendai-e-paper-ez-sign-projective-s0.5-r11	sendai	e-paper-ez-sign	none	projective	0.5	11	refused	failed	False					0	0	cross-style-registration				15
+L2-sendai-e-paper-ez-sign-projective-s1.0-r10	sendai	e-paper-ez-sign	none	projective	1	10	refused	failed	False					0	0	cross-style-registration				15
+L2-sendai-e-paper-ez-sign-projective-s1.0-r11	sendai	e-paper-ez-sign	none	projective	1	11	refused	failed	False					0	0	cross-style-registration				15
+N2-fukuoka-on-sendai-projective-s0.5-r10	fukuoka	e-paper-ez-sign	none	projective	0.5	10	correct_reject	failed	False					0	0	cross-style-registration				15
+N2-sendai-on-fukuoka-projective-s0.5-r10	sendai	e-paper-ez-sign	none	projective	0.5	10	correct_reject	failed	False					0	0	cross-style-registration				15

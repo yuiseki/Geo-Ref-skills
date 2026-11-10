@@ -1,0 +1,19 @@
+[
+ {"level": "1", "task": "同じスタイル (z15、結果を見て直した課題)", "tsv": ["level1-v5.tsv"]},
+ {"level": "1", "task": "同じスタイル (z13 と z17、見ていない場所と種)", "tsv": ["level1-z13.tsv", "level1-z17.tsv"]},
+ {"level": "2a", "task": "同じスタイルの灰色と二値", "tsv": ["level2a-v2.tsv"]},
+ {"level": "2", "task": "osm-bright", "tsv": ["level2-v4.tsv"], "style": "osm-bright"},
+ {"level": "2", "task": "osm-carto", "tsv": ["level2-v4.tsv"], "style": "osm-carto", "negatives": "(同上)"},
+ {"level": "3", "task": "文字とアイコンを消した osm-liberty (見ていない場所と種)", "tsv": ["level3-notext.tsv"]},
+ {"level": "3", "task": "e-paper-ez-sign、水も文字も無い (見ていないスタイル)", "tsv": ["level2-epaper-v3.tsv"]},
+ {"level": "3", "task": "鉄道だけ、川だけ (線幅 4)", "tsv": ["level3-v2.tsv"]},
+ {"level": "3", "task": "同上、線までの距離で測る版 (千葉、姫路、函館、見ていない場所と種)", "tsv": ["level3-lines-2.tsv"]},
+ {"level": "4", "task": "枠もズームも渡さない osm-liberty (見ていない場所、z14〜16、最初の版)", "tsv": ["level4.tsv"]},
+ {"level": "4", "task": "同上、地物の形で測る版 (ダブリン、シカゴ、バンクーバー、オークランド)", "tsv": ["level4-world-2.tsv"]},
+ {"level": "4", "task": "同上、地物の形で測る版 (松山、高松、長崎、青森)", "tsv": ["level4-3.tsv"]},
+ {"level": "4", "task": "地物の形で測る版 (鳥取、福井、水戸、甲府)", "tsv": ["level4-anchors-heldout-base.tsv"]},
+ {"level": "4", "task": "同上、町の名前の錨とタイルの読みを足した版", "tsv": ["level4-anchors-heldout-rerun.tsv"]},
+ {"level": "4", "task": "地物の形で測る版 (エディンバラ、ボストン、パース、オタワ)", "tsv": ["level4-anchors-world-heldout-base.tsv"]},
+ {"level": "4", "task": "同上、町の名前の錨とタイルの読みを足した版", "tsv": ["level4-anchors-world-heldout.tsv"]},
+ {"level": "5", "task": "実際の PDF: 国連の PKO の地図 (name-gcps、結果を見て直した作例。行列でなく手で数えた)", "cells": ["3/5 通過、2 は失敗を宣言", "目視で 0", "(対照なし)"]}
+]

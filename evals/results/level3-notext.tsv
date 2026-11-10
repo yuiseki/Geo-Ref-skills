@@ -1,0 +1,31 @@
+id	place	style	photometric	kind	strength	seed	outcome	register	gates_passed	failed_gates	max_m	median_m	max_pct_radius	n_gcps	n_removed	registrar	asift	loo_max_px	error	zoom
+L3-hiroshima-osm-liberty-no-text-no-icons-similarity-s0.5-r12	hiroshima	osm-liberty-no-text-no-icons	none	similarity	0.5	12	ok	ok	True		0.4234	0.1714	0.01647	108	0	feature-registration	False	0.762		15
+L3-hiroshima-osm-liberty-no-text-no-icons-similarity-s0.5-r13	hiroshima	osm-liberty-no-text-no-icons	none	similarity	0.5	13	ok	ok	True		0.9798	0.1648	0.03917	97	0	feature-registration	False	2.686		15
+L3-hiroshima-osm-liberty-no-text-no-icons-similarity-s1.0-r12	hiroshima	osm-liberty-no-text-no-icons	none	similarity	1	12	ok	ok	True		0.2603	0.1414	0.008851	111	0	feature-registration	False	1.969		15
+L3-hiroshima-osm-liberty-no-text-no-icons-similarity-s1.0-r13	hiroshima	osm-liberty-no-text-no-icons	none	similarity	1	13	ok	ok	True		0.7275	0.1648	0.02613	88	0	feature-registration	False	1.374		15
+L3-hiroshima-osm-liberty-no-text-no-icons-projective-s0.5-r12	hiroshima	osm-liberty-no-text-no-icons	none	projective	0.5	12	ok	ok	True		2.555	0.4847	0.09791	109	0	feature-registration	False	1.904		15
+L3-hiroshima-osm-liberty-no-text-no-icons-projective-s0.5-r13	hiroshima	osm-liberty-no-text-no-icons	none	projective	0.5	13	ok	ok	True		2.38	0.3644	0.09353	94	0	feature-registration	False	1.846		15
+L3-hiroshima-osm-liberty-no-text-no-icons-projective-s1.0-r12	hiroshima	osm-liberty-no-text-no-icons	none	projective	1	12	ok	ok	True		1.041	0.4134	0.03415	62	0	feature-registration	False	1.941		15
+L3-hiroshima-osm-liberty-no-text-no-icons-projective-s1.0-r13	hiroshima	osm-liberty-no-text-no-icons	none	projective	1	13	ok	ok	True		1.791	0.491	0.06193	62	0	feature-registration	False	2.118		15
+L3-niigata-osm-liberty-no-text-no-icons-similarity-s0.5-r12	niigata	osm-liberty-no-text-no-icons	none	similarity	0.5	12	ok	ok	True		0.7508	0.1322	0.03055	77	0	feature-registration	False	2.044		15
+L3-niigata-osm-liberty-no-text-no-icons-similarity-s0.5-r13	niigata	osm-liberty-no-text-no-icons	none	similarity	0.5	13	ok	ok	True		1.065	0.4081	0.04453	73	0	feature-registration	False	1.038		15
+L3-niigata-osm-liberty-no-text-no-icons-similarity-s1.0-r12	niigata	osm-liberty-no-text-no-icons	none	similarity	1	12	ok	ok	True		1.007	0.3599	0.0358	81	0	feature-registration	False	2.04		15
+L3-niigata-osm-liberty-no-text-no-icons-similarity-s1.0-r13	niigata	osm-liberty-no-text-no-icons	none	similarity	1	13	ok	ok	True		1.855	0.5344	0.06968	71	0	feature-registration	False	1.053		15
+L3-niigata-osm-liberty-no-text-no-icons-projective-s0.5-r12	niigata	osm-liberty-no-text-no-icons	none	projective	0.5	12	ok	ok	True		2.489	0.6129	0.09971	69	0	feature-registration	False	2.028		15
+L3-niigata-osm-liberty-no-text-no-icons-projective-s0.5-r13	niigata	osm-liberty-no-text-no-icons	none	projective	0.5	13	ok	ok	True		1.041	0.4071	0.04279	73	0	feature-registration	False	1.123		15
+L3-niigata-osm-liberty-no-text-no-icons-projective-s1.0-r12	niigata	osm-liberty-no-text-no-icons	none	projective	1	12	ok	ok	True		1.68	0.5948	0.05762	27	0	feature-registration	False	1.171		15
+L3-niigata-osm-liberty-no-text-no-icons-projective-s1.0-r13	niigata	osm-liberty-no-text-no-icons	none	projective	1	13	ok	ok	True		2.66	0.8761	0.09615	41	0	feature-registration	False	1.994		15
+L3-matsumoto-osm-liberty-no-text-no-icons-similarity-s0.5-r12	matsumoto	osm-liberty-no-text-no-icons	none	similarity	0.5	12	ok	ok	True		0.5667	0.148	0.02255	72	0	feature-registration	False	2.368		15
+L3-matsumoto-osm-liberty-no-text-no-icons-similarity-s0.5-r13	matsumoto	osm-liberty-no-text-no-icons	none	similarity	0.5	13	ok	ok	True		0.5966	0.237	0.0244	64	0	feature-registration	False	0.4975		15
+L3-matsumoto-osm-liberty-no-text-no-icons-similarity-s1.0-r12	matsumoto	osm-liberty-no-text-no-icons	none	similarity	1	12	ok	ok	True		0.9765	0.3523	0.03397	62	0	feature-registration	False	0.6456		15
+L3-matsumoto-osm-liberty-no-text-no-icons-similarity-s1.0-r13	matsumoto	osm-liberty-no-text-no-icons	none	similarity	1	13	ok	ok	True		0.763	0.2622	0.02803	75	0	feature-registration	False	0.6532		15
+L3-matsumoto-osm-liberty-no-text-no-icons-projective-s0.5-r12	matsumoto	osm-liberty-no-text-no-icons	none	projective	0.5	12	ok	ok	True		2.495	0.4906	0.09779	64	0	feature-registration	False	1.324		15
+L3-matsumoto-osm-liberty-no-text-no-icons-projective-s0.5-r13	matsumoto	osm-liberty-no-text-no-icons	none	projective	0.5	13	ok	ok	True		0.699	0.2167	0.0281	73	0	feature-registration	False	1.131		15
+L3-matsumoto-osm-liberty-no-text-no-icons-projective-s1.0-r12	matsumoto	osm-liberty-no-text-no-icons	none	projective	1	12	ok	ok	True		3.637	0.7211	0.1221	39	0	feature-registration	False	1.764		15
+L3-matsumoto-osm-liberty-no-text-no-icons-projective-s1.0-r13	matsumoto	osm-liberty-no-text-no-icons	none	projective	1	13	ok	ok	True		1.902	0.5075	0.06726	52	0	feature-registration	False	1.193		15
+N3-hiroshima-on-niigata-projective-s0.5-r12	hiroshima	osm-liberty-no-text-no-icons	none	projective	0.5	12	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-hiroshima-on-niigata-projective-s0.5-r13	hiroshima	osm-liberty-no-text-no-icons	none	projective	0.5	13	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-niigata-on-matsumoto-projective-s0.5-r12	niigata	osm-liberty-no-text-no-icons	none	projective	0.5	12	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-niigata-on-matsumoto-projective-s0.5-r13	niigata	osm-liberty-no-text-no-icons	none	projective	0.5	13	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-matsumoto-on-hiroshima-projective-s0.5-r12	matsumoto	osm-liberty-no-text-no-icons	none	projective	0.5	12	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-matsumoto-on-hiroshima-projective-s0.5-r13	matsumoto	osm-liberty-no-text-no-icons	none	projective	0.5	13	correct_reject	failed	False					0	0	cross-style-registration				15

@@ -170,3 +170,12 @@ def test_the_gates_output_is_named_by_the_gate_scripts_so_a_gate_change_is_check
     assert run_matrix.gates_name(d) == a
     (d / "check_gcps.py").write_text("v2")
     assert run_matrix.gates_name(d) != a
+
+
+def test_gates_only_refuses_to_run_a_step_whose_output_is_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_matrix, "GATES_ONLY", True)
+    (tmp_path / "done.json").write_text("{}")
+    assert run_matrix.step(["false"], tmp_path / "done.json", tmp_path / "log") == 0  # an existing output is fine
+    import pytest
+    with pytest.raises(RuntimeError, match="gates-only"):
+        run_matrix.step(["true"], tmp_path / "missing.json", tmp_path / "log")

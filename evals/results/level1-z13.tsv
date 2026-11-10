@@ -1,0 +1,19 @@
+id	place	style	photometric	kind	strength	seed	outcome	register	gates_passed	failed_gates	max_m	median_m	max_pct_radius	n_gcps	n_removed	registrar	asift	loo_max_px	error	zoom
+L1-fukuoka-osm-liberty-similarity-s0.5-r8	fukuoka	osm-liberty	none	similarity	0.5	8	ok	ok	True		0.6158	0.2423	0.005864	323	0	feature-registration	False	0.9725		13
+L1-fukuoka-osm-liberty-similarity-s0.5-r9	fukuoka	osm-liberty	none	similarity	0.5	9	ok	ok	True		0.5464	0.1854	0.006417	310	0	feature-registration	False	1.059		13
+L1-fukuoka-osm-liberty-similarity-s1.0-r8	fukuoka	osm-liberty	none	similarity	1	8	ok	ok	True		1.092	0.3937	0.008981	336	0	feature-registration	False	1.004		13
+L1-fukuoka-osm-liberty-similarity-s1.0-r9	fukuoka	osm-liberty	none	similarity	1	9	ok	ok	True		2.032	0.5404	0.02543	308	0	feature-registration	False	1.863		13
+L1-fukuoka-osm-liberty-projective-s0.5-r8	fukuoka	osm-liberty	none	projective	0.5	8	ok	ok	True		2.084	0.3738	0.01908	320	0	feature-registration	False	1.364		13
+L1-fukuoka-osm-liberty-projective-s0.5-r9	fukuoka	osm-liberty	none	projective	0.5	9	ok	ok	True		0.8504	0.3793	0.009681	308	0	feature-registration	False	1.535		13
+L1-fukuoka-osm-liberty-projective-s1.0-r8	fukuoka	osm-liberty	none	projective	1	8	ok	ok	True		5.155	0.788	0.03861	297	0	feature-registration	False	1.66		13
+L1-fukuoka-osm-liberty-projective-s1.0-r9	fukuoka	osm-liberty	none	projective	1	9	ok	ok	True		4.231	0.7498	0.04879	262	2	feature-registration	False	2.811		13
+L1-sendai-osm-liberty-similarity-s0.5-r8	sendai	osm-liberty	none	similarity	0.5	8	ok	ok	True		1.661	0.3615	0.01677	316	0	feature-registration	False	0.7611		13
+L1-sendai-osm-liberty-similarity-s0.5-r9	sendai	osm-liberty	none	similarity	0.5	9	ok	ok	True		0.6561	0.2478	0.008171	279	0	feature-registration	False	1.601		13
+L1-sendai-osm-liberty-similarity-s1.0-r8	sendai	osm-liberty	none	similarity	1	8	ok	ok	True		2.186	0.6012	0.01906	311	0	feature-registration	False	0.6207		13
+L1-sendai-osm-liberty-similarity-s1.0-r9	sendai	osm-liberty	none	similarity	1	9	ok	ok	True		1.128	0.3184	0.01497	302	0	feature-registration	False	0.6566		13
+L1-sendai-osm-liberty-projective-s0.5-r8	sendai	osm-liberty	none	projective	0.5	8	ok	ok	True		0.5175	0.1862	0.005026	311	0	feature-registration	False	1.216		13
+L1-sendai-osm-liberty-projective-s0.5-r9	sendai	osm-liberty	none	projective	0.5	9	ok	ok	True		2.004	0.4505	0.02419	277	0	feature-registration	False	1.002		13
+L1-sendai-osm-liberty-projective-s1.0-r8	sendai	osm-liberty	none	projective	1	8	ok	ok	True		3.112	0.7175	0.02471	292	0	feature-registration	False	1.8		13
+L1-sendai-osm-liberty-projective-s1.0-r9	sendai	osm-liberty	none	projective	1	9	ok	ok	True		1.095	0.3688	0.01339	261	0	feature-registration	False	2.441		13
+N1-fukuoka-on-sendai-projective-s0.5-r8	fukuoka	osm-liberty	none	projective	0.5	8	correct_reject	failed	False					0	0	cross-style-registration				13
+N1-sendai-on-fukuoka-projective-s0.5-r8	sendai	osm-liberty	none	projective	0.5	8	correct_reject	failed	False					0	0	cross-style-registration				13

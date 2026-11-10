@@ -1,0 +1,73 @@
+id	place	style	photometric	kind	strength	seed	outcome	register	gates_passed	failed_gates	max_m	median_m	max_pct_radius	n_gcps	n_removed	registrar	asift	loo_max_px	error	zoom
+L4-tottori-osm-liberty-z14-similarity-s0.5-r60	tottori	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.4899	0.1278	0.01273	291	0	feature-registration	False	0.4883	place-hint anchor Tottori z14 (1 of 4)	14
+L4-tottori-osm-liberty-z14-similarity-s1.0-r60	tottori	osm-liberty	none	similarity	1	60	ok	ok	True		0.6629	0.1279	0.01984	277	0	feature-registration	False	1.377	place-hint anchor Tottori z14 (1 of 4)	14
+L4-tottori-osm-liberty-z14-projective-s0.5-r60	tottori	osm-liberty	none	projective	0.5	60	ok	ok	True		1.026	0.23	0.02465	258	0	feature-registration	False	1.382	place-hint anchor Tottori z14 (1 of 4)	14
+L4-tottori-osm-liberty-z14-projective-s1.0-r60	tottori	osm-liberty	none	projective	1	60	refused	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+L4-tottori-osm-liberty-z15-similarity-s0.5-r60	tottori	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.2234	0.06147	0.01161	293	0	feature-registration	False	0.6651		15
+L4-tottori-osm-liberty-z15-similarity-s1.0-r60	tottori	osm-liberty	none	similarity	1	60	ok	ok	True		0.1619	0.04793	0.009695	278	0	feature-registration	False	0.8534		15
+L4-tottori-osm-liberty-z15-projective-s0.5-r60	tottori	osm-liberty	none	projective	0.5	60	ok	ok	True		1.243	0.2502	0.05973	246	0	feature-registration	False	2.514		15
+L4-tottori-osm-liberty-z15-projective-s1.0-r60	tottori	osm-liberty	none	projective	1	60	ok	ok	True		5.959	0.8938	0.2992	74	0	feature-registration	False	2.598		15
+L4-tottori-osm-liberty-z16-similarity-s0.5-r60	tottori	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.07662	0.02699	0.007964	299	0	feature-registration	False	0.6473		16
+L4-tottori-osm-liberty-z16-similarity-s1.0-r60	tottori	osm-liberty	none	similarity	1	60	ok	ok	True		0.0861	0.02501	0.01031	289	0	feature-registration	False	1.046		16
+L4-tottori-osm-liberty-z16-projective-s0.5-r60	tottori	osm-liberty	none	projective	0.5	60	ok	ok	True		0.2974	0.07483	0.02858	249	0	feature-registration	False	2.48		16
+L4-tottori-osm-liberty-z16-projective-s1.0-r60	tottori	osm-liberty	none	projective	1	60	ok	ok	True		0.8559	0.1865	0.08593	92	2	feature-registration	False	2.606		16
+L4-fukui-osm-liberty-z14-similarity-s0.5-r60	fukui	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.307	0.1315	0.008034	230	0	feature-registration	False	0.8683	place-hint anchor Fukui z14 (1 of 4)	14
+L4-fukui-osm-liberty-z14-similarity-s1.0-r60	fukui	osm-liberty	none	similarity	1	60	ok	ok	True		0.2729	0.08545	0.008228	199	0	feature-registration	False	1.289	place-hint anchor Fukui z14 (1 of 8)	14
+L4-fukui-osm-liberty-z14-projective-s0.5-r60	fukui	osm-liberty	none	projective	0.5	60	ok	ok	True		1.411	0.2828	0.03414	203	1	feature-registration	False	1.757	place-hint anchor Fukui z14 (1 of 4)	14
+L4-fukui-osm-liberty-z14-projective-s1.0-r60	fukui	osm-liberty	none	projective	1	60	ok	ok	True		7.135	1.102	0.1804	76	1	feature-registration	False	2.91	place-hint anchor Fukui z14 (1 of 4)	14
+L4-fukui-osm-liberty-z15-similarity-s0.5-r60	fukui	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.1864	0.04802	0.009757	356	0	feature-registration	False	1.046		15
+L4-fukui-osm-liberty-z15-similarity-s1.0-r60	fukui	osm-liberty	none	similarity	1	60	ok	ok	True		0.1021	0.04544	0.006154	327	0	feature-registration	False	0.5363		15
+L4-fukui-osm-liberty-z15-projective-s0.5-r60	fukui	osm-liberty	none	projective	0.5	60	ok	ok	True		0.4719	0.1179	0.02283	312	0	feature-registration	False	2.823		15
+L4-fukui-osm-liberty-z15-projective-s1.0-r60	fukui	osm-liberty	none	projective	1	60	ok	ok	True		1.879	0.2891	0.09497	118	3	feature-registration	False	2.628		15
+L4-fukui-osm-liberty-z16-similarity-s0.5-r60	fukui	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.07417	0.02129	0.007764	359	0	feature-registration	False	2.341		16
+L4-fukui-osm-liberty-z16-similarity-s1.0-r60	fukui	osm-liberty	none	similarity	1	60	ok	ok	True		0.1401	0.02907	0.01689	341	0	feature-registration	False	1.985		16
+L4-fukui-osm-liberty-z16-projective-s0.5-r60	fukui	osm-liberty	none	projective	0.5	60	ok	ok	True		0.1723	0.06547	0.01668	324	1	feature-registration	False	2.35		16
+L4-fukui-osm-liberty-z16-projective-s1.0-r60	fukui	osm-liberty	none	projective	1	60	refused	anchors	False	place_hint									place-hint: support 4 names (need 3), weight 0.93 (need 1.5); 12 anchor boxes, none passed the gates	16
+L4-mito-osm-liberty-z14-similarity-s0.5-r60	mito	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.2609	0.1048	0.006854	176	0	feature-registration	False	0.6563	place-hint anchor Mito z14 (1 of 4)	14
+L4-mito-osm-liberty-z14-similarity-s1.0-r60	mito	osm-liberty	none	similarity	1	60	ok	ok	True		0.4928	0.1404	0.01491	156	0	feature-registration	False	0.9611	place-hint anchor Mito z14 (1 of 4)	14
+L4-mito-osm-liberty-z14-projective-s0.5-r60	mito	osm-liberty	none	projective	0.5	60	ok	ok	True		0.8567	0.2454	0.02081	162	0	feature-registration	False	2.185	place-hint anchor Mito z14 (1 of 4)	14
+L4-mito-osm-liberty-z14-projective-s1.0-r60	mito	osm-liberty	none	projective	1	60	refused	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+L4-mito-osm-liberty-z15-similarity-s0.5-r60	mito	osm-liberty	none	similarity	0.5	60	over_strict	ok	False	inside_hint	3.495	0.5846	0.1837	62	0	feature-registration	False	1.75		15
+L4-mito-osm-liberty-z15-similarity-s1.0-r60	mito	osm-liberty	none	similarity	1	60	ok	ok	True		0.2308	0.07791	0.01397	263	0	feature-registration	False	1.383		15
+L4-mito-osm-liberty-z15-projective-s0.5-r60	mito	osm-liberty	none	projective	0.5	60	ok	ok	True		0.4923	0.1419	0.02391	245	0	feature-registration	False	1.692		15
+L4-mito-osm-liberty-z15-projective-s1.0-r60	mito	osm-liberty	none	projective	1	60	refused	not run	False	place_hint									place-hint: 2 of 4 names agree on one scale and rotation, 2 of them precise (need 5 and 50%)	15
+L4-mito-osm-liberty-z16-similarity-s0.5-r60	mito	osm-liberty	none	similarity	0.5	60	refused	not run	False	place_hint									place-hint: 2 of 4 names agree on one scale and rotation, 2 of them precise (need 5 and 50%)	16
+L4-mito-osm-liberty-z16-similarity-s1.0-r60	mito	osm-liberty	none	similarity	1	60	refused	anchors	False	place_hint									place-hint: support 2 names (need 3), weight 1.04 (need 1.5); 4 anchor boxes, none passed the gates	16
+L4-mito-osm-liberty-z16-projective-s0.5-r60	mito	osm-liberty	none	projective	0.5	60	refused	anchors	False	place_hint									place-hint: support 2 names (need 3), weight 1.04 (need 1.5); 4 anchor boxes, none passed the gates	16
+L4-mito-osm-liberty-z16-projective-s1.0-r60	mito	osm-liberty	none	projective	1	60	refused	not run	False	place_hint									place-hint: support 2 names (need 3), weight 1.10 (need 1.5)	16
+L4-kofu-osm-liberty-z14-similarity-s0.5-r60	kofu	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.4278	0.1471	0.01114	223	0	feature-registration	False	0.614	place-hint anchor Kofu z14 (1 of 8)	14
+L4-kofu-osm-liberty-z14-similarity-s1.0-r60	kofu	osm-liberty	none	similarity	1	60	ok	ok	True		0.2857	0.1211	0.008571	213	0	feature-registration	False	0.9609	place-hint anchor Kofu z14 (1 of 8)	14
+L4-kofu-osm-liberty-z14-projective-s0.5-r60	kofu	osm-liberty	none	projective	0.5	60	ok	ok	True		0.5576	0.192	0.01342	217	0	feature-registration	False	1.213	place-hint anchor Kofu z14 (1 of 8)	14
+L4-kofu-osm-liberty-z14-projective-s1.0-r60	kofu	osm-liberty	none	projective	1	60	refused	not run	False	place_hint									place-hint: support 1 names (need 3), weight 0.33 (need 1.5)	14
+L4-kofu-osm-liberty-z15-similarity-s0.5-r60	kofu	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.2327	0.07918	0.01212	335	0	feature-registration	False	0.9037		15
+L4-kofu-osm-liberty-z15-similarity-s1.0-r60	kofu	osm-liberty	none	similarity	1	60	ok	ok	True		0.1055	0.03786	0.006328	326	0	feature-registration	False	0.7678		15
+L4-kofu-osm-liberty-z15-projective-s0.5-r60	kofu	osm-liberty	none	projective	0.5	60	ok	ok	True		0.8921	0.1919	0.04295	293	1	feature-registration	False	2.502	place-hint anchor Kofu z15 (6 of 12)	15
+L4-kofu-osm-liberty-z15-projective-s1.0-r60	kofu	osm-liberty	none	projective	1	60	refused	anchors	False	place_hint									place-hint: support 4 names (need 3), weight 1.47 (need 1.5); 8 anchor boxes, none passed the gates	15
+L4-kofu-osm-liberty-z16-similarity-s0.5-r60	kofu	osm-liberty	none	similarity	0.5	60	ok	ok	True		0.06147	0.02551	0.006402	306	0	feature-registration	False	0.6469	place-hint anchor Kofu z16 (7 of 12)	16
+L4-kofu-osm-liberty-z16-similarity-s1.0-r60	kofu	osm-liberty	none	similarity	1	60	ok	ok	True		0.07418	0.02926	0.008899	296	0	feature-registration	False	1.174	place-hint anchor Kofu z16 (7 of 12)	16
+L4-kofu-osm-liberty-z16-projective-s0.5-r60	kofu	osm-liberty	none	projective	0.5	60	ok	ok	True		0.3215	0.05221	0.03096	237	0	feature-registration	False	2.801	place-hint anchor Kofu z16 (7 of 12)	16
+L4-kofu-osm-liberty-z16-projective-s1.0-r60	kofu	osm-liberty	none	projective	1	60	refused	anchors	False	place_hint									place-hint: support 4 names (need 3), weight 0.38 (need 1.5); 8 anchor boxes, none passed the gates	16
+N4-tottori-on-mito-z14-projective-s0.5-r60	tottori	osm-liberty	none	projective	0.5	60	correct_reject	anchors	False	place_hint									place-hint: support 1 names (need 3), weight 0.50 (need 1.5); 4 anchor boxes, none passed the gates	14
+N4-tottori-on-mito-z14-projective-s1.0-r60	tottori	osm-liberty	none	projective	1	60	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-tottori-on-mito-z15-projective-s0.5-r60	tottori	osm-liberty	none	projective	0.5	60	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-tottori-on-mito-z15-projective-s1.0-r60	tottori	osm-liberty	none	projective	1	60	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-tottori-on-mito-z16-projective-s0.5-r60	tottori	osm-liberty	none	projective	0.5	60	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-tottori-on-mito-z16-projective-s1.0-r60	tottori	osm-liberty	none	projective	1	60	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-fukui-on-kofu-z14-projective-s0.5-r60	fukui	osm-liberty	none	projective	0.5	60	correct_reject	anchors	False	place_hint									place-hint: support 1 names (need 3), weight 0.33 (need 1.5); 4 anchor boxes, none passed the gates	14
+N4-fukui-on-kofu-z14-projective-s1.0-r60	fukui	osm-liberty	none	projective	1	60	correct_reject	anchors	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5); 4 anchor boxes, none passed the gates	14
+N4-fukui-on-kofu-z15-projective-s0.5-r60	fukui	osm-liberty	none	projective	0.5	60	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-fukui-on-kofu-z15-projective-s1.0-r60	fukui	osm-liberty	none	projective	1	60	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-fukui-on-kofu-z16-projective-s0.5-r60	fukui	osm-liberty	none	projective	0.5	60	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-fukui-on-kofu-z16-projective-s1.0-r60	fukui	osm-liberty	none	projective	1	60	correct_reject	anchors	False	place_hint									place-hint: support 4 names (need 3), weight 0.93 (need 1.5); 12 anchor boxes, none passed the gates	16
+N4-mito-on-fukui-z14-projective-s0.5-r60	mito	osm-liberty	none	projective	0.5	60	correct_reject	anchors	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5); 4 anchor boxes, none passed the gates	14
+N4-mito-on-fukui-z14-projective-s1.0-r60	mito	osm-liberty	none	projective	1	60	correct_reject	not run	False	place_hint									place-hint: support 0 names (need 3), weight 0.00 (need 1.5)	14
+N4-mito-on-fukui-z15-projective-s0.5-r60	mito	osm-liberty	none	projective	0.5	60	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-mito-on-fukui-z15-projective-s1.0-r60	mito	osm-liberty	none	projective	1	60	correct_reject	not run	False	place_hint									place-hint: 2 of 4 names agree on one scale and rotation, 2 of them precise (need 5 and 50%)	15
+N4-mito-on-fukui-z16-projective-s0.5-r60	mito	osm-liberty	none	projective	0.5	60	correct_reject	anchors	False	place_hint									place-hint: support 2 names (need 3), weight 1.04 (need 1.5); 4 anchor boxes, none passed the gates	16
+N4-mito-on-fukui-z16-projective-s1.0-r60	mito	osm-liberty	none	projective	1	60	correct_reject	not run	False	place_hint									place-hint: support 2 names (need 3), weight 1.10 (need 1.5)	16
+N4-kofu-on-tottori-z14-projective-s0.5-r60	kofu	osm-liberty	none	projective	0.5	60	correct_reject	anchors	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5); 8 anchor boxes, none passed the gates	14
+N4-kofu-on-tottori-z14-projective-s1.0-r60	kofu	osm-liberty	none	projective	1	60	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 0.33 (need 1.5)	14
+N4-kofu-on-tottori-z15-projective-s0.5-r60	kofu	osm-liberty	none	projective	0.5	60	correct_reject	anchors	False	place_hint									place-hint: support 10 names (need 3), weight 1.42 (need 1.5); 12 anchor boxes, none passed the gates	15
+N4-kofu-on-tottori-z15-projective-s1.0-r60	kofu	osm-liberty	none	projective	1	60	correct_reject	anchors	False	place_hint									place-hint: support 4 names (need 3), weight 1.47 (need 1.5); 8 anchor boxes, none passed the gates	15
+N4-kofu-on-tottori-z16-projective-s0.5-r60	kofu	osm-liberty	none	projective	0.5	60	correct_reject	anchors	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5); 12 anchor boxes, none passed the gates	16
+N4-kofu-on-tottori-z16-projective-s1.0-r60	kofu	osm-liberty	none	projective	1	60	correct_reject	anchors	False	place_hint									place-hint: support 4 names (need 3), weight 0.38 (need 1.5); 8 anchor boxes, none passed the gates	16

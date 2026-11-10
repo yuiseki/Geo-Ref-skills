@@ -1,0 +1,73 @@
+id	place	style	photometric	kind	strength	seed	outcome	register	gates_passed	failed_gates	max_m	median_m	max_pct_radius	n_gcps	n_removed	registrar	asift	loo_max_px	error	zoom
+L4-edinburgh-osm-liberty-z14-similarity-s0.5-r61	edinburgh	osm-liberty	none	similarity	0.5	61	ok	ok	True		0.4401	0.1678	0.01328	213	0	feature-registration	False	1.558		14
+L4-edinburgh-osm-liberty-z14-similarity-s1.0-r61	edinburgh	osm-liberty	none	similarity	1	61	refused	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	14
+L4-edinburgh-osm-liberty-z14-projective-s0.5-r61	edinburgh	osm-liberty	none	projective	0.5	61	ok	ok	True		0.5713	0.1983	0.01671	212	0	feature-registration	False	1.338		14
+L4-edinburgh-osm-liberty-z14-projective-s1.0-r61	edinburgh	osm-liberty	none	projective	1	61	refused	not run	False	place_hint									place-hint: support 3 names (need 3), weight 1.37 (need 1.5)	14
+L4-edinburgh-osm-liberty-z15-similarity-s0.5-r61	edinburgh	osm-liberty	none	similarity	0.5	61	ok	ok	True		0.1011	0.02647	0.006103	348	0	feature-registration	False	0.5147		15
+L4-edinburgh-osm-liberty-z15-similarity-s1.0-r61	edinburgh	osm-liberty	none	similarity	1	61	refused	not run	False	place_hint									place-hint: support 2 names (need 3), weight 2.00 (need 1.5)	15
+L4-edinburgh-osm-liberty-z15-projective-s0.5-r61	edinburgh	osm-liberty	none	projective	0.5	61	ok	ok	True		0.1832	0.06375	0.01071	332	0	feature-registration	False	0.9115		15
+L4-edinburgh-osm-liberty-z15-projective-s1.0-r61	edinburgh	osm-liberty	none	projective	1	61	over_strict	ok	False	inside_hint	0.2361	0.0888	0.01224	296	0	feature-registration	False	2.068		15
+L4-edinburgh-osm-liberty-z16-similarity-s0.5-r61	edinburgh	osm-liberty	none	similarity	0.5	61	ok	ok	True		0.104	0.02812	0.01255	344	0	feature-registration	False	0.8155		16
+L4-edinburgh-osm-liberty-z16-similarity-s1.0-r61	edinburgh	osm-liberty	none	similarity	1	61	ok	ok	True		0.04977	0.02502	0.005535	338	0	feature-registration	False	1.113		16
+L4-edinburgh-osm-liberty-z16-projective-s0.5-r61	edinburgh	osm-liberty	none	projective	0.5	61	ok	ok	True		0.07451	0.02272	0.008717	329	0	feature-registration	False	1.826		16
+L4-edinburgh-osm-liberty-z16-projective-s1.0-r61	edinburgh	osm-liberty	none	projective	1	61	ok	ok	True		0.1245	0.052	0.01291	308	0	feature-registration	False	1.651		16
+L4-boston-osm-liberty-z14-similarity-s0.5-r61	boston	osm-liberty	none	similarity	0.5	61	refused	not run	False	place_hint									place-hint: support 9 names (need 3), weight 1.19 (need 1.5)	14
+L4-boston-osm-liberty-z14-similarity-s1.0-r61	boston	osm-liberty	none	similarity	1	61	refused	not run	False	place_hint									place-hint: support 6 names (need 3), weight 0.63 (need 1.5)	14
+L4-boston-osm-liberty-z14-projective-s0.5-r61	boston	osm-liberty	none	projective	0.5	61	ok	ok	True		0.9634	0.2961	0.02137	324	0	feature-registration	False	1.637		14
+L4-boston-osm-liberty-z14-projective-s1.0-r61	boston	osm-liberty	none	projective	1	61	refused	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	14
+L4-boston-osm-liberty-z15-similarity-s0.5-r61	boston	osm-liberty	none	similarity	0.5	61	refused	not run	False	place_hint									place-hint: support 4 names (need 3), weight 1.29 (need 1.5)	15
+L4-boston-osm-liberty-z15-similarity-s1.0-r61	boston	osm-liberty	none	similarity	1	61	refused	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	15
+L4-boston-osm-liberty-z15-projective-s0.5-r61	boston	osm-liberty	none	projective	0.5	61	refused	not run	False	place_hint									place-hint: support 4 names (need 3), weight 1.08 (need 1.5)	15
+L4-boston-osm-liberty-z15-projective-s1.0-r61	boston	osm-liberty	none	projective	1	61	refused	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	15
+L4-boston-osm-liberty-z16-similarity-s0.5-r61	boston	osm-liberty	none	similarity	0.5	61	refused	not run	False	place_hint									place-hint: support 4 names (need 3), weight 1.24 (need 1.5)	16
+L4-boston-osm-liberty-z16-similarity-s1.0-r61	boston	osm-liberty	none	similarity	1	61	ok	ok	True		0.1368	0.05456	0.01154	372	0	feature-registration	False	0.9911		16
+L4-boston-osm-liberty-z16-projective-s0.5-r61	boston	osm-liberty	none	projective	0.5	61	refused	not run	False	place_hint									place-hint: 4 of 9 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	16
+L4-boston-osm-liberty-z16-projective-s1.0-r61	boston	osm-liberty	none	projective	1	61	refused	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	16
+L4-perth-osm-liberty-z14-similarity-s0.5-r61	perth	osm-liberty	none	similarity	0.5	61	ok	ok	True		0.4007	0.1406	0.007994	287	0	feature-registration	False	1.486		14
+L4-perth-osm-liberty-z14-similarity-s1.0-r61	perth	osm-liberty	none	similarity	1	61	ok	ok	True		0.5613	0.2094	0.01032	308	0	feature-registration	False	0.9744		14
+L4-perth-osm-liberty-z14-projective-s0.5-r61	perth	osm-liberty	none	projective	0.5	61	ok	ok	True		0.7195	0.1985	0.01391	302	0	feature-registration	False	1.185		14
+L4-perth-osm-liberty-z14-projective-s1.0-r61	perth	osm-liberty	none	projective	1	61	ok	ok	True		0.8754	0.3066	0.01499	295	0	feature-registration	False	2.065		14
+L4-perth-osm-liberty-z15-similarity-s0.5-r61	perth	osm-liberty	none	similarity	0.5	61	refused	not run	False	place_hint									place-hint: 3 of 4 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	15
+L4-perth-osm-liberty-z15-similarity-s1.0-r61	perth	osm-liberty	none	similarity	1	61	ok	ok	True		0.3793	0.1489	0.01394	366	0	feature-registration	False	0.8628		15
+L4-perth-osm-liberty-z15-projective-s0.5-r61	perth	osm-liberty	none	projective	0.5	61	ok	ok	True		0.2676	0.0819	0.01035	363	0	feature-registration	False	1.251		15
+L4-perth-osm-liberty-z15-projective-s1.0-r61	perth	osm-liberty	none	projective	1	61	refused	not run	False	place_hint									place-hint: 4 of 4 names agree on one scale and rotation, 2 of them precise (need 5 and 50%)	15
+L4-perth-osm-liberty-z16-similarity-s0.5-r61	perth	osm-liberty	none	similarity	0.5	61	ok	ok	True		0.07429	0.03027	0.005928	340	0	feature-registration	False	0.9506		16
+L4-perth-osm-liberty-z16-similarity-s1.0-r61	perth	osm-liberty	none	similarity	1	61	refused	failed	False					0	0	feature-registration	True			16
+L4-perth-osm-liberty-z16-projective-s0.5-r61	perth	osm-liberty	none	projective	0.5	61	refused	not run	False	place_hint									place-hint: 1 of 3 names agree on one scale and rotation, 1 of them precise (need 5 and 50%)	16
+L4-perth-osm-liberty-z16-projective-s1.0-r61	perth	osm-liberty	none	projective	1	61	refused	failed	False					0	0	feature-registration	True			16
+L4-ottawa-osm-liberty-z14-similarity-s0.5-r61	ottawa	osm-liberty	none	similarity	0.5	61	refused	not run	False	place_hint									place-hint: support 3 names (need 3), weight 1.33 (need 1.5)	14
+L4-ottawa-osm-liberty-z14-similarity-s1.0-r61	ottawa	osm-liberty	none	similarity	1	61	refused	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	14
+L4-ottawa-osm-liberty-z14-projective-s0.5-r61	ottawa	osm-liberty	none	projective	0.5	61	ok	ok	True		0.3886	0.1593	0.009073	302	0	feature-registration	False	0.9179		14
+L4-ottawa-osm-liberty-z14-projective-s1.0-r61	ottawa	osm-liberty	none	projective	1	61	refused	not run	False	place_hint									place-hint: 3 of 6 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	14
+L4-ottawa-osm-liberty-z15-similarity-s0.5-r61	ottawa	osm-liberty	none	similarity	0.5	61	ok	ok	True		0.1374	0.06756	0.00662	373	0	feature-registration	False	1.774		15
+L4-ottawa-osm-liberty-z15-similarity-s1.0-r61	ottawa	osm-liberty	none	similarity	1	61	ok	ok	True		0.2418	0.08437	0.01073	382	0	feature-registration	False	1.489		15
+L4-ottawa-osm-liberty-z15-projective-s0.5-r61	ottawa	osm-liberty	none	projective	0.5	61	ok	ok	True		0.1881	0.04462	0.008782	379	0	feature-registration	False	2.212		15
+L4-ottawa-osm-liberty-z15-projective-s1.0-r61	ottawa	osm-liberty	none	projective	1	61	refused	not run	False	place_hint									place-hint: support 2 names (need 3), weight 2.00 (need 1.5)	15
+L4-ottawa-osm-liberty-z16-similarity-s0.5-r61	ottawa	osm-liberty	none	similarity	0.5	61	ok	ok	True		0.04715	0.01671	0.004543	321	0	feature-registration	False	0.9604		16
+L4-ottawa-osm-liberty-z16-similarity-s1.0-r61	ottawa	osm-liberty	none	similarity	1	61	ok	ok	True		0.118	0.03266	0.01047	333	0	feature-registration	False	1.179		16
+L4-ottawa-osm-liberty-z16-projective-s0.5-r61	ottawa	osm-liberty	none	projective	0.5	61	ok	ok	True		0.191	0.06797	0.01784	322	0	feature-registration	False	1.518		16
+L4-ottawa-osm-liberty-z16-projective-s1.0-r61	ottawa	osm-liberty	none	projective	1	61	ok	ok	True		0.4714	0.14	0.03901	310	0	feature-registration	False	2.046		16
+N4-edinburgh-on-boston-z14-projective-s0.5-r61	edinburgh	osm-liberty	none	projective	0.5	61	correct_reject	failed	False					0	0	feature-registration	True			14
+N4-edinburgh-on-boston-z14-projective-s1.0-r61	edinburgh	osm-liberty	none	projective	1	61	correct_reject	not run	False	place_hint									place-hint: support 3 names (need 3), weight 1.37 (need 1.5)	14
+N4-edinburgh-on-boston-z15-projective-s0.5-r61	edinburgh	osm-liberty	none	projective	0.5	61	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-edinburgh-on-boston-z15-projective-s1.0-r61	edinburgh	osm-liberty	none	projective	1	61	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-edinburgh-on-boston-z16-projective-s0.5-r61	edinburgh	osm-liberty	none	projective	0.5	61	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-edinburgh-on-boston-z16-projective-s1.0-r61	edinburgh	osm-liberty	none	projective	1	61	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-boston-on-perth-z14-projective-s0.5-r61	boston	osm-liberty	none	projective	0.5	61	correct_reject	failed	False					0	0	feature-registration	True			14
+N4-boston-on-perth-z14-projective-s1.0-r61	boston	osm-liberty	none	projective	1	61	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	14
+N4-boston-on-perth-z15-projective-s0.5-r61	boston	osm-liberty	none	projective	0.5	61	correct_reject	not run	False	place_hint									place-hint: support 4 names (need 3), weight 1.08 (need 1.5)	15
+N4-boston-on-perth-z15-projective-s1.0-r61	boston	osm-liberty	none	projective	1	61	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	15
+N4-boston-on-perth-z16-projective-s0.5-r61	boston	osm-liberty	none	projective	0.5	61	correct_reject	not run	False	place_hint									place-hint: 4 of 9 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	16
+N4-boston-on-perth-z16-projective-s1.0-r61	boston	osm-liberty	none	projective	1	61	correct_reject	not run	False	place_hint									place-hint: support 1 names (need 3), weight 1.00 (need 1.5)	16
+N4-perth-on-ottawa-z14-projective-s0.5-r61	perth	osm-liberty	none	projective	0.5	61	correct_reject	failed	False					0	0	feature-registration	True			14
+N4-perth-on-ottawa-z14-projective-s1.0-r61	perth	osm-liberty	none	projective	1	61	correct_reject	failed	False					0	0	feature-registration	True			14
+N4-perth-on-ottawa-z15-projective-s0.5-r61	perth	osm-liberty	none	projective	0.5	61	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-perth-on-ottawa-z15-projective-s1.0-r61	perth	osm-liberty	none	projective	1	61	correct_reject	not run	False	place_hint									place-hint: 4 of 4 names agree on one scale and rotation, 2 of them precise (need 5 and 50%)	15
+N4-perth-on-ottawa-z16-projective-s0.5-r61	perth	osm-liberty	none	projective	0.5	61	correct_reject	not run	False	place_hint									place-hint: 1 of 3 names agree on one scale and rotation, 1 of them precise (need 5 and 50%)	16
+N4-perth-on-ottawa-z16-projective-s1.0-r61	perth	osm-liberty	none	projective	1	61	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-ottawa-on-edinburgh-z14-projective-s0.5-r61	ottawa	osm-liberty	none	projective	0.5	61	correct_reject	failed	False					0	0	feature-registration	True			14
+N4-ottawa-on-edinburgh-z14-projective-s1.0-r61	ottawa	osm-liberty	none	projective	1	61	correct_reject	not run	False	place_hint									place-hint: 3 of 6 names agree on one scale and rotation, 3 of them precise (need 4 and 50%)	14
+N4-ottawa-on-edinburgh-z15-projective-s0.5-r61	ottawa	osm-liberty	none	projective	0.5	61	correct_reject	failed	False					0	0	feature-registration	True			15
+N4-ottawa-on-edinburgh-z15-projective-s1.0-r61	ottawa	osm-liberty	none	projective	1	61	correct_reject	not run	False	place_hint									place-hint: support 2 names (need 3), weight 2.00 (need 1.5)	15
+N4-ottawa-on-edinburgh-z16-projective-s0.5-r61	ottawa	osm-liberty	none	projective	0.5	61	correct_reject	failed	False					0	0	feature-registration	True			16
+N4-ottawa-on-edinburgh-z16-projective-s1.0-r61	ottawa	osm-liberty	none	projective	1	61	correct_reject	failed	False					0	0	feature-registration	True			16

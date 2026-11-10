@@ -1,0 +1,55 @@
+id	place	style	photometric	kind	strength	seed	outcome	register	gates_passed	failed_gates	max_m	median_m	max_pct_radius	n_gcps	n_removed	registrar	asift	loo_max_px	error	zoom
+L3-chiba-railways-w4-similarity-s0.5-r52	chiba	railways-w4	none	similarity	0.5	52	refused	ok	False	edge_uncertainty	60	8.276	2.651	24	2	cross-style-registration		2.656		15
+L3-chiba-railways-w4-similarity-s0.5-r53	chiba	railways-w4	none	similarity	0.5	53	over_strict	ok	False	loo_residual,edge_uncertainty	12.78	3.359	0.5402	23	2	cross-style-registration		4.417		15
+L3-chiba-railways-w4-similarity-s1.0-r52	chiba	railways-w4	none	similarity	1	52	over_strict	ok	False	edge_uncertainty	5.063	1.6	0.2187	27	1	cross-style-registration		1.437		15
+L3-chiba-railways-w4-similarity-s1.0-r53	chiba	railways-w4	none	similarity	1	53	over_strict	ok	False	edge_uncertainty	12.83	2.17	0.5075	22	1	cross-style-registration		2.221		15
+L3-chiba-railways-w4-projective-s0.5-r52	chiba	railways-w4	none	projective	0.5	52	refused	ok	False	loo_residual,edge_uncertainty	158.3	21.86	7.068	29	3	cross-style-registration		4.48		15
+L3-chiba-railways-w4-projective-s0.5-r53	chiba	railways-w4	none	projective	0.5	53	refused	ok	False	loo_residual,edge_uncertainty	56.46	7.213	2.273	26	2	cross-style-registration		4.05		15
+L3-chiba-railways-w4-projective-s1.0-r52	chiba	railways-w4	none	projective	1	52	refused	failed	False					0	0	cross-style-registration				15
+L3-chiba-railways-w4-projective-s1.0-r53	chiba	railways-w4	none	projective	1	53	refused	failed	False					0	0	cross-style-registration				15
+L3-chiba-rivers-w4-similarity-s0.5-r52	chiba	rivers-w4	none	similarity	0.5	52	refused	ok	False	edge_uncertainty	45.55	7.723	2.012	26	1	cross-style-registration		2.155		15
+L3-chiba-rivers-w4-similarity-s0.5-r53	chiba	rivers-w4	none	similarity	0.5	53	over_strict	ok	False	edge_uncertainty	20.83	3.121	0.8802	21	1	cross-style-registration		1.517		15
+L3-chiba-rivers-w4-similarity-s1.0-r52	chiba	rivers-w4	none	similarity	1	52	over_strict	ok	False	edge_uncertainty	17.33	2.827	0.7485	25	0	cross-style-registration		2.984		15
+L3-chiba-rivers-w4-similarity-s1.0-r53	chiba	rivers-w4	none	similarity	1	53	refused	ok	False	edge_uncertainty	28.65	4.914	1.133	20	1	cross-style-registration		2.954		15
+L3-chiba-rivers-w4-projective-s0.5-r52	chiba	rivers-w4	none	projective	0.5	52	refused	failed	False					0	0	cross-style-registration				15
+L3-chiba-rivers-w4-projective-s0.5-r53	chiba	rivers-w4	none	projective	0.5	53	refused	failed	False					0	0	cross-style-registration				15
+L3-chiba-rivers-w4-projective-s1.0-r52	chiba	rivers-w4	none	projective	1	52	refused	failed	False					0	0	cross-style-registration				15
+L3-chiba-rivers-w4-projective-s1.0-r53	chiba	rivers-w4	none	projective	1	53	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-railways-w4-similarity-s0.5-r52	himeji	railways-w4	none	similarity	0.5	52	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-railways-w4-similarity-s0.5-r53	himeji	railways-w4	none	similarity	0.5	53	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-railways-w4-similarity-s1.0-r52	himeji	railways-w4	none	similarity	1	52	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-railways-w4-similarity-s1.0-r53	himeji	railways-w4	none	similarity	1	53	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-railways-w4-projective-s0.5-r52	himeji	railways-w4	none	projective	0.5	52	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-railways-w4-projective-s0.5-r53	himeji	railways-w4	none	projective	0.5	53	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-railways-w4-projective-s1.0-r52	himeji	railways-w4	none	projective	1	52	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-railways-w4-projective-s1.0-r53	himeji	railways-w4	none	projective	1	53	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-rivers-w4-similarity-s0.5-r52	himeji	rivers-w4	none	similarity	0.5	52	ok	ok	True		5.146	1.704	0.2251	42	0	cross-style-registration		2.66		15
+L3-himeji-rivers-w4-similarity-s0.5-r53	himeji	rivers-w4	none	similarity	0.5	53	ok	ok	True		3.507	1.116	0.1468	41	0	cross-style-registration		1.814		15
+L3-himeji-rivers-w4-similarity-s1.0-r52	himeji	rivers-w4	none	similarity	1	52	ok	ok	True		5.421	2.273	0.2319	38	2	cross-style-registration		2.564		15
+L3-himeji-rivers-w4-similarity-s1.0-r53	himeji	rivers-w4	none	similarity	1	53	ok	ok	True		5.766	1.514	0.2259	37	3	cross-style-registration		2.374		15
+L3-himeji-rivers-w4-projective-s0.5-r52	himeji	rivers-w4	none	projective	0.5	52	refused	ok	False	loo_residual,edge_uncertainty	413.8	137.3	18.29	21	2	cross-style-registration		17.29		15
+L3-himeji-rivers-w4-projective-s0.5-r53	himeji	rivers-w4	none	projective	0.5	53	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-rivers-w4-projective-s1.0-r52	himeji	rivers-w4	none	projective	1	52	refused	failed	False					0	0	cross-style-registration				15
+L3-himeji-rivers-w4-projective-s1.0-r53	himeji	rivers-w4	none	projective	1	53	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-railways-w4-similarity-s0.5-r52	hakodate	railways-w4	none	similarity	0.5	52	over_strict	ok	False	spread,edge_uncertainty	16.67	4.109	0.8023	19	2	cross-style-registration		2.359		15
+L3-hakodate-railways-w4-similarity-s0.5-r53	hakodate	railways-w4	none	similarity	0.5	53	refused	ok	False	loo_residual,edge_uncertainty	33.97	4.33	1.564	18	1	cross-style-registration		5.563		15
+L3-hakodate-railways-w4-similarity-s1.0-r52	hakodate	railways-w4	none	similarity	1	52	refused	ok	False	loo_residual,edge_uncertainty	60.35	8.266	2.84	20	2	cross-style-registration		12.3		15
+L3-hakodate-railways-w4-similarity-s1.0-r53	hakodate	railways-w4	none	similarity	1	53	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-railways-w4-projective-s0.5-r52	hakodate	railways-w4	none	projective	0.5	52	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-railways-w4-projective-s0.5-r53	hakodate	railways-w4	none	projective	0.5	53	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-railways-w4-projective-s1.0-r52	hakodate	railways-w4	none	projective	1	52	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-railways-w4-projective-s1.0-r53	hakodate	railways-w4	none	projective	1	53	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-rivers-w4-similarity-s0.5-r52	hakodate	rivers-w4	none	similarity	0.5	52	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-rivers-w4-similarity-s0.5-r53	hakodate	rivers-w4	none	similarity	0.5	53	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-rivers-w4-similarity-s1.0-r52	hakodate	rivers-w4	none	similarity	1	52	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-rivers-w4-similarity-s1.0-r53	hakodate	rivers-w4	none	similarity	1	53	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-rivers-w4-projective-s0.5-r52	hakodate	rivers-w4	none	projective	0.5	52	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-rivers-w4-projective-s0.5-r53	hakodate	rivers-w4	none	projective	0.5	53	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-rivers-w4-projective-s1.0-r52	hakodate	rivers-w4	none	projective	1	52	refused	failed	False					0	0	cross-style-registration				15
+L3-hakodate-rivers-w4-projective-s1.0-r53	hakodate	rivers-w4	none	projective	1	53	refused	failed	False					0	0	cross-style-registration				15
+N3-chiba-on-himeji-projective-s0.5-r52	chiba	railways-w4	none	projective	0.5	52	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-chiba-on-himeji-projective-s0.5-r53	chiba	railways-w4	none	projective	0.5	53	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-himeji-on-hakodate-projective-s0.5-r52	himeji	railways-w4	none	projective	0.5	52	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-himeji-on-hakodate-projective-s0.5-r53	himeji	railways-w4	none	projective	0.5	53	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-hakodate-on-chiba-projective-s0.5-r52	hakodate	railways-w4	none	projective	0.5	52	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-hakodate-on-chiba-projective-s0.5-r53	hakodate	railways-w4	none	projective	0.5	53	correct_reject	failed	False					0	0	cross-style-registration				15

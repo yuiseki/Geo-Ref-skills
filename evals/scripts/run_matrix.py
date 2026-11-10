@@ -137,10 +137,15 @@ def classify(declared_failure, gates_passed, max_pct, accurate_pct):
     return "refused"
 
 
+GATES_ONLY = False  # --gates-only: check stored answers with the current gates; any other missing step is an error
+
+
 def step(cmd, out, log):
     """Run cmd unless out exists. Exit 1 is a legitimate 'no' from register and check_gcps."""
     if Path(out).exists():
         return 0
+    if GATES_ONLY:
+        raise RuntimeError(f"--gates-only, but {out} is missing: the matrix or a tool changed since it ran")
     r = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, env=ENV)
     Path(log).write_text(r.stdout + "\n--- stderr ---\n" + r.stderr, encoding="utf-8")
     if r.returncode not in (0, 1) or not Path(out).exists():
@@ -357,7 +362,11 @@ def main():
     ap.add_argument("--cache", default="tmp/tiles")
     ap.add_argument("--out", required=True)
     ap.add_argument("--accurate-pct", type=float, default=1.0)
+    ap.add_argument("--gates-only", action="store_true",
+                    help="only check the stored answers again with the current gates; fail a task that needs more")
     a = ap.parse_args()
+    global GATES_ONLY
+    GATES_ONLY = a.gates_only
     m = json.loads(Path(a.matrix).read_text(encoding="utf-8"))
     all_tasks = list(tasks(m)) + list(negatives(m))
     rows = []

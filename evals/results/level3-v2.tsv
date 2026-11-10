@@ -1,0 +1,55 @@
+id	place	style	photometric	kind	strength	seed	outcome	register	gates_passed	failed_gates	max_m	median_m	max_pct_radius	n_gcps	n_removed	registrar	asift	loo_max_px	error	zoom
+L3-osaka-railways-w4-similarity-s0.5-r6	osaka	railways-w4	none	similarity	0.5	6	over_strict	ok	False	loo_residual	8.926	2.689	0.418	57	6	cross-style-registration		4.901		15
+L3-osaka-railways-w4-similarity-s0.5-r7	osaka	railways-w4	none	similarity	0.5	7	over_strict	ok	False	loo_residual	3.488	1.112	0.1383	48	5	cross-style-registration		3.061		15
+L3-osaka-railways-w4-similarity-s1.0-r6	osaka	railways-w4	none	similarity	1	6	over_strict	ok	False	loo_residual	5.605	1.808	0.2751	56	6	cross-style-registration		6.889		15
+L3-osaka-railways-w4-similarity-s1.0-r7	osaka	railways-w4	none	similarity	1	7	ok	ok	True		3.686	0.8419	0.1297	54	1	cross-style-registration		2.217		15
+L3-osaka-railways-w4-projective-s0.5-r6	osaka	railways-w4	none	projective	0.5	6	ok	ok	True		10.05	2.171	0.4657	52	5	cross-style-registration		2.848		15
+L3-osaka-railways-w4-projective-s0.5-r7	osaka	railways-w4	none	projective	0.5	7	ok	ok	True		2.475	0.6345	0.09674	55	2	cross-style-registration		1.685		15
+L3-osaka-railways-w4-projective-s1.0-r6	osaka	railways-w4	none	projective	1	6	over_strict	ok	False	loo_residual	18.33	4.331	0.8748	53	5	cross-style-registration		4.171		15
+L3-osaka-railways-w4-projective-s1.0-r7	osaka	railways-w4	none	projective	1	7	refused	failed	False					0	0	cross-style-registration				15
+L3-osaka-rivers-w4-similarity-s0.5-r6	osaka	rivers-w4	none	similarity	0.5	6	over_strict	ok	False	loo_residual,edge_uncertainty	16.76	3.436	0.7847	18	2	cross-style-registration		4.09		15
+L3-osaka-rivers-w4-similarity-s0.5-r7	osaka	rivers-w4	none	similarity	0.5	7	over_strict	ok	False	edge_uncertainty	6.55	2.485	0.2597	25	1	cross-style-registration		2.711		15
+L3-osaka-rivers-w4-similarity-s1.0-r6	osaka	rivers-w4	none	similarity	1	6	over_strict	ok	False	loo_residual,edge_uncertainty	17.31	6.017	0.8496	26	2	cross-style-registration		6.079		15
+L3-osaka-rivers-w4-similarity-s1.0-r7	osaka	rivers-w4	none	similarity	1	7	over_strict	ok	False	loo_residual,edge_uncertainty	16.99	4.616	0.5976	17	1	cross-style-registration		4.695		15
+L3-osaka-rivers-w4-projective-s0.5-r6	osaka	rivers-w4	none	projective	0.5	6	refused	ok	False	loo_residual,edge_uncertainty	80.7	36.43	3.741	20	2	cross-style-registration		7.967		15
+L3-osaka-rivers-w4-projective-s0.5-r7	osaka	rivers-w4	none	projective	0.5	7	refused	failed	False					0	0	cross-style-registration				15
+L3-osaka-rivers-w4-projective-s1.0-r6	osaka	rivers-w4	none	projective	1	6	refused	failed	False					0	0	cross-style-registration				15
+L3-osaka-rivers-w4-projective-s1.0-r7	osaka	rivers-w4	none	projective	1	7	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-railways-w4-similarity-s0.5-r6	kanazawa	railways-w4	none	similarity	0.5	6	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-railways-w4-similarity-s0.5-r7	kanazawa	railways-w4	none	similarity	0.5	7	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-railways-w4-similarity-s1.0-r6	kanazawa	railways-w4	none	similarity	1	6	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-railways-w4-similarity-s1.0-r7	kanazawa	railways-w4	none	similarity	1	7	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-railways-w4-projective-s0.5-r6	kanazawa	railways-w4	none	projective	0.5	6	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-railways-w4-projective-s0.5-r7	kanazawa	railways-w4	none	projective	0.5	7	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-railways-w4-projective-s1.0-r6	kanazawa	railways-w4	none	projective	1	6	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-railways-w4-projective-s1.0-r7	kanazawa	railways-w4	none	projective	1	7	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-rivers-w4-similarity-s0.5-r6	kanazawa	rivers-w4	none	similarity	0.5	6	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-rivers-w4-similarity-s0.5-r7	kanazawa	rivers-w4	none	similarity	0.5	7	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-rivers-w4-similarity-s1.0-r6	kanazawa	rivers-w4	none	similarity	1	6	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-rivers-w4-similarity-s1.0-r7	kanazawa	rivers-w4	none	similarity	1	7	ok	ok	True		4.065	2.177	0.1464	17	1	cross-style-registration		1.487		15
+L3-kanazawa-rivers-w4-projective-s0.5-r6	kanazawa	rivers-w4	none	projective	0.5	6	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-rivers-w4-projective-s0.5-r7	kanazawa	rivers-w4	none	projective	0.5	7	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-rivers-w4-projective-s1.0-r6	kanazawa	rivers-w4	none	projective	1	6	refused	failed	False					0	0	cross-style-registration				15
+L3-kanazawa-rivers-w4-projective-s1.0-r7	kanazawa	rivers-w4	none	projective	1	7	refused	failed	False					0	0	cross-style-registration				15
+L3-sapporo-railways-w4-similarity-s0.5-r6	sapporo	railways-w4	none	similarity	0.5	6	over_strict	ok	False	loo_residual,edge_uncertainty	13.53	5.815	0.7124	27	3	cross-style-registration		3.812		15
+L3-sapporo-railways-w4-similarity-s0.5-r7	sapporo	railways-w4	none	similarity	0.5	7	over_strict	ok	False	loo_residual,edge_uncertainty	10.85	3.08	0.4839	22	2	cross-style-registration		5.189		15
+L3-sapporo-railways-w4-similarity-s1.0-r6	sapporo	railways-w4	none	similarity	1	6	refused	ok	False	loo_residual,edge_uncertainty	26.69	6.384	1.473	20	2	cross-style-registration		5.228		15
+L3-sapporo-railways-w4-similarity-s1.0-r7	sapporo	railways-w4	none	similarity	1	7	over_strict	ok	False	loo_residual	6.168	2.386	0.244	18	2	cross-style-registration		3.422		15
+L3-sapporo-railways-w4-projective-s0.5-r6	sapporo	railways-w4	none	projective	0.5	6	over_strict	ok	False	edge_uncertainty	8.924	2.429	0.4652	28	2	cross-style-registration		2.968		15
+L3-sapporo-railways-w4-projective-s0.5-r7	sapporo	railways-w4	none	projective	0.5	7	refused	ok	False	loo_residual,edge_uncertainty	106.9	13.86	4.697	17	1	cross-style-registration		9.261		15
+L3-sapporo-railways-w4-projective-s1.0-r6	sapporo	railways-w4	none	projective	1	6	refused	ok	False	loo_residual,edge_uncertainty	95.32	18.47	5.116	25	2	cross-style-registration		6.112		15
+L3-sapporo-railways-w4-projective-s1.0-r7	sapporo	railways-w4	none	projective	1	7	refused	failed	False					0	0	cross-style-registration				15
+L3-sapporo-rivers-w4-similarity-s0.5-r6	sapporo	rivers-w4	none	similarity	0.5	6	refused	failed	False					0	0	cross-style-registration				15
+L3-sapporo-rivers-w4-similarity-s0.5-r7	sapporo	rivers-w4	none	similarity	0.5	7	refused	failed	False					0	0	cross-style-registration				15
+L3-sapporo-rivers-w4-similarity-s1.0-r6	sapporo	rivers-w4	none	similarity	1	6	refused	failed	False					0	0	cross-style-registration				15
+L3-sapporo-rivers-w4-similarity-s1.0-r7	sapporo	rivers-w4	none	similarity	1	7	refused	failed	False					0	0	cross-style-registration				15
+L3-sapporo-rivers-w4-projective-s0.5-r6	sapporo	rivers-w4	none	projective	0.5	6	refused	failed	False					0	0	cross-style-registration				15
+L3-sapporo-rivers-w4-projective-s0.5-r7	sapporo	rivers-w4	none	projective	0.5	7	refused	failed	False					0	0	cross-style-registration				15
+L3-sapporo-rivers-w4-projective-s1.0-r6	sapporo	rivers-w4	none	projective	1	6	refused	failed	False					0	0	cross-style-registration				15
+L3-sapporo-rivers-w4-projective-s1.0-r7	sapporo	rivers-w4	none	projective	1	7	refused	failed	False					0	0	cross-style-registration				15
+N3-osaka-on-kanazawa-projective-s0.5-r6	osaka	railways-w4	none	projective	0.5	6	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-osaka-on-kanazawa-projective-s0.5-r7	osaka	railways-w4	none	projective	0.5	7	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-kanazawa-on-sapporo-projective-s0.5-r6	kanazawa	railways-w4	none	projective	0.5	6	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-kanazawa-on-sapporo-projective-s0.5-r7	kanazawa	railways-w4	none	projective	0.5	7	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-sapporo-on-osaka-projective-s0.5-r6	sapporo	railways-w4	none	projective	0.5	6	correct_reject	failed	False					0	0	cross-style-registration				15
+N3-sapporo-on-osaka-projective-s0.5-r7	sapporo	railways-w4	none	projective	0.5	7	correct_reject	failed	False					0	0	cross-style-registration				15
