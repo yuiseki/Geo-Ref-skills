@@ -315,3 +315,34 @@ def test_one_label_read_several_ways_is_one_name():
                "Soho": {"lon": 2, "lat": 2}}
     names = [p["name"] for p in place_hint.located_points(words, matches)]
     assert sorted(names) == ["COVENT GARDEN", "Horse Guards Parade", "Soho"]
+
+
+def hit(name, lon, lat, addresstype="city", importance=0.6, rank=14):
+    return {"name": name, "lon": str(lon), "lat": str(lat), "addresstype": addresstype, "importance": importance,
+            "place_rank": rank, "display_name": name}
+
+
+def test_anchors_are_settlements_printed_on_the_map_with_a_box_per_zoom():
+    words = [{"text": "Kanazawa", "conf": 82, "col": 450.0, "row": 320.0},
+             {"text": "Kanazawa", "conf": 60, "col": 10.0, "row": 10.0}]
+    raw = {"Kanazawa": [hit("金沢市", 136.6569, 36.5616), hit("金沢区", 139.6247, 35.3375, "city_district", 0.4, 16),
+                        hit("金沢", 140.0, 38.0, "neighbourhood", 0.2, 22)]}
+    a = place_hint.anchors(words, raw, 900, 700, zooms=(14, 15))
+    assert [x["osm_name"] for x in a] == ["金沢市", "金沢区"]  # by importance; not the neighbourhood
+    k = a[0]
+    assert (k["col"], k["row"]) == (450.0, 320.0)  # the most confident reading
+    assert [h["zoom"] for h in k["hints"]] == [14, 15]
+    w14, s14, e14, n14 = k["hints"][0]["bbox"]
+    w15, s15, e15, n15 = k["hints"][1]["bbox"]
+    assert w14 < 136.6569 < e14 and s14 < 36.5616 < n14
+    # the box holds the whole map whichever way it turns, up to 1.6 x the zoom's scale: farthest corner 589 px (450, 380 away)
+    m_per_px = 2 * math.pi * 6378137.0 / (256 * 2 ** 14) * math.cos(math.radians(36.5616))
+    half_km = (e14 - w14) / 2 * 111.32 * math.cos(math.radians(36.5616))
+    assert half_km == pytest.approx(1.6 * 589.0 * m_per_px / 1000, rel=0.02)
+    assert (e15 - w15) == pytest.approx((e14 - w14) / 2, rel=1e-6)
+
+
+def test_no_settlement_gives_no_anchor():
+    words = [{"text": "Chuo", "conf": 80, "col": 100.0, "row": 100.0}]
+    assert place_hint.anchors(words, {"Chuo": [hit("中央", 139.0, 35.0, "neighbourhood", 0.3, 22)]}, 900, 700) == []
+    assert place_hint.anchors(words, {}, 900, 700) == []

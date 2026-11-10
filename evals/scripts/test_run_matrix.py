@@ -81,3 +81,13 @@ def test_a_reference_too_large_to_fetch_is_a_declared_failure_not_an_error():
     err = "fetch_reference.py exited 1: ValueError: 550 tiles needed, more than max_tiles=400"
     assert "550 tiles" in run_matrix.reference_refusal(err)
     assert run_matrix.reference_refusal("exited 1: TimeoutError: The read operation timed out") is None
+
+
+def test_anchor_boxes_become_hints_of_one_zoom_each_in_order():
+    ph = {"status": "failed", "anchors": [
+        {"name": "Kanazawa", "hints": [{"zoom": 14, "bbox": [1, 2, 3, 4]}, {"zoom": 15, "bbox": [1.5, 2.5, 2.5, 3.5]}]},
+        {"name": "Kanazawa", "hints": [{"zoom": 14, "bbox": [5, 6, 7, 8]}]}]}
+    hs = run_matrix.anchor_hints(ph)
+    assert [(h["zoom"], h["zooms"], h["bbox"][0]) for h in hs] == [(14, [14], 1), (15, [15], 1.5), (14, [14], 5)]
+    assert all(h["source"] == "place-hint-anchor" and h["anchor"] == "Kanazawa" for h in hs)
+    assert run_matrix.anchor_hints({"status": "failed"}) == []

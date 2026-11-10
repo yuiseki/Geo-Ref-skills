@@ -67,6 +67,13 @@ def country_for(m, place):
     return m.get("countrycodes_for", {}).get(place, m.get("countrycodes", "jp"))
 
 
+def anchor_hints(ph):
+    """The boxes place-hint lists around settlements printed on the map (--anchors), in order, as hints of one zoom
+    each. They are tried one by one; the first whose answer passes the gates is the answer."""
+    return [{"bbox": h["bbox"], "zoom": h["zoom"], "zooms": [h["zoom"]], "source": "place-hint-anchor",
+             "anchor": a["name"]} for a in ph.get("anchors", []) for h in a["hints"]]
+
+
 def hint_from_place_hint(ph):
     """Level 4 gives the solver no bbox and no zoom: both come from the place-hint skill (names read on the map,
     looked up, and fitted for scale). No agreeing names, or no scale, is a declared failure: None."""
@@ -160,14 +167,30 @@ def run_one(t, m, work, cache, accurate_pct):
         hint = hint_from_place_hint(ph)
         if hint is None:
             why = (ph.get("scale") or {}).get("reason") or ph.get("reason")
-            return {**t, "outcome": "refused", "register": "not run", "gates_passed": False,
-                    "failed_gates": "place_hint", "error": f"place-hint: {why}"}
+            tried = anchor_hints(ph)
+            for i, ah in enumerate(tried):
+                arun = run / f"anchor-{i}"
+                arun.mkdir(parents=True, exist_ok=True)
+                ahp = arun / "hint.json"
+                ahp.write_text(json.dumps(ah, indent=2, ensure_ascii=False), encoding="utf-8")
+                row = solve(t, m, d, arun, ah, ahp, cache, accurate_pct)
+                if row.get("gates_passed"):
+                    return {**row, "error": f"place-hint anchor {ah['anchor']} z{ah['zoom']} ({i + 1} of {len(tried)})"}
+            return {**t, "outcome": "refused", "register": "not run" if not tried else "anchors", "gates_passed": False,
+                    "failed_gates": "place_hint",
+                    "error": f"place-hint: {why}" + (f"; {len(tried)} anchor boxes, none passed the gates" if tried else "")}
         hint_path = run / "hint.json"
         hint_path.write_text(json.dumps(hint, indent=2), encoding="utf-8")
     if "wrong_center" in t:
         hint = {**hint, "bbox": shifted_bbox(hint["bbox"], t["wrong_center"])}
         hint_path = run / "wrong_hint.json"
         hint_path.write_text(json.dumps(hint, indent=2), encoding="utf-8")
+    return solve(t, m, d, run, hint, hint_path, cache, accurate_pct)
+
+
+def solve(t, m, d, run, hint, hint_path, cache, accurate_pct):
+    """Reference, registration attempts, refinement, gates and score for one hint; the row for the task."""
+    task, truth = d / "task", d / "truth"
     ref_style = m.get("ref_style_for", {}).get(t["style"], m["ref_style"])
 
     def fetch(style, out, zoom):

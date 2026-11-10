@@ -207,6 +207,50 @@ def located_points(words, matches, near_px=60):
     return [keep[k] for k in sorted(keep)]
 
 
+SETTLEMENTS = {"city", "town", "village", "municipality", "city_district", "borough"}
+
+
+def anchors(words, raw, width, height, zooms=(14, 15, 16, 13), max_anchors=3, grow=1.6):
+    """When the names do not give a place and a scale, a city or town printed on the map can still say where:
+    its label sits on its point. For each settlement hit of a name (Nominatim addresstype a city, town, village,
+    municipality, city district or borough), most important first, at most max_anchors places: where the name is
+    printed (its most confident reading) and, for each zoom to try, a box around the place that holds the whole map
+    whichever way it is turned and up to grow x larger than that zoom's scale. Whether the map is there, at that
+    zoom, is left to registration and the gates. At z14 a Japanese osm-liberty map often prints one Latin name, the
+    city's (Kanazawa, Sapporo, 2026-11-10), and no scale can be fitted from one name."""
+    best = {}
+    for w in sorted(words, key=lambda w: -w["conf"]):
+        n = clean_name(w["text"])
+        if n and n in raw and n not in best:
+            best[n] = w
+    places, seen = [], set()
+    for n, w in best.items():
+        for h in raw[n]:
+            if h.get("addresstype") not in SETTLEMENTS:
+                continue
+            lon, lat = float(h["lon"]), float(h["lat"])
+            key = (round(lon, 2), round(lat, 2))
+            if key in seen:
+                continue
+            seen.add(key)
+            places.append({"name": n, "osm_name": h.get("name"), "lon": lon, "lat": lat, "col": float(w["col"]),
+                           "row": float(w["row"]), "importance": float(h.get("importance") or 0),
+                           "addresstype": h.get("addresstype")})
+    places.sort(key=lambda p: -p["importance"])
+    out = []
+    for p in places[:max_anchors]:
+        far = max(math.hypot(p["col"] - x, p["row"] - y) for x in (0, width) for y in (0, height))
+        x, y = lonlat_to_mercator(p["lon"], p["lat"])
+        hints = []
+        for z in zooms:
+            r = grow * far * 2 * math.pi * 6378137.0 / (256 * 2 ** z)  # mercator metres
+            w_, s_ = mercator_to_lonlat(x - r, y - r)
+            e_, n_ = mercator_to_lonlat(x + r, y + r)
+            hints.append({"zoom": z, "bbox": [w_, s_, e_, n_]})
+        out.append({**p, "hints": hints})
+    return out
+
+
 def _plain(points):
     """Points without their shapes, for JSON; the shape's size is kept."""
     out = []
@@ -370,6 +414,8 @@ def main():
     ap.add_argument("--tiles", type=int, nargs=2, default=None, metavar=("W", "H"),
                     help="also read overlapping W x H tiles one by one (at --tile-scale), e.g. 300 200")
     ap.add_argument("--tile-scale", type=float, default=1.0)
+    ap.add_argument("--anchors", action="store_true",
+                    help="when no place or scale is found, list settlements printed on the map with boxes to try")
     ap.add_argument("--words", default=None, help="keep the OCR words in this JSON file and reuse them if present")
     a = ap.parse_args()
     if a.words and Path(a.words).exists():
@@ -387,9 +433,10 @@ def main():
             names.append(n)
     names = names[:a.max_names]
     client = nominatim.Client(a.cache)
-    cands = {}
+    cands, raw = {}, {}
     for n in names:
         hits = lookup(client, n, a.countrycodes)
+        raw[n] = hits
         if hits:
             cands[n] = merge_near([{"lon": float(h["lon"]), "lat": float(h["lat"]),
                                     "importance": float(h.get("importance") or 0), "osm_name": h.get("name"),
@@ -410,6 +457,10 @@ def main():
                     p["shape"] = geometry.Shapes.from_overpass(els, lonlat_to_mercator)
             hint["overpass"] = {"base": op.base, "requests": op.requests, "cached": op.cached}
         hint["scale"] = scale_from_names(pts, w, h)
+    if a.anchors and (hint["status"] != "ok" or hint["scale"]["status"] != "ok"):
+        import cv2
+        h, w = cv2.imread(a.image, cv2.IMREAD_GRAYSCALE).shape
+        hint["anchors"] = anchors(words, raw, w, h)
     hint["ocr_words"] = len(words)
     hint["names"] = names
     hint["nominatim"] = {"base": client.base, "requests": client.requests, "cached": client.cached}
