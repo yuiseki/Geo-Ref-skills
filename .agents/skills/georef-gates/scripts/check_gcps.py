@@ -32,7 +32,19 @@ DEFAULTS = {
     "max_anisotropy": 2.0,              # larger / smaller singular value of the local Jacobian
     "max_removed_fraction": 0.1,        # control points an earlier step removed / points it was given
     "max_edge_std_px": 3.0,             # 1-sigma uncertainty of where the image edge lands, in image pixels
+    "edge_sigmas": 3.0,                 # and this many sigmas must stay within accuracy_pct of the image radius
+    "accuracy_pct": 1.0,                # (0 sigmas: the fixed limit only); 1% is what the evaluation calls accurate
 }
+
+
+def edge_limit_px(W, H, o):
+    """The edge_uncertainty limit: max_edge_std_px, tightened on small images so that edge_sigmas sigmas stay
+    within accuracy_pct of the image radius (half the diagonal). A fixed 3 px let a 1-sigma of 2.06 px pass on a
+    900 x 700 image whose 1% is 5.7 px; its edge was 11.5 px off (Chiba rivers, level 3, 2026-11-10). Across 459
+    accurate answers the true largest error was a median 1.2 and at most 9.6 times the estimated sigma."""
+    if o["edge_sigmas"] <= 0:
+        return o["max_edge_std_px"]
+    return min(o["max_edge_std_px"], o["accuracy_pct"] / 100 * np.hypot(W, H) / 2 / o["edge_sigmas"])
 
 
 def hull_area(p):
@@ -174,8 +186,8 @@ def check(answer, hint=None, **opts):
                       median_px=float(np.median(loo_px)), limit_px=o["max_loo_px"], metres_per_px_mercator=gsd))
 
     std_px = edge_std(model, cr, dst, edge_points(W, H)) / gsd
-    gates.append(gate("edge_uncertainty", std_px <= o["max_edge_std_px"], std_px=std_px,
-                      limit_px=o["max_edge_std_px"]))
+    edge_limit = edge_limit_px(W, H, o)
+    gates.append(gate("edge_uncertainty", std_px <= edge_limit, std_px=std_px, limit_px=edge_limit))
 
     pred = model.predict(grid)
     pred_ok = bool(np.all(np.abs(pred) <= wm.ORIGIN))

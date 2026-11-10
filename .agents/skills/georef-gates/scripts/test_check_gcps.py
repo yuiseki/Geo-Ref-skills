@@ -182,3 +182,26 @@ def test_narrow_band_fails_edge_uncertainty_wide_spread_passes():
     assert "edge_uncertainty" in failed(r)
     r = check_gcps.check(answer(spread(60), noise_px=0.3))
     assert "edge_uncertainty" not in failed(r)
+
+
+def test_the_edge_limit_keeps_three_sigma_inside_one_percent_of_the_radius_on_small_images():
+    # Chiba rivers (2026-11-10): 1-sigma 2.06 px passed the 3 px limit, but the edge was 11.5 px off where 1% of
+    # the radius was 5.7 px. A 1-sigma that large cannot vouch for an answer the score calls accurate.
+    o = check_gcps.DEFAULTS
+    assert abs(check_gcps.edge_limit_px(900, 700, o) - np.hypot(900, 700) / 2 / 100 / 3) < 1e-9
+    assert check_gcps.edge_limit_px(6000, 4000, o) == o["max_edge_std_px"]  # large maps keep the fixed limit
+    r = check_gcps.check(answer(spread(60), noise_px=0.3))
+    g = next(g for g in r["gates"] if g["name"] == "edge_uncertainty")
+    assert abs(g["limit_px"] - check_gcps.edge_limit_px(W, H, o)) < 1e-9
+
+
+def test_an_edge_std_between_the_two_limits_fails_on_a_small_image():
+    band = np.column_stack([rng.uniform(250, 750, 30), rng.uniform(250, 550, 30)])
+    a = answer(band, noise_px=0.5)
+    loose = check_gcps.check(a, min_hull_fraction=0.0, min_quadrants=0, min_axis_ratio=0.0,
+                             edge_sigmas=0.0)
+    std = next(g for g in loose["gates"] if g["name"] == "edge_uncertainty")["std_px"]
+    assert check_gcps.edge_limit_px(W, H, check_gcps.DEFAULTS) < std <= 3.0, std
+    assert "edge_uncertainty" not in failed(loose)
+    strict = check_gcps.check(a, min_hull_fraction=0.0, min_quadrants=0, min_axis_ratio=0.0)
+    assert "edge_uncertainty" in failed(strict)
