@@ -155,3 +155,24 @@ def test_consistent_patches_tell_a_place_from_scatter():
     _, n_bad = rcs.consistent_patches(bad)
     assert not rcs.place_is_supported(n_bad, 40)
     assert not rcs.place_is_supported(13, 40)  # enough patches but under half of them
+
+
+def test_lines_mode_measures_by_distance_to_the_reference_lines():
+    ref = lines_scene(1)
+    task = warp(lines_scene(4, fg=(70, 130, 200)), D, 900, 700)
+    ans = rcs.register(task, ref, meta(), mask="lines")
+    assert ans["status"] == "ok", ans.get("reason")
+    assert ans["tool"]["measure"] == "chamfer"
+    d = np.hypot(*gcp_errors(ans, D).T)
+    assert len(d) >= 12 and d.max() < 2.0
+
+
+def test_a_single_straight_line_gives_no_chamfer_point():
+    # along one straight line the distance is the same at every shift along it: the position is not measured
+    ref = np.zeros((400, 400), np.uint8)
+    cv2.line(ref, (0, 200), (399, 200), 1, 5)
+    pts = rcs.chamfer_patches(ref.copy(), ref, np.eye(3), {**rcs.DEFAULTS, "grid": (3, 3), "half": 48}, search=10)
+    assert pts == []
+    cv2.line(ref, (200, 0), (200, 399), 1, 5)  # a crossing fixes both directions
+    pts = rcs.chamfer_patches(ref.copy(), ref, np.eye(3), {**rcs.DEFAULTS, "grid": (3, 3), "half": 48}, search=10)
+    assert any(np.hypot(*(t - r)) < 0.5 for t, r in pts)

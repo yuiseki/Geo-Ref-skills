@@ -44,6 +44,10 @@ DEFAULTS = {
     "min_valid": 0.6,          # share of a patch that must be inside the map (patches at a rotated map's edge)
     "min_peak_ratio": 1.2,     # best MI / best MI more than 8 px away
     "min_gcps": 12,
+    "measure": "auto",         # second pass: "mi", "chamfer", or "auto" (chamfer for lines, mi for water)
+    "chamfer_cap": 8.0,        # distances beyond this many pixels count as this (a far line is just "not here")
+    "chamfer_min_px": 30,      # line pixels a patch needs
+    "chamfer_clear": (3, 1.3, 0.2),  # a minimum is clear when every shift over 3 px away costs > 1.3 x best + 0.2
 }
 
 
@@ -232,6 +236,54 @@ def refine_patches(task, ref, A, o=DEFAULTS, search=None, la_task=None, lb=None)
     return pts, info, la_task, lb
 
 
+def chamfer_patches(task_mask, ref_mask, Hm, o=DEFAULTS, search=None):
+    """Control points (task corner, ref corner) for line masks: for patches on a grid, the shift that minimises the
+    mean distance from the task's line pixels (warped by Hm, task -> ref, corner coordinates) to the reference's
+    lines. The distance falls smoothly towards the right shift, where mutual information of two binary masks has
+    a narrow, noisy peak: on level 3 railway and river maps (2026-11-10) 10-30% of mutual-information points were
+    3-8 px off, and none of these. A patch whose minimum is not clear in both directions (one straight or gently
+    curving line, which can slide along itself) gives no point."""
+    half = o["half"]
+    R = o["search2"] if search is None else search
+    rad, ratio, add = o["chamfer_clear"]
+    H, W = task_mask.shape[:2]
+    rh, rw = ref_mask.shape[:2]
+    Mi = homography_to_index(Hm)
+    la = cv2.warpPerspective(task_mask.astype(np.uint8), Mi, (rw, rh), flags=cv2.INTER_NEAREST)
+    valid = cv2.warpPerspective(np.full((H, W), 255, np.uint8), Mi, (rw, rh), flags=cv2.INTER_NEAREST) > 0
+    dt = cv2.distanceTransform((ref_mask == 0).astype(np.uint8), cv2.DIST_L2, 5)
+    dt = np.minimum(dt, o["chamfer_cap"])
+    Hinv = np.linalg.inv(Hm)
+    pts = []
+    for gx in np.linspace(0.08, 0.92, o["grid"][0]):
+        for gy in np.linspace(0.08, 0.92, o["grid"][1]):
+            q = apply_h(Hm, (gx * W, gy * H))
+            x0, y0 = int(round(q[0])), int(round(q[1]))
+            if x0 - half - R < 0 or y0 - half - R < 0 or x0 + half + R > rw or y0 + half + R > rh:
+                continue
+            pv = valid[y0 - half:y0 + half, x0 - half:x0 + half]
+            if pv.mean() < o["min_valid"]:
+                continue
+            ys, xs = np.nonzero((la[y0 - half:y0 + half, x0 - half:x0 + half] > 0) & pv)
+            if len(xs) < o["chamfer_min_px"]:
+                continue
+            S = np.empty((2 * R + 1, 2 * R + 1))
+            for dy in range(-R, R + 1):
+                for dx in range(-R, R + 1):
+                    S[dy + R, dx + R] = dt[y0 - half + dy + ys, x0 - half + dx + xs].mean()
+            iy, ix = np.unravel_index(np.argmin(S), S.shape)
+            if not (0 < iy < 2 * R and 0 < ix < 2 * R):
+                continue  # at the edge of the search: not a minimum
+            far = S.copy()
+            far[max(0, iy - rad):iy + rad + 1, max(0, ix - rad):ix + rad + 1] = np.inf
+            if far.min() < S[iy, ix] * ratio + add:
+                continue
+            sx = _peak_offset(-S[iy, ix - 1], -S[iy, ix], -S[iy, ix + 1])
+            sy = _peak_offset(-S[iy - 1, ix], -S[iy, ix], -S[iy + 1, ix])
+            pts.append((apply_h(Hinv, (x0, y0)), np.array([x0 + ix - R + sx, y0 + iy - R + sy])))
+    return pts
+
+
 def consistent_patches(pts, tol=6.0):
     """(homography, number of patches it explains) for patch matches [(task corner, ref corner), ...]."""
     if len(pts) < 4:
@@ -285,7 +337,13 @@ def register(image, ref_img, ref_meta, mask="water", **opts):
         return {**base, "status": "failed", "gcps": [],
                 "reason": f"{consistent} of {len(pts)} first-pass patches fit one homography "
                           f"(need {o['min_consistent']} and {o['min_consistent_share']:.0%})"}
-    pts, info, _, _ = refine_patches(image, ref_img, Hm, o, search=o["search2"], la_task=la_task, lb=lb)
+    measure = o["measure"] if o["measure"] != "auto" else ("chamfer" if mask == "lines" else "mi")
+    base["tool"]["measure"] = measure
+    if measure == "chamfer":
+        pts = chamfer_patches(wa, wb, Hm, o)
+        info = pts
+    else:
+        pts, info, _, _ = refine_patches(image, ref_img, Hm, o, search=o["search2"], la_task=la_task, lb=lb)
     stats["second_pass"] = True
     stats.update(patches=len(info), gcps=len(pts))
     if len(pts) < o["min_gcps"]:
@@ -314,12 +372,14 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--mask", default="water", choices=["water", "lines"],
                     help="water for full map styles, lines for maps of rivers, railways or roads only")
+    ap.add_argument("--measure", default="auto", choices=["auto", "mi", "chamfer"],
+                    help="second-pass measure: auto is chamfer for lines and mutual information for water")
     a = ap.parse_args()
     ref = Path(a.ref)
     meta = json.loads((ref / "reference.json").read_text(encoding="utf-8"))
     if meta.get("crs") != "EPSG:3857":
         raise ValueError(f"reference must be EPSG:3857, got {meta.get('crs')}")
-    ans = register(read_rgb(a.image), read_rgb(ref / "reference.png"), meta, mask=a.mask)
+    ans = register(read_rgb(a.image), read_rgb(ref / "reference.png"), meta, mask=a.mask, measure=a.measure)
     Path(a.out).write_text(json.dumps(ans, indent=2), encoding="utf-8")
     print(json.dumps({"status": ans["status"], "reason": ans.get("reason"), **ans["stats"]}))
     sys.exit(0 if ans["status"] == "ok" else 1)
