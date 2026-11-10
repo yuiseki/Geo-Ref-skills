@@ -1,5 +1,4 @@
 # uvx --with pytest --with numpy pytest scripts/test_town_check.py
-import math
 
 import pytest
 

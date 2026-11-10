@@ -24,7 +24,7 @@ GENERIC_EN = {"STREET", "ROAD", "LANE", "COURT", "SQUARE", "PLACE", "AVENUE", "G
               "PALACE", "LIBRARY", "ACADEMY", "ROYAL", "SAINT", "KING", "QUEEN", "HALL", "MARKET", "HOUSE", "CHURCH",
               "BUILDING", "CENTRE", "CENTER", "HOTEL", "MUSEUM", "THEATRE", "THEATER", "UNIVERSITY", "COLLEGE",
               "WALK", "ROW", "TERRACE", "DRIVE", "WAY", "CLOSE", "GROVE", "HILL", "BANK", "POINT", "PIER", "WHARF",
-              "STORES", "BOULEVARD", "PLAZA", "TOWER", "BUILDING", "STORE", "SHOP", "MALL", "THE", "AND", "NEW", "OLD"}
+              "STORES", "BOULEVARD", "PLAZA", "TOWER", "STORE", "SHOP", "MALL", "THE", "AND", "NEW", "OLD"}
 STOP = GENERIC_EN | {"CHOME", "HOME", "CHOM", "STATION", "BUS", "TERMINAL", "PARK", "EXIT", "NORTH", "SOUTH", "EAST", "WEST", "GATE", "CITY",
         "TOWN", "LINE", "ROUTE", "HOSPITAL", "SCHOOL", "BRIDGE", "RIVER"}
 LATIN = re.compile(r"^[A-Za-z][A-Za-z\-]+[A-Za-z]$")
@@ -148,7 +148,7 @@ def cluster(cands, radius_km=10.0, min_support=3, margin_km=4.0, min_weight=1.5)
     weight = {name: 1.0 / len(cs) for name, cs in cands.items() if cs}
     points = [(name, c) for name, cs in cands.items() for c in cs]
     best = None
-    for name, c in points:
+    for _name, c in points:
         near = {}
         for other, cs in cands.items():
             close = [d for d in cs if haversine_km(c["lon"], c["lat"], d["lon"], d["lat"]) <= radius_km]

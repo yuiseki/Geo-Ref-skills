@@ -2,7 +2,6 @@
 import numpy as np
 
 import road_render as rr
-import transforms as tf
 
 
 def test_the_map_is_warped_to_the_reference_through_the_inverse_of_the_answer():

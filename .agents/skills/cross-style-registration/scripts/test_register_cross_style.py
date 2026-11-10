@@ -1,7 +1,6 @@
 # uvx --with numpy --with opencv-python-headless --with scikit-image --with pytest pytest scripts/test_register_cross_style.py
 import cv2
 import numpy as np
-import pytest
 
 import register_cross_style as rcs
 import webmercator as wm

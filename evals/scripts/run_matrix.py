@@ -210,7 +210,7 @@ def reference_refusal(err):
 
 def run_one(t, m, work, cache, accurate_pct):
     d = Path(work) / t["id"]
-    task, truth, run = d / "task", d / "truth", d / "run"
+    task, run = d / "task", d / "run"
     run_one_make(t, m, d, cache)
     hint = json.loads((task / "hint.json").read_text(encoding="utf-8"))
     hint_path = task / "hint.json"

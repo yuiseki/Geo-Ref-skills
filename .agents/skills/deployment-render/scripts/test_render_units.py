@@ -36,13 +36,15 @@ def test_stacked_units_share_a_point():
 def test_render_draws_the_symbol_and_a_plain_frame_with_letters(tmp_path):
     (tmp_path / "infantry.svg").write_text(SVG)
     ref = np.full((300, 300, 3), 255, np.uint8)
-    gt = [0.0, 1000.0, 0, 0.0, 0, -1000.0]  # 1 px = 1000 m
-    x, y = 100, 150
+    x, y = 100, 150  # 1 px = 1000 m; the geotransform puts latitude 0 on row 150
     lon = 1000.0 * x / ru.ORIGIN * 180
     fs = [feat(lon, 0, "infantry", "company")]
-    out, used = ru.render(fs, ref, [-0.0, 1000.0, 0, 150 * 1000.0, 0, -1000.0], tmp_path, height=26)
+    out, used = ru.render(fs, ref, [-0.0, 1000.0, 0, y * 1000.0, 0, -1000.0], tmp_path, height=26)
     assert used == {"infantry"}
-    assert (out != ref).any()
+    rows, cols = np.nonzero((out != ref).any(axis=2))
+    # the symbol is drawn around its point, not merely somewhere on the image
+    assert rows.min() <= y <= rows.max() and cols.min() <= x <= cols.max()
+    assert rows.max() - rows.min() < 80 and cols.max() - cols.min() < 120
     out2, used2 = ru.render([feat(lon, 0, "military observers")], ref, [0.0, 1000.0, 0, 150000.0, 0, -1000.0], tmp_path)
     assert used2 == set() and (out2 != ref).any()
     # an arm whose symbol file is missing is a lettered frame and is not credited

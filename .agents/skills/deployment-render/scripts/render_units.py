@@ -12,7 +12,6 @@ place side by side from the point. The credits of the symbols and of the map are
 """
 
 import argparse
-import io
 import json
 import math
 from pathlib import Path
