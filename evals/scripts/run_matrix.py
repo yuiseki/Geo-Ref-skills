@@ -27,6 +27,8 @@ cannot, the task is refused at that step (failed_gates "place_hint") unless it l
 are tried in turn. place-hint's output is kept in tmp/cache/place-hint under a key of the image, the arguments, every
 script of the skill and the tesseract version, so a negative control or a rerun does not read the same map again.
 Every task gets exactly one row; a step that crashes is recorded as "error" with its stderr.
+A step is skipped when its output exists, except the gates: their output is named by the gate scripts' hash, so
+after a change to georef-gates, rerunning a matrix in the same work directory checks every stored answer again.
 """
 
 import argparse
@@ -195,6 +197,14 @@ def cached(out, key, cache_dir, produce):
     return False
 
 
+def gates_name(scripts_dir):
+    """The gates' output file, named by the gate scripts (tests aside). Every other step is skipped when its output
+    exists; a change to the gates gets a new name, so rerunning a matrix in the same work directory checks every
+    stored answer again with the gates as they are now, and nothing else runs again."""
+    tools = sorted(f for f in Path(scripts_dir).glob("*.py") if not f.name.startswith("test_"))
+    return f"gates.{content_key(tools, [], '')[:12]}.json"
+
+
 def tesseract_version():
     r = subprocess.run(["tesseract", "--version"], capture_output=True, text=True)
     return (r.stdout + r.stderr).strip()
@@ -304,7 +314,7 @@ def solve(t, m, d, run, hint, hint_path, cache, accurate_pct):
         (run / "answer.json").write_text(last.read_text(encoding="utf-8"), encoding="utf-8")
     step(UVX + [str(SKILLS / "gcp-refinement" / "scripts" / "refine_gcps.py"), str(run / "answer.json"),
                 "--out", str(run / "refined.json")], run / "refined.json", d / "refine.log")
-    gates_out = run / "gates.json"
+    gates_out = run / gates_name(SKILLS / "georef-gates" / "scripts")
     if not gates_out.exists():
         r = subprocess.run(UVX + [str(SKILLS / "georef-gates" / "scripts" / "check_gcps.py"), str(run / "refined.json"),
                                   "--hint", str(hint_path)], capture_output=True, text=True, cwd=ROOT, env=ENV)

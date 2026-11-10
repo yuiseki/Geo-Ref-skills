@@ -157,3 +157,16 @@ def test_a_step_that_writes_nothing_leaves_nothing_in_the_cache(tmp_path):
     except RuntimeError:
         pass
     assert not (tmp_path / "cache" / "k1.json").exists()
+
+
+def test_the_gates_output_is_named_by_the_gate_scripts_so_a_gate_change_is_checked_again(tmp_path):
+    d = tmp_path / "scripts"
+    d.mkdir()
+    (d / "check_gcps.py").write_text("v1")
+    (d / "test_check_gcps.py").write_text("tests do not count")
+    a = run_matrix.gates_name(d)
+    assert a.startswith("gates.") and a.endswith(".json") and a == run_matrix.gates_name(d)
+    (d / "test_check_gcps.py").write_text("changed")
+    assert run_matrix.gates_name(d) == a
+    (d / "check_gcps.py").write_text("v2")
+    assert run_matrix.gates_name(d) != a
