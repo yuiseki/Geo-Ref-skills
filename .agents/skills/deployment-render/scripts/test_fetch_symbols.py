@@ -1,4 +1,4 @@
-# python -m pytest scripts/test_fetch_symbols.py
+# uvx --with pytest pytest scripts/test_fetch_symbols.py
 import fetch_symbols as fs
 
 

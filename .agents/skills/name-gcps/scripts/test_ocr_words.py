@@ -141,3 +141,15 @@ def test_a_tesseract_failure_is_an_error(monkeypatch):
     monkeypatch.setattr(O.subprocess, "run", lambda cmd, **kw: subprocess.CompletedProcess(cmd, 1, b"", b"bad image"))
     with pytest.raises(RuntimeError, match="bad image"):
         O._tesseract(np.full((10, 10), 255, np.uint8), "eng", 11)
+
+
+@needs_tesseract
+def test_tiles_are_read_one_by_one_and_placed_in_the_whole_image(tmp_path):
+    img = np.full((700, 900, 3), 255, np.uint8)
+    cv2.putText(img, "KANAZAWA", (560, 520), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 2)
+    p = tmp_path / "a.png"
+    cv2.imwrite(str(p), img)
+    words = ocr_words.read_words(p, "eng", scale=1.0, modes=("grey",), tiles=(300, 200))
+    hit = [w for w in words if w["text"] == "KANAZAWA" and w.get("tile")]
+    assert hit, [w["text"] for w in words]
+    assert all(570 < w["col"] < 680 and 495 < w["row"] < 525 for w in hit)

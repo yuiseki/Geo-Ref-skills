@@ -1,4 +1,4 @@
-# uvx --with pypdfium2 --with numpy --with pytest pytest scripts/test_graticule_gcps.py
+# uvx --with pypdfium2 --with numpy --with pyproj --with pytest pytest scripts/test_graticule_gcps.py
 import math
 
 import graticule_gcps as G

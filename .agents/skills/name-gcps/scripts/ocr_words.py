@@ -153,17 +153,46 @@ def _tesseract(img, langs, psm):
     return r.stdout.decode("utf-8", errors="replace")
 
 
-def read_words(image_path, langs="jpn+eng", scale=2.0, psm=11, angles=(0.0,), modes=("grey", "colour")):
-    """Read the image in each mode (grey, colour) at each angle; all readings are returned, tagged "mode"."""
+def read_words(image_path, langs="jpn+eng", scale=2.0, psm=11, angles=(0.0,), modes=("grey", "colour"), tiles=None):
+    """Read the image in each mode (grey, colour) at each angle; all readings are returned, tagged "mode".
+    tiles=(w, h): read overlapping tiles of that size (in the image's pixels, half a tile apart) one by one instead
+    of the whole image at once. On a busy map tesseract's layout analysis misses labels it reads in a small crop:
+    a z14 Kanazawa map (2026-11-10) gave no "Kanazawa" read whole at scale 1, 2 or 3, and conf 82 in 300 x 200
+    tiles at scale 1. Words are tagged "tile": true."""
     words = []
     for mode in modes:
-        for x in _read_words(image_path, langs, scale, psm, angles, mode == "grey"):
+        for x in _read_words(image_path, langs, scale, psm, angles, mode == "grey", tiles):
             x["mode"] = mode
             words.append(x)
     return words
 
 
-def _read_words(image_path, langs, scale, psm, angles, grey):
+def _read_tiles(view, langs, psm, tw, th):
+    from concurrent.futures import ThreadPoolExecutor
+    h, w = view.shape[:2]
+    xs = list(range(0, max(1, w - tw) + 1, max(1, tw // 2)))
+    ys = list(range(0, max(1, h - th) + 1, max(1, th // 2)))
+    if xs[-1] + tw < w:
+        xs.append(w - tw)
+    if ys[-1] + th < h:
+        ys.append(h - th)
+    boxes = [(max(0, x), max(0, y)) for y in ys for x in xs]
+
+    def one(b):
+        x, y = b
+        found = parse_tsv(_tesseract(view[y:y + th, x:x + tw], langs, psm))
+        found += join_cjk(found) + join_chome(found) + join_phrases(found)
+        for f in found:
+            f["col"] += x
+            f["row"] += y
+            f["tile"] = True
+        return found
+
+    with ThreadPoolExecutor(4) as ex:
+        return [f for part in ex.map(one, boxes) for f in part]
+
+
+def _read_words(image_path, langs, scale, psm, angles, grey, tiles=None):
     if shutil.which("tesseract") is None:
         raise FileNotFoundError("tesseract is not installed")
     img = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE if grey else cv2.IMREAD_COLOR)
@@ -185,8 +214,11 @@ def _read_words(image_path, langs, scale, psm, angles, grey):
             Mi = cv2.invertAffineTransform(M)
         else:
             view, Mi = img, None
-        found = parse_tsv(_tesseract(view, langs, psm))
-        found += join_cjk(found) + join_chome(found) + join_phrases(found)
+        if tiles:
+            found = _read_tiles(view, langs, psm, int(round(tiles[0] * scale)), int(round(tiles[1] * scale)))
+        else:
+            found = parse_tsv(_tesseract(view, langs, psm))
+            found += join_cjk(found) + join_chome(found) + join_phrases(found)
         for x in found:
             if Mi is not None:
                 x["col"], x["row"] = (Mi @ np.array([x["col"], x["row"], 1.0])).tolist()

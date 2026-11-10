@@ -22,6 +22,12 @@ uvx --with numpy --with opencv-python-headless --with cairosvg \
   python scripts/render_units.py deployment.geojson --reference ref_dir --symbols symbols --out out.jpg
 ```
 
+cairosvg は、システムの cairo のライブラリを読む (Linux は libcairo2、macOS は Homebrew の cairo)。macOS では、uv が入れた Python が Homebrew の `/opt/homebrew/lib` を探さず、`DYLD_FALLBACK_LIBRARY_PATH` も SIP に消されて、`no library called "cairo" was found` で落ちる。Homebrew の Python を使わせれば通る (2026-11-10、別の macOS の環境で `test_render_units.py` の 7 件が通った)。
+
+```sh
+UV_PYTHON=/opt/homebrew/bin/python3.12 uvx --with numpy --with opencv-python-headless --with cairosvg --with pytest pytest scripts/test_render_units.py
+```
+
 ## 描き方
 
 - 兵科の記号は Commons の APP-6 の枠と絵 (歩兵、医療、工兵、通信、憲兵、砲兵、航空、司令部)。素材が無い兵科 (軍事監視員、FPU、IPO など) は、枠の中に略称を書く。国連の図でもそう書く。

@@ -1,4 +1,4 @@
-# uvx --with pypdfium2==5.14.0 --with pillow --with pytest pytest scripts/test_extract_images.py
+# uvx --with pypdfium2==5.14.0 --with pillow --with numpy --with pytest pytest scripts/test_extract_images.py
 import hashlib
 import json
 import zipfile
