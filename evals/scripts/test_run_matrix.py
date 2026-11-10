@@ -119,3 +119,41 @@ def test_negative_controls_take_the_zoom_axis_when_the_matrix_has_one():
     m1 = {**m, "level": 1, "zoom": 15}
     del m1["zooms"]
     assert [n["id"] for n in run_matrix.negatives(m1)] == ["N1-a-on-b-projective-s0.5-r1"]
+
+
+def test_the_place_hint_key_changes_with_the_image_the_arguments_and_the_tool(tmp_path):
+    img, tool = tmp_path / "image.png", tmp_path / "place_hint.py"
+    img.write_bytes(b"map")
+    tool.write_text("v1")
+    k = run_matrix.content_key([img, tool], ["--countrycodes", "jp"], "tesseract 5.3.4")
+    assert k == run_matrix.content_key([img, tool], ["--countrycodes", "jp"], "tesseract 5.3.4")
+    assert k != run_matrix.content_key([img, tool], ["--countrycodes", "gb"], "tesseract 5.3.4")
+    assert k != run_matrix.content_key([img, tool], ["--countrycodes", "jp"], "tesseract 5.5.0")
+    tool.write_text("v2")
+    assert k != run_matrix.content_key([img, tool], ["--countrycodes", "jp"], "tesseract 5.3.4")
+
+
+def test_a_cached_result_is_copied_and_the_step_is_not_run_again(tmp_path):
+    calls = []
+
+    def produce(out):
+        calls.append(out)
+        out.write_text('{"status": "ok"}')
+
+    a, b = tmp_path / "a" / "place_hint.json", tmp_path / "b" / "place_hint.json"
+    a.parent.mkdir()
+    b.parent.mkdir()
+    cache = tmp_path / "cache"
+    assert run_matrix.cached(a, "k1", cache, produce) is False
+    assert run_matrix.cached(b, "k1", cache, produce) is True
+    assert calls == [a] and b.read_text() == '{"status": "ok"}'
+    assert run_matrix.cached(b, "k1", cache, produce) is True and calls == [a]  # an existing output is kept
+
+
+def test_a_step_that_writes_nothing_leaves_nothing_in_the_cache(tmp_path):
+    out = tmp_path / "place_hint.json"
+    try:
+        run_matrix.cached(out, "k1", tmp_path / "cache", lambda o: (_ for _ in ()).throw(RuntimeError("boom")))
+    except RuntimeError:
+        pass
+    assert not (tmp_path / "cache" / "k1.json").exists()

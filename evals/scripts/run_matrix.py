@@ -23,7 +23,9 @@ are run with that wrong hint. The right outcome is a refusal:
     false_accept    every gate passed for a map of another place (a gate hole)
 Level 4 ("hint": "place-hint", optionally "zooms": [14, 15, 16], "countrycodes": "jp" and "place_hint_args") gives the solver no bbox
 and no zoom: the place-hint skill reads the names on the map and fits their positions for the bbox and zoom. When it
-cannot, the task is refused at that step (failed_gates "place_hint") and nothing else runs.
+cannot, the task is refused at that step (failed_gates "place_hint") unless it lists anchor boxes (--anchors), which
+are tried in turn. place-hint's output is kept in tmp/cache/place-hint under a key of the image, the arguments, every
+script of the skill and the tesseract version, so a negative control or a rerun does not read the same map again.
 Every task gets exactly one row; a step that crashes is recorded as "error" with its stderr.
 """
 
@@ -157,6 +159,47 @@ def run_one_make(t, m, d, cache):
          truth / "truth.json", d / "make.log")
 
 
+PLACE_HINT_CACHE = ROOT / "tmp" / "cache" / "place-hint"
+
+
+def content_key(files, args, version):
+    """A key for a step's output from what it is made of: the bytes of its input files and of its own scripts, its
+    arguments and the version of the outside program it runs. Changing any of them gives a new key, so a cached
+    output never outlives the tool that made it."""
+    import hashlib
+    h = hashlib.sha256()
+    for f in files:
+        h.update(hashlib.sha256(Path(f).read_bytes()).digest())
+    h.update(json.dumps([str(a) for a in args]).encode())
+    h.update(version.encode())
+    return h.hexdigest()
+
+
+def cached(out, key, cache_dir, produce):
+    """Make out with produce(out) unless it exists or the cache holds key. True when it came from the cache. The
+    same map is read many times (a negative control reads the image of its positive task, a rerun after a change
+    to a later step reads it again); place-hint's OCR is half of a level 4 task's time."""
+    import shutil
+    out, hit = Path(out), Path(cache_dir) / f"{key}.json"
+    if out.exists():
+        return True if hit.exists() and hit.read_bytes() == out.read_bytes() else False
+    if hit.exists():
+        shutil.copyfile(hit, out)
+        return True
+    produce(out)
+    if out.exists():
+        hit.parent.mkdir(parents=True, exist_ok=True)
+        tmp = hit.with_name(f"{hit.stem}.{os.getpid()}.part")
+        shutil.copyfile(out, tmp)
+        tmp.replace(hit)
+    return False
+
+
+def tesseract_version():
+    r = subprocess.run(["tesseract", "--version"], capture_output=True, text=True)
+    return (r.stdout + r.stderr).strip()
+
+
 def reference_refusal(err):
     """The reason when fetch_reference refused a reference too large to build (a wrong scale from the names asks
     for far more tiles than a map of this size can need): a declared failure, not an error. None otherwise."""
@@ -173,10 +216,14 @@ def run_one(t, m, work, cache, accurate_pct):
     hint_path = task / "hint.json"
     if m.get("hint") == "place-hint":
         ph_out = run / "place_hint.json"
-        step(UVX + [str(SKILLS / "place-hint" / "scripts" / "place_hint.py"), str(task / "image.png"), "--out",
-                    str(ph_out), "--countrycodes", country_for(m, t["place"]), "--cache", str(NOMINATIM_CACHE)]
-             + [str(a) for a in m.get("place_hint_args", [])],
-             ph_out, d / "place_hint.log")
+        ph_dir = SKILLS / "place-hint" / "scripts"
+        ph_args = ["--countrycodes", country_for(m, t["place"])] + [str(a) for a in m.get("place_hint_args", [])]
+        # every script of the skill, not only the ones imported today: a list kept by hand misses the next import
+        tools = sorted(f for f in ph_dir.glob("*.py") if not f.name.startswith("test_"))
+        key = content_key([task / "image.png"] + tools, ph_args, tesseract_version())
+        cached(ph_out, key, PLACE_HINT_CACHE,
+               lambda out: step(UVX + [str(ph_dir / "place_hint.py"), str(task / "image.png"), "--out", str(out),
+                                       "--cache", str(NOMINATIM_CACHE)] + ph_args, out, d / "place_hint.log"))
         ph = json.loads(ph_out.read_text(encoding="utf-8"))
         hint = hint_from_place_hint(ph)
         if hint is None:
