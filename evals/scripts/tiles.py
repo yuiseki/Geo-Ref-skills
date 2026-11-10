@@ -5,6 +5,8 @@ A missing tile, a non-PNG answer or a tile of the wrong size is an error, never 
 """
 
 import io
+import os
+import threading
 import math
 import time
 import urllib.request
@@ -61,7 +63,9 @@ def get_tile(style, z, x, y, cache, tile_size=256, base=DEFAULT_BASE, offline=Fa
     else:
         data = _download(tile_url(base, style, z, x, y, tile_size))
         p.parent.mkdir(parents=True, exist_ok=True)
-        tmp = p.with_suffix(".part")
+        # a name of this process's own: two runs side by side fetch the same tile, and with one shared ".part"
+        # the second rename found the file already moved (2026-11-10)
+        tmp = p.with_name(f"{p.stem}.{os.getpid()}.{threading.get_ident()}.part")
         tmp.write_bytes(data)
         tmp.replace(p)
         if stats is not None:

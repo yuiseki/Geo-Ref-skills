@@ -79,3 +79,19 @@ def test_fetch_real_tile(tmp_path):
     img = tiles.get_tile("osm-liberty", 14, 14552, 6451, tmp_path)
     assert img.shape == (256, 256, 3)
     assert Path(tiles.cache_path(tmp_path, "osm-liberty", 14, 14552, 6451, 256)).exists()
+
+
+def test_two_processes_writing_one_tile_do_not_collide(tmp_path, monkeypatch):
+    # two matrices run side by side fetch the same tile; one shared ".part" name made one rename fail
+    # (FileNotFoundError: 12911.part -> 12911.png, 2026-11-10)
+    import io
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (256, 256), (1, 2, 3)).save(buf, "PNG")
+    monkeypatch.setattr(tiles, "_download", lambda url: buf.getvalue())
+    p = tiles.cache_path(tmp_path, "s", 3, 1, 2, 256)
+    p.parent.mkdir(parents=True)
+    (p.parent / (p.stem + ".part")).write_bytes(b"another writer")  # someone else's half-written file
+    img = tiles.get_tile("s", 3, 1, 2, tmp_path)
+    assert img[0, 0].tolist() == [1, 2, 3] and p.exists()
+    assert (p.parent / (p.stem + ".part")).read_bytes() == b"another writer"
