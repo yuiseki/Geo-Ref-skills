@@ -155,6 +155,7 @@ def test_tiles_are_read_one_by_one_and_placed_in_the_whole_image(tmp_path):
     assert all(570 < w["col"] < 680 and 495 < w["row"] < 525 for w in hit)
 
 
+@needs_tesseract
 def test_a_tile_tesseract_crashes_on_is_skipped_and_the_others_are_still_read(tmp_path, monkeypatch, capsys):
     import threading
     img = np.full((700, 900, 3), 255, np.uint8)
@@ -178,6 +179,7 @@ def test_a_tile_tesseract_crashes_on_is_skipped_and_the_others_are_still_read(tm
     assert "1 of" in capsys.readouterr().err
 
 
+@needs_tesseract
 def test_every_tile_failing_is_still_an_error(tmp_path, monkeypatch):
     img = np.full((400, 600, 3), 255, np.uint8)
     p = tmp_path / "a.png"

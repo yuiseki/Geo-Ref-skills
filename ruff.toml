@@ -1,0 +1,10 @@
+# Checked in CI (.github/workflows/test.yml): mistakes, not style.
+line-length = 120
+
+[lint]
+select = ["F", "E9", "B"]
+ignore = [
+    "B905",  # zip() without strict=: the lists zipped here are built to the same length
+    "B007",  # an unused loop variable is kept where it names what the loop walks over
+    "B023",  # closures in loops here are called inside the same iteration (checked 2026-11-11)
+]

@@ -438,7 +438,7 @@ uvx --with numpy python .agents/skills/georef-gates/scripts/check_gcps.py tmp/t/
 uvx --with numpy --with pyproj python evals/scripts/score_task.py tmp/t/refined.json tmp/t/truth/truth.json
 ```
 
-全てのテストは `python3 run_tests.py` で流せます。この README の図は `docs/examples/make_example.py` で描いています。
+全てのテストは `python3 run_tests.py` で流せます。GitHub Actions でも、push ごとにテストと ruff の検査を流します (`.github/workflows/test.yml`)。tesseract の無い環境では、文字読みのテストは飛ばされます。この README の図は `docs/examples/make_example.py` で描いています。
 
 ## ドキュメント
 

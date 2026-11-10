@@ -105,7 +105,7 @@ def test_a_mission_with_a_utm_grid_passes_its_zone_to_the_graticule(tmp_path, mo
 
 def test_the_graticule_writes_its_own_answer_beside_the_names(tmp_path, monkeypatch):
     # a graticule's declared failure must not overwrite the names' answer whose gates are kept (MONUSCO 2025)
-    calls = fake_steps(monkeypatch, "ok", "failed", False)
+    fake_steps(monkeypatch, "ok", "failed", False)
     outs = []
     run0 = B.run
 
