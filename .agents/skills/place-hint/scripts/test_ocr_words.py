@@ -153,3 +153,40 @@ def test_tiles_are_read_one_by_one_and_placed_in_the_whole_image(tmp_path):
     hit = [w for w in words if w["text"] == "KANAZAWA" and w.get("tile")]
     assert hit, [w["text"] for w in words]
     assert all(570 < w["col"] < 680 and 495 < w["row"] < 525 for w in hit)
+
+
+def test_a_tile_tesseract_crashes_on_is_skipped_and_the_others_are_still_read(tmp_path, monkeypatch, capsys):
+    import threading
+    img = np.full((700, 900, 3), 255, np.uint8)
+    cv2.putText(img, "KANAZAWA", (560, 520), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 0), 2)
+    p = tmp_path / "a.png"
+    cv2.imwrite(str(p), img)
+    real, lock, crashed = ocr_words._tesseract, threading.Lock(), []
+
+    def flaky(crop, langs, psm):  # tesseract 5 asserts inside its layout code on some crops (pageres.cpp:1502)
+        with lock:
+            first_blank = crop.min() == 255 and not crashed
+            if first_blank:
+                crashed.append(1)
+        if first_blank:
+            raise RuntimeError("tesseract failed: Error:Assert failed:in file ../src/ccstruct/pageres.cpp")
+        return real(crop, langs, psm)
+
+    monkeypatch.setattr(ocr_words, "_tesseract", flaky)
+    words = ocr_words.read_words(p, "eng", scale=1.0, modes=("grey",), tiles=(300, 200))
+    assert crashed and any(w["text"] == "KANAZAWA" for w in words)
+    assert "1 of" in capsys.readouterr().err
+
+
+def test_every_tile_failing_is_still_an_error(tmp_path, monkeypatch):
+    img = np.full((400, 600, 3), 255, np.uint8)
+    p = tmp_path / "a.png"
+    cv2.imwrite(str(p), img)
+
+    def broken(crop, langs, psm):
+        raise RuntimeError("tesseract failed: no language data")
+
+    monkeypatch.setattr(ocr_words, "_tesseract", broken)
+    import pytest
+    with pytest.raises(RuntimeError):
+        ocr_words.read_words(p, "eng", scale=1.0, modes=("grey",), tiles=(300, 200))

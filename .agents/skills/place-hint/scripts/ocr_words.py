@@ -18,6 +18,7 @@ import io
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import cv2
@@ -180,7 +181,10 @@ def _read_tiles(view, langs, psm, tw, th):
 
     def one(b):
         x, y = b
-        found = parse_tsv(_tesseract(view[y:y + th, x:x + tw], langs, psm))
+        try:
+            found = parse_tsv(_tesseract(view[y:y + th, x:x + tw], langs, psm))
+        except RuntimeError as e:  # tesseract 5 asserts inside its layout code on some crops (pageres.cpp:1502)
+            return e
         found += join_cjk(found) + join_chome(found) + join_phrases(found)
         for f in found:
             f["col"] += x
@@ -189,7 +193,14 @@ def _read_tiles(view, langs, psm, tw, th):
         return found
 
     with ThreadPoolExecutor(4) as ex:
-        return [f for part in ex.map(one, boxes) for f in part]
+        parts = list(ex.map(one, boxes))
+    failed = [p for p in parts if isinstance(p, Exception)]
+    if len(failed) == len(parts):
+        raise failed[0]
+    if failed:  # the other tiles still read the map; said, not hidden
+        print(f"ocr_words: tesseract failed on {len(failed)} of {len(parts)} tiles, read without them: "
+              f"{str(failed[0])[-200:]}", file=sys.stderr)
+    return [f for part in parts if not isinstance(part, Exception) for f in part]
 
 
 def _read_words(image_path, langs, scale, psm, angles, grey, tiles=None):

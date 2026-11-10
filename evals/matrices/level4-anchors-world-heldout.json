@@ -1,0 +1,93 @@
+{
+ "level": 4,
+ "hint": "place-hint",
+ "zooms": [
+  14,
+  15,
+  16
+ ],
+ "size": [
+  900,
+  700
+ ],
+ "ref_style": "osm-liberty",
+ "places": {
+  "edinburgh": [
+   -3.1883,
+   55.9533
+  ],
+  "boston": [
+   -71.0589,
+   42.3601
+  ],
+  "perth": [
+   115.8605,
+   -31.9505
+  ],
+  "ottawa": [
+   -75.6972,
+   45.4215
+  ]
+ },
+ "styles": [
+  "osm-liberty"
+ ],
+ "kinds": [
+  "similarity",
+  "projective"
+ ],
+ "strengths": [
+  0.5,
+  1.0
+ ],
+ "seeds": [
+  61
+ ],
+ "attempts": [
+  {
+   "registrar": "feature-registration"
+  }
+ ],
+ "place_hint_args": [
+  "--tiles",
+  300,
+  200,
+  "--anchors"
+ ],
+ "negatives": {
+  "pairs": [
+   [
+    "edinburgh",
+    "boston"
+   ],
+   [
+    "boston",
+    "perth"
+   ],
+   [
+    "perth",
+    "ottawa"
+   ],
+   [
+    "ottawa",
+    "edinburgh"
+   ]
+  ],
+  "kinds": [
+   "projective"
+  ],
+  "strengths": [
+   0.5,
+   1.0
+  ],
+  "seeds": [
+   61
+  ]
+ },
+ "countrycodes_for": {
+  "edinburgh": "gb",
+  "boston": "us",
+  "perth": "au",
+  "ottawa": "ca"
+ }
+}

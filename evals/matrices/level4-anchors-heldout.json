@@ -1,0 +1,88 @@
+{
+ "level": 4,
+ "hint": "place-hint",
+ "countrycodes": "jp",
+ "zooms": [
+  14,
+  15,
+  16
+ ],
+ "size": [
+  900,
+  700
+ ],
+ "ref_style": "osm-liberty",
+ "places": {
+  "tottori": [
+   134.238,
+   35.5011
+  ],
+  "fukui": [
+   136.2196,
+   36.0652
+  ],
+  "mito": [
+   140.4468,
+   36.3709
+  ],
+  "kofu": [
+   138.5684,
+   35.6623
+  ]
+ },
+ "styles": [
+  "osm-liberty"
+ ],
+ "kinds": [
+  "similarity",
+  "projective"
+ ],
+ "strengths": [
+  0.5,
+  1.0
+ ],
+ "seeds": [
+  60
+ ],
+ "attempts": [
+  {
+   "registrar": "feature-registration"
+  }
+ ],
+ "place_hint_args": [
+  "--tiles",
+  300,
+  200,
+  "--anchors"
+ ],
+ "negatives": {
+  "pairs": [
+   [
+    "tottori",
+    "mito"
+   ],
+   [
+    "fukui",
+    "kofu"
+   ],
+   [
+    "mito",
+    "fukui"
+   ],
+   [
+    "kofu",
+    "tottori"
+   ]
+  ],
+  "kinds": [
+   "projective"
+  ],
+  "strengths": [
+   0.5,
+   1.0
+  ],
+  "seeds": [
+   60
+  ]
+ }
+}
