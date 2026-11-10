@@ -367,12 +367,17 @@ def main():
     ap.add_argument("--overpass-cache", default="tmp/overpass")
     ap.add_argument("--geometry-radius-m", type=float, default=3000)
     ap.add_argument("--no-geometry", action="store_true", help="measure names against gazetteer points only")
+    ap.add_argument("--tiles", type=int, nargs=2, default=None, metavar=("W", "H"),
+                    help="also read overlapping W x H tiles one by one (at --tile-scale), e.g. 300 200")
+    ap.add_argument("--tile-scale", type=float, default=1.0)
     ap.add_argument("--words", default=None, help="keep the OCR words in this JSON file and reuse them if present")
     a = ap.parse_args()
     if a.words and Path(a.words).exists():
         words = json.loads(Path(a.words).read_text(encoding="utf-8"))
     else:
         words = ocr_words.read_words(a.image, a.langs, a.scale, angles=a.angles)
+        if a.tiles:
+            words += ocr_words.read_words(a.image, a.langs, a.tile_scale, angles=a.angles, tiles=a.tiles)
         if a.words:
             Path(a.words).write_text(json.dumps(words, ensure_ascii=False), encoding="utf-8")
     names = []

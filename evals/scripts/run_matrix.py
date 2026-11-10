@@ -21,7 +21,7 @@ task at task_place but move the hint bbox, same size, to centre on ref_place; th
 are run with that wrong hint. The right outcome is a refusal:
     correct_reject  the tool declared failure or a gate failed
     false_accept    every gate passed for a map of another place (a gate hole)
-Level 4 ("hint": "place-hint", optionally "zooms": [14, 15, 16] and "countrycodes": "jp") gives the solver no bbox
+Level 4 ("hint": "place-hint", optionally "zooms": [14, 15, 16], "countrycodes": "jp" and "place_hint_args") gives the solver no bbox
 and no zoom: the place-hint skill reads the names on the map and fits their positions for the bbox and zoom. When it
 cannot, the task is refused at that step (failed_gates "place_hint") and nothing else runs.
 Every task gets exactly one row; a step that crashes is recorded as "error" with its stderr.
@@ -153,7 +153,8 @@ def run_one(t, m, work, cache, accurate_pct):
     if m.get("hint") == "place-hint":
         ph_out = run / "place_hint.json"
         step(UVX + [str(SKILLS / "place-hint" / "scripts" / "place_hint.py"), str(task / "image.png"), "--out",
-                    str(ph_out), "--countrycodes", country_for(m, t["place"]), "--cache", str(NOMINATIM_CACHE)],
+                    str(ph_out), "--countrycodes", country_for(m, t["place"]), "--cache", str(NOMINATIM_CACHE)]
+             + [str(a) for a in m.get("place_hint_args", [])],
              ph_out, d / "place_hint.log")
         ph = json.loads(ph_out.read_text(encoding="utf-8"))
         hint = hint_from_place_hint(ph)
