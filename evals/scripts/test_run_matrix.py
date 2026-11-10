@@ -91,3 +91,31 @@ def test_anchor_boxes_become_hints_of_one_zoom_each_in_order():
     assert [(h["zoom"], h["zooms"], h["bbox"][0]) for h in hs] == [(14, [14], 1), (15, [15], 1.5), (14, [14], 5)]
     assert all(h["source"] == "place-hint-anchor" and h["anchor"] == "Kanazawa" for h in hs)
     assert run_matrix.anchor_hints({"status": "failed"}) == []
+
+
+def test_a_negative_control_moves_every_anchor_box_to_the_wrong_place():
+    ph = {"status": "failed", "anchors": [
+        {"name": "Kanazawa", "hints": [{"zoom": 14, "bbox": [136.6, 36.5, 136.7, 36.6]}]}]}
+    hs = run_matrix.anchor_hints(ph, wrong_center=[141.35, 43.06])
+    w, s, e, n = hs[0]["bbox"]
+    assert abs((w + e) / 2 - 141.35) < 1e-9 and abs((s + n) / 2 - 43.06) < 1e-9
+    assert abs((e - w) - 0.1) < 1e-9 and abs((n - s) - 0.1) < 1e-9
+
+
+def test_no_anchor_passing_the_gates_is_a_correct_reject_for_a_negative_and_a_refusal_otherwise():
+    t = {"id": "x", "place": "kanazawa"}
+    assert run_matrix.anchors_failed(t, "no names", 3)["outcome"] == "refused"
+    neg = run_matrix.anchors_failed({**t, "wrong_center": [1, 2]}, "no names", 3)
+    assert neg["outcome"] == "correct_reject" and "wrong_center" not in neg
+    assert "3 anchor boxes, none passed the gates" in neg["error"]
+
+
+def test_negative_controls_take_the_zoom_axis_when_the_matrix_has_one():
+    m = {"level": 4, "places": {"a": [10.0, 20.0], "b": [30.0, 40.0]}, "styles": ["s"], "zooms": [14, 16],
+         "negatives": {"pairs": [["a", "b"]], "kinds": ["projective"], "strengths": [0.5], "seeds": [1]}}
+    ns = list(run_matrix.negatives(m))
+    assert [(n["id"], n["zoom"]) for n in ns] == [("N4-a-on-b-z14-projective-s0.5-r1", 14),
+                                                  ("N4-a-on-b-z16-projective-s0.5-r1", 16)]
+    m1 = {**m, "level": 1, "zoom": 15}
+    del m1["zooms"]
+    assert [n["id"] for n in run_matrix.negatives(m1)] == ["N1-a-on-b-projective-s0.5-r1"]

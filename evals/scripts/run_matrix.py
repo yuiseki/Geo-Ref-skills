@@ -67,11 +67,22 @@ def country_for(m, place):
     return m.get("countrycodes_for", {}).get(place, m.get("countrycodes", "jp"))
 
 
-def anchor_hints(ph):
+def anchor_hints(ph, wrong_center=None):
     """The boxes place-hint lists around settlements printed on the map (--anchors), in order, as hints of one zoom
-    each. They are tried one by one; the first whose answer passes the gates is the answer."""
-    return [{"bbox": h["bbox"], "zoom": h["zoom"], "zooms": [h["zoom"]], "source": "place-hint-anchor",
-             "anchor": a["name"]} for a in ph.get("anchors", []) for h in a["hints"]]
+    each. They are tried one by one; the first whose answer passes the gates is the answer. A negative control
+    moves every box, keeping its size, onto the wrong place: any of them passing the gates is a false accept."""
+    return [{"bbox": h["bbox"] if wrong_center is None else shifted_bbox(h["bbox"], wrong_center),
+             "zoom": h["zoom"], "zooms": [h["zoom"]], "source": "place-hint-anchor", "anchor": a["name"]}
+            for a in ph.get("anchors", []) for h in a["hints"]]
+
+
+def anchors_failed(t, why, n_tried):
+    """The row when place-hint gave no hint and no anchor box passed the gates: a refusal, or for a negative
+    control a correct reject."""
+    return {**{k: v for k, v in t.items() if k != "wrong_center"},
+            "outcome": "correct_reject" if "wrong_center" in t else "refused",
+            "register": "anchors" if n_tried else "not run", "gates_passed": False, "failed_gates": "place_hint",
+            "error": f"place-hint: {why}" + (f"; {n_tried} anchor boxes, none passed the gates" if n_tried else "")}
 
 
 def hint_from_place_hint(ph):
@@ -98,10 +109,13 @@ def negatives(m):
     n = m.get("negatives")
     if not n:
         return
-    for (tp, rp), kind, strength, seed in itertools.product(n["pairs"], n["kinds"], n["strengths"], n["seeds"]):
-        yield {"id": f"N{m['level']}-{tp}-on-{rp}-{kind}-s{strength}-r{seed}", "place": tp, "center": m["places"][tp],
-               "style": m["styles"][0], "photometric": "none", "kind": kind, "strength": strength, "seed": seed,
-               "wrong_center": m["places"][rp]}
+    zooms = m.get("zooms", [m.get("zoom")])
+    for (tp, rp), zoom, kind, strength, seed in itertools.product(n["pairs"], zooms, n["kinds"], n["strengths"],
+                                                                  n["seeds"]):
+        ztag = f"-z{zoom}" if "zooms" in m else ""
+        yield {"id": f"N{m['level']}-{tp}-on-{rp}{ztag}-{kind}-s{strength}-r{seed}", "place": tp,
+               "center": m["places"][tp], "style": m["styles"][0], "photometric": "none", "zoom": zoom, "kind": kind,
+               "strength": strength, "seed": seed, "wrong_center": m["places"][rp]}
 
 
 def shifted_bbox(bbox, center):
@@ -167,7 +181,7 @@ def run_one(t, m, work, cache, accurate_pct):
         hint = hint_from_place_hint(ph)
         if hint is None:
             why = (ph.get("scale") or {}).get("reason") or ph.get("reason")
-            tried = anchor_hints(ph)
+            tried = anchor_hints(ph, t.get("wrong_center"))
             for i, ah in enumerate(tried):
                 arun = run / f"anchor-{i}"
                 arun.mkdir(parents=True, exist_ok=True)
@@ -176,9 +190,7 @@ def run_one(t, m, work, cache, accurate_pct):
                 row = solve(t, m, d, arun, ah, ahp, cache, accurate_pct)
                 if row.get("gates_passed"):
                     return {**row, "error": f"place-hint anchor {ah['anchor']} z{ah['zoom']} ({i + 1} of {len(tried)})"}
-            return {**t, "outcome": "refused", "register": "not run" if not tried else "anchors", "gates_passed": False,
-                    "failed_gates": "place_hint",
-                    "error": f"place-hint: {why}" + (f"; {len(tried)} anchor boxes, none passed the gates" if tried else "")}
+            return anchors_failed(t, why, len(tried))
         hint_path = run / "hint.json"
         hint_path.write_text(json.dumps(hint, indent=2), encoding="utf-8")
     if "wrong_center" in t:
