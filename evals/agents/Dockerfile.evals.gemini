@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends libexpat1 ca-ce
 # build and the CLI self-updates, so the build fails when the installed version is not AGY_VERSION: bump it
 # on purpose and record it with the results. Installed as root in /usr/local/bin, so the unprivileged user
 # cannot self-update it. State and settings live in /home/geo/.gemini (mounted by run_gemini_docker.sh).
-ARG AGY_VERSION=1.5.3
+ARG AGY_VERSION=1.5.6
 # The installer is saved and then run, not piped: it starts `agy install`, which would read the rest of the pipe.
 RUN curl -fsSL -o /tmp/agy-install.sh https://antigravity.google/cli/install.sh \
  && bash /tmp/agy-install.sh --dir /usr/local/bin \
