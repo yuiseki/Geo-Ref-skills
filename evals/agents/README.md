@@ -8,7 +8,7 @@ Codex (gpt-6-luna) と Gemini (Antigravity CLI の `gemini-3.8-flash-low`) に�
 |---|---|---|---|
 | claude | Claude Code 2.1.321 | `claude-sonnet-5-5` | `~/.claude-evals/oauth_token` (`claude setup-token` で作る) |
 | codex | Codex CLI 0.162.1 | `gpt-6-luna` | `~/.codex-evals` (`run_codex_docker.sh --login`) |
-| gemini | Antigravity CLI 1.5.6 | `gemini-3.8-flash-low` | `~/.gemini-evals` (`run_gemini_docker.sh --login`、または API キー) |
+| gemini | Antigravity CLI 1.5.7 | `gemini-3.8-flash-low` | `~/.gemini-evals` (`run_gemini_docker.sh --login`、または API キー) |
 | opencode | OpenCode 1.19.3 | `opencode/deepseek-v4.1-flash-free` (`EVAL_MODEL` で変える) | 要らない (無料のモデル) |
 | qoder | Qoder CLI 1.1.86 | `Auto` | `~/.qoder-evals/pat` (個人のアクセストークン) |
 
@@ -20,7 +20,7 @@ Codex (gpt-6-luna) と Gemini (Antigravity CLI の `gemini-3.8-flash-low`) に�
 
 - イメージは `evals/Dockerfile.evals.<エージェント>` の 5 つ。違うのはエージェントの CLI とその設定だけで、OS、tesseract、ripgrep (`rg`。多くのエージェントのシステムプロンプトが検索に使えと言う)、Python のライブラリの行は同じ (`test_dockerfiles.py` が確かめる)。
 - 材料はどれも固定する。元のイメージ (python と uv) はダイジェストで、CLI は版で、Python のライブラリは `requirements-evals.lock` の版で。apt の Debian のパッケージだけは、作ったときのもの。lock は、`results.md` の Codex と Gemini の実行に使ったイメージ (2026-11-09 に作った) から取った版。
-- Gemini の CLI だけは、配布元が最新の版しか出さないので、版を固定できない。版が `AGY_VERSION` と違えば、作るのを止める。2026-11-12 に 1.5.6 へ上げた。`results.md` の Gemini の実行は 1.5.3 (2026-11-09 に作ったイメージ) で、この固定の前のもの。
+- Gemini の CLI は、配布元の入れる道具が最新の版しか入れない (2026-11-12 から 13 の 1 日で 1.5.6 が 1.5.7 になった)。そこで、版の一覧 (manifest) にある本体を、版とビルドの番号で直にダウンロードし、sha512 を確かめて入れる。上げ方は Dockerfile に書いた。今は 1.5.7。`results.md` の Gemini の実行は 1.5.3 (2026-11-09 に作ったイメージ) で、この固定の前のもの。
 - CLI は root の持ち物で、エージェントは自分で更新できない。自動更新も切ってある。
 - 普段の `~/.claude`、`~/.codex` などの設定、フック、MCP、記憶は入らない。runner は、評価用の場所が普段の場所と同じなら止まる。
 

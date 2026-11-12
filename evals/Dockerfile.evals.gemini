@@ -15,17 +15,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends libexpat1 ca-ce
     tesseract-ocr tesseract-ocr-eng tesseract-ocr-jpn libglib2.0-0 ripgrep \
  && rm -rf /var/lib/apt/lists/*
 
-# Antigravity CLI (`agy`), the runner behind the Gemini eval. The official installer always fetches the latest
-# build and the CLI self-updates, so the build fails when the installed version is not AGY_VERSION: bump it
-# on purpose and record it with the results. Installed as root in /usr/local/bin, so the unprivileged user
-# cannot self-update it. State and settings live in /home/geo/.gemini (mounted by run_gemini_docker.sh).
-ARG AGY_VERSION=1.5.6
-# The installer is saved and then run, not piped: it starts `agy install`, which would read the rest of the pipe.
-RUN curl -fsSL -o /tmp/agy-install.sh https://antigravity.google/cli/install.sh \
- && bash /tmp/agy-install.sh --dir /usr/local/bin \
- && rm /tmp/agy-install.sh \
+# Antigravity CLI (`agy`), the runner behind the Gemini eval. The official installer fetches only the latest build
+# (its manifest moved from 1.5.6 to 1.5.7 within a day, 2026-11-12/13), so the build named in the manifest is
+# downloaded directly and checked against the manifest's sha512, as the installer does. To bump it, read
+# https://antigravity-cli-auto-updater-974169037036.us-central1.run.app/manifests/linux_{amd64,arm64}.json, copy the
+# version, the build number in the url and the two sha512, and record the version with the results. Installed as
+# root in /usr/local/bin, so the unprivileged user cannot self-update it. State and settings live in /home/geo/.gemini
+# (mounted by run_gemini_docker.sh).
+ARG AGY_VERSION=1.5.7
+ARG AGY_BUILD=6190022064472064
+ARG AGY_SHA512_X64=60bca280414ed11723f58b3b671962ae394cc2d0c25e3f58e32e1c6847c978cbc77ec6f40e7f3992001c399d80aeb8b64c9ec892abddd591b12413c5ee6d9fce
+ARG AGY_SHA512_ARM64=bebd69ad1713414b82e370aec6be0e678a413332bf3c835d9ba22e4befff040b6c74e1bf974fd83ebc4c733ed6e37d2bdc1caae58027c2b326dd04d630bfebb1
+ARG TARGETARCH
+RUN case "${TARGETARCH:-$(dpkg --print-architecture)}" in \
+      amd64) path=linux-x64/cli_linux_x64.tar.gz; sum=${AGY_SHA512_X64} ;; \
+      arm64) path=linux-arm/cli_linux_arm64.tar.gz; sum=${AGY_SHA512_ARM64} ;; \
+      *) echo "unsupported arch" >&2; exit 1 ;; \
+    esac \
+ && curl -fsSL -o /tmp/agy.tar.gz \
+    "https://storage.googleapis.com/antigravity-public/antigravity-cli/${AGY_VERSION}-${AGY_BUILD}/${path}" \
+ && echo "${sum}  /tmp/agy.tar.gz" | sha512sum -c - \
+ && tar -xzf /tmp/agy.tar.gz -C /tmp antigravity \
+ && install -m 0755 /tmp/antigravity /usr/local/bin/agy \
+ && rm /tmp/agy.tar.gz /tmp/antigravity \
  && { test "$(/usr/local/bin/agy --version)" = "${AGY_VERSION}" \
-      || { echo "agy is $(/usr/local/bin/agy --version), not ${AGY_VERSION}; pass --build-arg AGY_VERSION=..." >&2; exit 1; }; }
+      || { echo "agy is $(/usr/local/bin/agy --version), not ${AGY_VERSION}" >&2; exit 1; }; }
 
 # The libraries the skills' scripts import (the first line of each test file lists them), at exact versions.
 COPY evals/agents/requirements-evals.lock /tmp/requirements-evals.lock

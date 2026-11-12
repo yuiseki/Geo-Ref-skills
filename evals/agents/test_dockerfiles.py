@@ -4,8 +4,8 @@
 Every image is built from pinned inputs (the base images by digest, the CLI by version, every Python package by exact
 version from requirements-evals.lock) and carries the same toolchain lines, ripgrep among them: most agents'
 system prompts tell them to search with rg. Only the Debian packages come from apt.
-The Gemini image is the exception for the CLI: the agy installer serves only the latest build, so its Dockerfile
-fails the build when the version is not AGY_VERSION instead of pinning the download."""
+The agy installer serves only the latest build, so the Gemini image downloads the build named in agy's manifest
+directly and checks its sha512 (the installer's manifest moved from 1.5.6 to 1.5.7 within a day, 2026-11-12/13)."""
 
 import re
 from pathlib import Path
@@ -64,3 +64,11 @@ def test_the_lock_names_exact_versions():
 def test_the_dockerfiles_are_in_evals_only():
     assert sorted(p.name for p in EVALS.glob("Dockerfile.evals.*")) == [f"Dockerfile.evals.{a}" for a in AGENTS]
     assert not list(HERE.glob("Dockerfile*")) and not list(EVALS.parent.glob("Dockerfile.evals.*"))
+
+
+def test_the_gemini_cli_is_downloaded_by_build_and_checked_not_installed_as_latest():
+    d = dockerfile("gemini")
+    assert "antigravity.google/cli/install.sh" not in d
+    assert re.search(r"ARG AGY_BUILD=\d+", d)
+    assert re.search(r"ARG AGY_SHA512_X64=[0-9a-f]{128}\n", d) and re.search(r"ARG AGY_SHA512_ARM64=[0-9a-f]{128}\n", d)
+    assert "sha512sum -c -" in d
