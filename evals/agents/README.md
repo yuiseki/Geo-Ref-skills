@@ -64,6 +64,15 @@ Codex (gpt-6-luna) と Gemini (Antigravity CLI の `gemini-3.8-flash-low`) に�
 
 `public_osm` の欄は、ログに公開の OSM サーバーの URL (https://.../) が出たかを示す。名前だけでは数えない。指示文 (Codex はログに写す) とスキルの文書が、呼ばないものとして名前を書いているため。出たら中身を読んで確かめる。
 
+## 結果を読むときの決まり
+
+ISUCON の本番 8 時間を Claude Code に無人で解かせた記録 ([準備編](https://zenn.dev/luvtechno/articles/isucon2026-preparation)、[当日編](https://zenn.dev/luvtechno/articles/isucon2026-competition-day)) から、この評価に当てはまるものを取り入れた。
+
+- 1 回の実行では、条件の差を言わない。その記録では、同じコミットでもスコアが最大で約 21% ばらつき、12 回の走行の幅が終盤の施策の差より大きかった。`summary` は、エージェント、条件、課題ごとに回数 (`n`) と良い結果 (accurate、correct_reject) の数を数え、1 回だけのものに `single` を付ける。`results.md` の表は、ことわりの無いかぎり 1 回ずつ。
+- 評価の場の不具合を、エージェントの失敗として数えない。その記録では、評価の環境の誤りがエージェントの判断を誤らせた。`run` は、指示文が名指すタイルと Nominatim が 200 を返すかを先に確かめ、返さなければ何も書かずに止まる。
+- 何で流したかを、名前でなく実体で残す。イメージは同じ名前で作り直される (CLI の版が動く) ので、`meta.json` に `image` と `image_id` を書く。
+- 個人の設定を混ぜない。混ぜると条件の比較にならない。ここではコンテナがそれを受け持つ (上の「評価の場」)。
+
 ## 流し方
 
 リポジトリの根から。スキルありの作業場所は、コミット済みの版 (`--rev`、既定 HEAD) から作る。
@@ -78,6 +87,7 @@ python3 evals/agents/bench.py make
 EVAL_CPUSET=0-7  python3 evals/agents/bench.py run --agent codex  --cond skills   --task L1-okayama
 EVAL_CPUSET=8-15 python3 evals/agents/bench.py run --agent gemini --cond baseline --task L1-okayama
 uv run --with numpy --with pyproj python evals/agents/bench.py score > results.tsv
+python3 evals/agents/bench.py summary results.tsv   # 回数と良い結果の数。single は 1 回だけ
 ```
 
 作業は `tmp/agent-bench/` に書く (`tasks/<課題>/{task,truth}`、`runs/<エージェント>/<条件>/<課題>-r<回>/` に作業場所、指示文、ログ、`meta.json`)。同じ回を流し直すことはできない (`--rep` を変える)。

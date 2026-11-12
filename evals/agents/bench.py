@@ -3,6 +3,7 @@
     python evals/agents/bench.py make                                   # tasks and their truths, from bench.json
     python evals/agents/bench.py run --agent codex --cond skills --task L1-okayama [--rep 1]
     python evals/agents/bench.py score > results.tsv
+    python evals/agents/bench.py summary results.tsv                    # reps counted per agent, cond and task
 
 Run from the repository root. Work goes to tmp/agent-bench/ (tasks/<id>/{task,truth}, runs/<agent>/<cond>/<id>-r<rep>/).
 The agent sees only its workdir (work/): the task image, a hint written for the agent (agent_hint), and, with the
@@ -33,6 +34,63 @@ MODELS = {"claude": ["--model", "claude-sonnet-5-5"], "codex": ["-m", "gpt-6-lun
           "qoder": ["--model", "Auto"]}
 RUNNER_DEFAULT_MODEL = {"gemini": "gemini-3.8-flash-low", "opencode": "opencode/deepseek-v4.1-flash-free"}
 RUNNERS = {a: HERE / f"run_{a}_docker.sh" for a in MODELS}
+# The services the prompts send the agent to. They are checked before a run: an outage would otherwise be graded as
+# the agent's failure (or, worse, teach the agent a wrong lesson about the task).
+SERVICES = {"tiles": "https://tile.yuiseki.net/styles/osm-liberty/0/0/0.png",
+            "geocoder": "https://nominatim.yuiseki.net/status"}
+GOOD = {"accurate", "correct_reject"}
+
+
+def http_status(url, timeout=20):
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(url, headers={"User-Agent": "geo-ref-skills-evals-preflight"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status
+    except urllib.error.HTTPError as e:
+        return e.code
+
+
+def preflight(services, fetch=http_status):
+    """The services that do not answer 200, as 'name (url): status'. Empty when all answer."""
+    bad = []
+    for name, url in services.items():
+        try:
+            st = fetch(url)
+        except Exception as e:  # any failure to reach it is a failure of the environment
+            st = repr(e)
+        if st != 200:
+            bad.append(f"{name} ({url}): {st}")
+    return bad
+
+
+def docker_image_id(image):
+    r = subprocess.run(["docker", "image", "inspect", "--format", "{{.Id}}", image], capture_output=True, text=True)
+    return r.stdout.strip() if r.returncode == 0 else None
+
+
+def image_record(agent, env, inspect=docker_image_id):
+    """The image a run used, by name and id: the name is rebuilt in place (the CLI versions move), the id is not."""
+    image = env.get("EVAL_IMAGE") or f"geo-ref-skills-evals-{agent}"
+    return {"image": image, "image_id": inspect(image)}
+
+
+def summarize(rows):
+    """One row per (agent, cond, task) over the reps: n graded runs, good ones (accurate or correct_reject), the
+    outcomes, and provider errors (not graded). single marks n == 1: one run does not tell two conditions apart."""
+    from collections import Counter, defaultdict
+    groups = defaultdict(list)
+    for r in rows:
+        groups[(r["agent"], r["cond"], r["task"])].append(r["outcome"])
+    out = []
+    for (agent, cond, task), outs in sorted(groups.items()):
+        graded = [o for o in outs if o != "provider_error"]
+        c = Counter(graded)
+        out.append({"agent": agent, "cond": cond, "task": task, "n": len(graded),
+                    "good": sum(c[o] for o in GOOD), "outcomes": ",".join(f"{k}:{v}" for k, v in sorted(c.items())),
+                    "provider_errors": len(outs) - len(graded), "single": len(graded) == 1})
+    return out
 
 
 def model_record(agent, env):
@@ -251,6 +309,9 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
     d = WORK / "runs" / agent / cond / f"{task_id}-r{rep}"
     if (d / "meta.json").exists():
         raise SystemExit(f"{d} has already run")
+    bad = preflight(SERVICES)
+    if bad:  # nothing is written: the run is not the agent's to fail
+        raise SystemExit("not started, a service the prompt names does not answer: " + "; ".join(bad))
     # the commit is fixed before the workdir is made from it: a commit made while the agent runs must not be recorded
     commit = subprocess.run(["git", "-C", str(ROOT), "rev-parse", rev], capture_output=True, text=True, check=True).stdout.strip()
     wd = prepare_workdir(ROOT, commit, d / "work", WORK / "tasks" / task_id, t, spec["ref_style"], cond == "skills")
@@ -259,11 +320,12 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
     (d / "prompt.md").write_text(prompt, encoding="utf-8")
     cmd = [str(RUNNERS[agent]), "--prompt", str(d / "prompt.md"), str(wd), *MODELS[agent]]
     env = {**__import__("os").environ, "EVAL_MINUTES": str(minutes)}
+    image = image_record(agent, env)
     t0 = time.time()
     with open(d / "log.jsonl", "w") as log, open(d / "stderr.log", "w") as err:
         r = subprocess.run(cmd, stdout=log, stderr=err, env=env)
     (d / "meta.json").write_text(json.dumps({"agent": agent, "cond": cond, "task": task_id, "rep": rep,
-                                             "model": model_record(agent, env), "exit": r.returncode,
+                                             "model": model_record(agent, env), **image, "exit": r.returncode,
                                              "seconds": round(time.time() - t0), "minutes": minutes, "rev": commit},
                                             indent=2), encoding="utf-8")
     print(d, r.returncode, round(time.time() - t0))
@@ -331,12 +393,22 @@ def main():
     r.add_argument("--rev", default="HEAD")
     s = sub.add_parser("score")
     s.add_argument("--accurate-pct", type=float, default=1.0)
+    sm = sub.add_parser("summary", help="read a score table (stdin) and count the reps of each agent, cond and task")
+    sm.add_argument("table", nargs="?", default="-")
     a = ap.parse_args()
     spec = load_spec()
     if a.cmd == "make":
         make(spec)
     elif a.cmd == "run":
         run(spec, a.agent, a.cond, a.task, a.rep, a.minutes, a.rev)
+    elif a.cmd == "summary":
+        import csv
+        f = sys.stdin if a.table == "-" else open(a.table, encoding="utf-8")
+        rows = summarize(csv.DictReader(f, delimiter="\t"))
+        cols = ["agent", "cond", "task", "n", "good", "outcomes", "provider_errors", "single"]
+        print("\t".join(cols))
+        for r in rows:
+            print("\t".join(str(r[c]) for c in cols))
     else:
         score_all(spec, a.accurate_pct)
 

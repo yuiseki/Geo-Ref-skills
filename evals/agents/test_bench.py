@@ -269,3 +269,50 @@ def test_every_agent_has_a_runner_and_a_recorded_model():
     assert bench.model_record("gemini", {}) == ["gemini-3.8-flash-low"]
     assert bench.model_record("opencode", {"EVAL_MODEL": "opencode/glm-5.3-flash-free"}) == ["opencode/glm-5.3-flash-free"]
     assert bench.model_record("claude", {"EVAL_MODEL": "x"}) == ["--model", "claude-sonnet-5-5"]
+
+
+def test_preflight_names_the_services_that_do_not_answer():
+    # a broken environment must not be graded as the agent's failure: the run is not started
+    ok = bench.preflight({"tiles": "https://t/0/0/0.png", "geocoder": "https://g/status"},
+                         fetch=lambda url: 200 if url.startswith("https://t/") else 503)
+    assert ok == ["geocoder (https://g/status): 503"]
+    assert bench.preflight({"tiles": "https://t/x"}, fetch=lambda url: 200) == []
+
+
+def test_preflight_counts_an_exception_as_a_failure():
+    def boom(url):
+        raise OSError("refused")
+    assert bench.preflight({"tiles": "https://t/x"}, fetch=boom) == ["tiles (https://t/x): OSError('refused')"]
+
+
+def test_every_prompt_names_the_services_the_preflight_checks():
+    for name in ("prompt.md", "prompt-doc.md", "prompt-pko.md"):
+        text = (Path(bench.HERE) / name).read_text()
+        assert "tile.yuiseki.net" in text and "nominatim.yuiseki.net" in text
+    assert all(u.startswith(("https://tile.yuiseki.net/", "https://nominatim.yuiseki.net/")) for u in bench.SERVICES.values())
+
+
+def test_the_image_of_a_run_is_recorded_by_id():
+    rec = bench.image_record("codex", {}, inspect=lambda image: "sha256:abc" if image == "geo-ref-skills-evals-codex" else None)
+    assert rec == {"image": "geo-ref-skills-evals-codex", "image_id": "sha256:abc"}
+    rec = bench.image_record("codex", {"EVAL_IMAGE": "x:pre"}, inspect=lambda image: None)
+    assert rec == {"image": "x:pre", "image_id": None}
+
+
+def _row(agent, cond, task, rep, outcome):
+    return {"agent": agent, "cond": cond, "task": task, "rep": str(rep), "outcome": outcome}
+
+
+def test_summary_counts_reps_and_leaves_provider_errors_out():
+    rows = [_row("codex", "skills", "L1", 1, "accurate"), _row("codex", "skills", "L1", 2, "inaccurate"),
+            _row("codex", "skills", "L1", 3, "provider_error"), _row("gemini", "skills", "L1", 1, "accurate")]
+    s = {(r["agent"], r["cond"], r["task"]): r for r in bench.summarize(rows)}
+    assert s[("codex", "skills", "L1")]["n"] == 2 and s[("codex", "skills", "L1")]["good"] == 1
+    assert s[("codex", "skills", "L1")]["outcomes"] == "accurate:1,inaccurate:1"
+    assert s[("codex", "skills", "L1")]["provider_errors"] == 1
+    assert s[("gemini", "skills", "L1")]["n"] == 1 and s[("gemini", "skills", "L1")]["single"]
+
+
+def test_summary_counts_a_correct_reject_as_good():
+    s = bench.summarize([_row("codex", "skills", "N", 1, "correct_reject"), _row("codex", "skills", "N", 2, "false_accept")])
+    assert s[0]["good"] == 1 and s[0]["n"] == 2 and not s[0]["single"]
