@@ -2,7 +2,8 @@
 """The eval images are the sandbox the agents are compared in, so they must differ only in the agent's CLI.
 
 Every image is built from pinned inputs (the base images by digest, the CLI by version, every Python package by exact
-version from requirements-evals.lock) and carries the same toolchain lines. Only the Debian packages come from apt.
+version from requirements-evals.lock) and carries the same toolchain lines, ripgrep among them: most agents'
+system prompts tell them to search with rg. Only the Debian packages come from apt.
 The Gemini image is the exception for the CLI: the agy installer serves only the latest build, so its Dockerfile
 fails the build when the version is not AGY_VERSION instead of pinning the download."""
 
@@ -12,22 +13,23 @@ from pathlib import Path
 import pytest
 
 HERE = Path(__file__).parent
+EVALS = HERE.parent  # the Dockerfiles live in evals/, the runners and the lock in evals/agents/
 AGENTS = ["claude", "codex", "gemini", "opencode", "qoder"]
 CLI = {"claude": "ARG CLAUDE_VERSION=", "codex": "ARG CODEX_VERSION=", "gemini": "ARG AGY_VERSION=",
        "opencode": "ARG OPENCODE_VERSION=", "qoder": "ARG QODER_VERSION="}
 SHARED = [
     "FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258",
     "COPY --from=ghcr.io/astral-sh/uv:0.8.24@sha256:1d31be550ff927957472b2a491dc3de1ea9b5c2d319a9cea5b6a48021e2990a6 /uv /uvx /usr/local/bin/",
-    "    tesseract-ocr tesseract-ocr-eng tesseract-ocr-jpn libglib2.0-0 \\",
+    "    tesseract-ocr tesseract-ocr-eng tesseract-ocr-jpn libglib2.0-0 ripgrep \\",
     "COPY evals/agents/requirements-evals.lock /tmp/requirements-evals.lock",
     "RUN uv venv /opt/venv && VIRTUAL_ENV=/opt/venv uv pip install --no-cache --no-deps -r /tmp/requirements-evals.lock \\",
     "RUN echo 'export PATH=/opt/venv/bin:$PATH' > /etc/profile.d/venv.sh",
-    "RUN python -c \"import cv2, skimage, pypdfium2, pyproj\" && tesseract --list-langs",
+    "RUN python -c \"import cv2, skimage, pypdfium2, pyproj\" && tesseract --list-langs && rg --version",
 ]
 
 
 def dockerfile(agent):
-    return (HERE / f"Dockerfile.evals.{agent}").read_text()
+    return (EVALS / f"Dockerfile.evals.{agent}").read_text()
 
 
 @pytest.mark.parametrize("agent", AGENTS)
@@ -45,7 +47,7 @@ def test_the_image_is_built_from_pinned_inputs_and_the_shared_toolchain(agent):
 @pytest.mark.parametrize("agent", AGENTS)
 def test_each_image_names_its_own_runner(agent):
     d = dockerfile(agent)
-    assert f"docker build -f evals/agents/Dockerfile.evals.{agent} -t geo-ref-skills-evals-{agent} ." in d
+    assert f"docker build -f evals/Dockerfile.evals.{agent} -t geo-ref-skills-evals-{agent} ." in d
     assert f"evals/agents/run_{agent}_docker.sh" in d
     assert (HERE / f"run_{agent}_docker.sh").exists()
 
@@ -57,3 +59,8 @@ def test_the_lock_names_exact_versions():
     assert {"numpy", "scipy", "opencv-python-headless", "scikit-image", "pyproj", "pypdfium2", "shapely", "cairosvg",
             "pillow", "requests", "pyyaml", "pytest"} <= names
     assert "pypdfium2==5.14.0" in lock
+
+
+def test_the_dockerfiles_are_in_evals_only():
+    assert sorted(p.name for p in EVALS.glob("Dockerfile.evals.*")) == [f"Dockerfile.evals.{a}" for a in AGENTS]
+    assert not list(HERE.glob("Dockerfile*")) and not list(EVALS.parent.glob("Dockerfile.evals.*"))

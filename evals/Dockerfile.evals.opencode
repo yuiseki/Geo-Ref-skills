@@ -1,8 +1,9 @@
-# OpenCode CLI, plus the toolchain of the skills (tesseract, OpenCV, pypdfium2, pyproj), for the agent benchmark in
+# OpenCode CLI, plus the toolchain of the skills (tesseract, OpenCV, pypdfium2, pyproj) and ripgrep
+# (most agents' system prompts tell them to search with rg), for the agent benchmark in
 # evals/agents/ under hard resource limits. The five images (claude, codex, gemini, opencode, qoder) differ only in
 # the agent's CLI and its settings, so the runs compare agents and models, not environments; keep the shared lines in
-# step (test_dockerfiles.py checks them). Adapted from GeoAI-master-skills.
-# Build (from the repository root):  docker build -f evals/agents/Dockerfile.evals.opencode -t geo-ref-skills-evals-opencode .
+# step (evals/agents/test_dockerfiles.py checks them). Adapted from GeoAI-master-skills.
+# Build (from the repository root):  docker build -f evals/Dockerfile.evals.opencode -t geo-ref-skills-evals-opencode .
 # Run:    evals/agents/run_opencode_docker.sh <workdir>     (the limits are set there, not here)
 # Pinned inputs, so a later rebuild gives the same toolchain: the base images by digest, the CLI by version, the
 # Python packages from evals/agents/requirements-evals.lock. Only the Debian packages come from apt at build time.
@@ -19,7 +20,7 @@ ARG TARGETARCH
 COPY --from=ghcr.io/astral-sh/uv:0.8.24@sha256:1d31be550ff927957472b2a491dc3de1ea9b5c2d319a9cea5b6a48021e2990a6 /uv /uvx /usr/local/bin/
 
 RUN apt-get update && apt-get install -y --no-install-recommends libexpat1 ca-certificates curl \
-    tesseract-ocr tesseract-ocr-eng tesseract-ocr-jpn libglib2.0-0 \
+    tesseract-ocr tesseract-ocr-eng tesseract-ocr-jpn libglib2.0-0 ripgrep \
  && rm -rf /var/lib/apt/lists/*
 
 # The glibc build (the base image is Debian), installed as root in /usr/local/bin so the unprivileged user
@@ -64,7 +65,7 @@ RUN echo 'export PATH=/opt/venv/bin:$PATH' > /etc/profile.d/venv.sh
 RUN useradd --uid 1000 --create-home --home-dir /home/geo geo \
  && mkdir -p /opt/uv-cache /work && chown -R geo /opt/uv-cache /work /home/geo
 USER geo
-RUN python -c "import cv2, skimage, pypdfium2, pyproj" && tesseract --list-langs
+RUN python -c "import cv2, skimage, pypdfium2, pyproj" && tesseract --list-langs && rg --version
 
 WORKDIR /work
 CMD ["bash"]

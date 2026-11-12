@@ -18,7 +18,7 @@ Codex (gpt-6-luna) と Gemini (Antigravity CLI の `gemini-3.8-flash-low`) に�
 
 スキルが効くかを、エージェントの手元の環境の違いでなく、スキルのあるなしだけで比べるための場。
 
-- イメージは `evals/agents/Dockerfile.evals.<エージェント>` の 5 つ。違うのはエージェントの CLI とその設定だけで、OS、tesseract、Python のライブラリの行は同じ (`test_dockerfiles.py` が確かめる)。
+- イメージは `evals/Dockerfile.evals.<エージェント>` の 5 つ。違うのはエージェントの CLI とその設定だけで、OS、tesseract、ripgrep (`rg`。多くのエージェントのシステムプロンプトが検索に使えと言う)、Python のライブラリの行は同じ (`test_dockerfiles.py` が確かめる)。
 - 材料はどれも固定する。元のイメージ (python と uv) はダイジェストで、CLI は版で、Python のライブラリは `requirements-evals.lock` の版で。apt の Debian のパッケージだけは、作ったときのもの。lock は、`results.md` の Codex と Gemini の実行に使ったイメージ (2026-11-09 に作った) から取った版。
 - Gemini の CLI だけは、配布元が最新の版しか出さないので、版を固定できない。版が `AGY_VERSION` と違えば、作るのを止める。2026-11-12 に 1.5.6 へ上げた。`results.md` の Gemini の実行は 1.5.3 (2026-11-09 に作ったイメージ) で、この固定の前のもの。
 - CLI は root の持ち物で、エージェントは自分で更新できない。自動更新も切ってある。
@@ -70,7 +70,7 @@ Codex (gpt-6-luna) と Gemini (Antigravity CLI の `gemini-3.8-flash-low`) に�
 
 ```sh
 for a in claude codex gemini opencode qoder; do
-  docker build -f evals/agents/Dockerfile.evals.$a -t geo-ref-skills-evals-$a .
+  docker build -f evals/Dockerfile.evals.$a -t geo-ref-skills-evals-$a .
 done
 # 認証の置き場は上の表 (GeoAI-master-skills の評価と共用)
 
