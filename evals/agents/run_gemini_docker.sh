@@ -7,8 +7,8 @@
 # and skills-enabled runs must use the same image, limits, model and effort. Only the workdir content differs.
 #
 # Usage:
-#   evals/run_gemini_docker.sh --login                       # sign in with a Google account (OAuth); the token stays in $EVAL_GEMINI_HOME
-#   evals/run_gemini_docker.sh [--auth oauth|api-key] [--prompt FILE] [--dry-run] WORKDIR [agy args...]
+#   evals/agents/run_gemini_docker.sh --login                       # sign in with a Google account (OAuth); the token stays in $EVAL_GEMINI_HOME
+#   evals/agents/run_gemini_docker.sh [--auth oauth|api-key] [--prompt FILE] [--dry-run] WORKDIR [agy args...]
 #
 # With --prompt, runs `agy --print` non-interactively, reading the prompt from FILE, and writes the structured
 # event log (stream-json) to stdout. Without it, starts the interactive agy in /work. Arguments after WORKDIR go to

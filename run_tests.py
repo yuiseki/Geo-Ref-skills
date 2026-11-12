@@ -18,7 +18,8 @@ ROOT = Path(__file__).resolve().parent
 
 def main():
     pat = sys.argv[1] if len(sys.argv) > 1 else ""
-    files = sorted(ROOT.glob(".agents/skills/*/scripts/test_*.py")) + sorted(ROOT.glob("evals/scripts/test_*.py"))
+    files = (sorted(ROOT.glob(".agents/skills/*/scripts/test_*.py")) + sorted(ROOT.glob("evals/scripts/test_*.py"))
+             + sorted(ROOT.glob("evals/agents/test_*.py")))
     failed = []
     env = {**os.environ, "OMP_NUM_THREADS": os.environ.get("OMP_NUM_THREADS", "2")}
     for f in files:

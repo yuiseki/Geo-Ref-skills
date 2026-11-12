@@ -1,11 +1,14 @@
-# Antigravity CLI (agy) for Gemini models, plus the toolchain of the skills (tesseract, OpenCV, pypdfium2, pyproj), for the agent benchmark in evals/agents/ under hard
-# resource limits. The toolchain lines mirror ./Dockerfile and Dockerfile.evals.codex (same library versions, so
-# the Codex and Gemini evals compare models, not environments); keep them in step.
-# Build:  docker build -f Dockerfile.evals.gemini -t geo-ref-skills-evals-gemini .
+# Antigravity CLI (agy) for Gemini models, plus the toolchain of the skills (tesseract, OpenCV, pypdfium2, pyproj), for the agent benchmark in
+# evals/agents/ under hard resource limits. The five images (claude, codex, gemini, opencode, qoder) differ only in
+# the agent's CLI and its settings, so the runs compare agents and models, not environments; keep the shared lines in
+# step (test_dockerfiles.py checks them). Adapted from GeoAI-master-skills.
+# Build (from the repository root):  docker build -f evals/agents/Dockerfile.evals.gemini -t geo-ref-skills-evals-gemini .
 # Run:    evals/agents/run_gemini_docker.sh <workdir>     (the limits are set there, not here)
-FROM python:3.12-slim-bookworm
+# Pinned inputs, so a later rebuild gives the same toolchain: the base images by digest, the CLI by version, the
+# Python packages from evals/agents/requirements-evals.lock. Only the Debian packages come from apt at build time.
+FROM python:3.12-slim-bookworm@sha256:34386ef0cb081344d7ec1c103ba398e6e9f64e9ab3a1509accc92a4e24a07258
 
-COPY --from=ghcr.io/astral-sh/uv:0.8 /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.8.24@sha256:1d31be550ff927957472b2a491dc3de1ea9b5c2d319a9cea5b6a48021e2990a6 /uv /uvx /usr/local/bin/
 
 RUN apt-get update && apt-get install -y --no-install-recommends libexpat1 ca-certificates curl \
     tesseract-ocr tesseract-ocr-eng tesseract-ocr-jpn libglib2.0-0 \
@@ -23,10 +26,10 @@ RUN curl -fsSL -o /tmp/agy-install.sh https://antigravity.google/cli/install.sh 
  && { test "$(/usr/local/bin/agy --version)" = "${AGY_VERSION}" \
       || { echo "agy is $(/usr/local/bin/agy --version), not ${AGY_VERSION}; pass --build-arg AGY_VERSION=..." >&2; exit 1; }; }
 
-# The libraries the skills' scripts import (the first line of each test file lists them).
-RUN uv venv /opt/venv && VIRTUAL_ENV=/opt/venv uv pip install --no-cache \
-    numpy scipy scikit-learn scikit-image opencv-python-headless pillow pyproj 'pypdfium2==5.14.0' \
-    shapely cairosvg requests pyyaml pytest
+# The libraries the skills' scripts import (the first line of each test file lists them), at exact versions.
+COPY evals/agents/requirements-evals.lock /tmp/requirements-evals.lock
+RUN uv venv /opt/venv && VIRTUAL_ENV=/opt/venv uv pip install --no-cache --no-deps -r /tmp/requirements-evals.lock \
+ && rm /tmp/requirements-evals.lock
 
 # The thread counts are cooperative; the hard limits come from docker run (see run_gemini_docker.sh).
 ENV PATH=/opt/venv/bin:$PATH \
@@ -37,7 +40,7 @@ ENV PATH=/opt/venv/bin:$PATH \
     MKL_NUM_THREADS=8 \
     NUMEXPR_NUM_THREADS=8
 
-# agy runs commands in a login shell, and Debian's /etc/profile resets PATH; put the venv back.
+# The agents run commands in a login shell, and Debian's /etc/profile resets PATH; put the venv back.
 RUN echo 'export PATH=/opt/venv/bin:$PATH' > /etc/profile.d/venv.sh
 
 RUN useradd --uid 1000 --create-home --home-dir /home/geo geo \

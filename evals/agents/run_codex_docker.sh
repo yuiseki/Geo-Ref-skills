@@ -6,8 +6,8 @@
 # Codex arguments. Only the workdir content differs.
 #
 # Usage:
-#   evals/run_codex_docker.sh --login                       # first time: sign in, state in $EVAL_CODEX_HOME
-#   evals/run_codex_docker.sh [--prompt FILE] [--dry-run] WORKDIR [codex args...]
+#   evals/agents/run_codex_docker.sh --login                       # first time: sign in, state in $EVAL_CODEX_HOME
+#   evals/agents/run_codex_docker.sh [--prompt FILE] [--dry-run] WORKDIR [codex args...]
 #
 # With --prompt, runs `codex exec` non-interactively with the file's content as the prompt.
 # Without it, starts the interactive Codex in /work. Arguments after WORKDIR go to Codex as they are,

@@ -1,4 +1,4 @@
-# uvx --with pytest --with numpy --with pyproj python -m pytest -q test_bench.py
+# uvx --with pytest --with numpy --with pyproj python -m pytest agents/test_bench.py
 import json
 import subprocess
 from pathlib import Path
@@ -222,3 +222,50 @@ def test_pko_tasks_name_no_source_file():
     for t in bench.load_spec()["tasks"]:
         if t.get("type") == "pko":
             assert "file" not in t, t["id"]
+
+
+@pytest.mark.parametrize("agent,secret,cli", [("claude", "oauth_token", "claude -p"), ("qoder", "pat", "qodercli -p"),
+                                              ("opencode", None, "opencode run")])
+def test_new_runners_dry_run_puts_the_time_limit_inside_the_container_and_keep_the_secret_out(tmp_path, agent, secret, cli):
+    w = tmp_path / "w"
+    w.mkdir()
+    p = tmp_path / "p.md"
+    p.write_text("x")
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "EVAL_MINUTES": "7"}
+    if secret:
+        home = tmp_path / agent
+        home.mkdir()
+        (home / secret).write_text("SECRET-VALUE\n")
+        env[f"EVAL_{agent.upper()}_HOME"] = str(home)
+    r = subprocess.run([str(ROOT / f"evals/agents/run_{agent}_docker.sh"), "--dry-run", "--prompt", str(p), str(w),
+                        *bench.MODELS[agent]], capture_output=True, text=True, env=env)
+    assert r.returncode == 0, r.stderr
+    out = r.stdout.replace("\\ ", " ")
+    assert f"timeout 7m {cli}" in out
+    assert "--memory=16g" in out and "--cpus=8" in out and "--cap-drop=ALL" in out
+    assert f"geo-ref-skills-evals-{agent}" in out
+    assert "SECRET-VALUE" not in out
+
+
+@pytest.mark.parametrize("agent", ["claude", "codex", "gemini", "opencode", "qoder"])
+def test_new_runners_refuse_a_workdir_with_evaluation_material(tmp_path, agent):
+    w = tmp_path / "w"
+    (w / "evals").mkdir(parents=True)
+    p = tmp_path / "p.md"
+    p.write_text("x")
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}
+    for name, f in [("CLAUDE", "oauth_token"), ("QODER", "pat"), ("CODEX", "auth.json")]:
+        (tmp_path / name).mkdir(exist_ok=True)
+        (tmp_path / name / f).write_text("t")
+        env[f"EVAL_{name}_HOME"] = str(tmp_path / name)
+    r = subprocess.run([str(ROOT / f"evals/agents/run_{agent}_docker.sh"), "--dry-run", "--prompt", str(p), str(w)],
+                       capture_output=True, text=True, env=env)
+    assert r.returncode == 2 and "contains evals/" in r.stderr
+
+
+def test_every_agent_has_a_runner_and_a_recorded_model():
+    assert set(bench.RUNNERS) == {"claude", "codex", "gemini", "opencode", "qoder"}
+    assert all(p.exists() for p in bench.RUNNERS.values())
+    assert bench.model_record("gemini", {}) == ["gemini-3.8-flash-low"]
+    assert bench.model_record("opencode", {"EVAL_MODEL": "opencode/glm-5.3-flash-free"}) == ["opencode/glm-5.3-flash-free"]
+    assert bench.model_record("claude", {"EVAL_MODEL": "x"}) == ["--model", "claude-sonnet-5-5"]

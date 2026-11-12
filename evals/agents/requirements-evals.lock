@@ -1,0 +1,39 @@
+# Exact versions of the skills' toolchain in the eval images, taken on 2026-11-12 from geo-ref-skills-evals-codex
+# (built 2026-11-09), the image the Codex and Gemini runs in evals/agents/results.md ran on (the Gemini image had the
+# same versions). Install with uv pip install --no-deps -r. Bump on purpose and record it with the results.
+cairocffi==1.7.1
+cairosvg==2.9.1
+certifi==2026.10.23
+cffi==2.1.1
+charset-normalizer==3.5.2
+cloudpickle==3.1.2
+cssselect2==0.10.1
+defusedxml==0.7.1
+idna==3.20
+imageio==2.38.1
+iniconfig==2.3.1
+joblib==1.6.0
+lazy-loader==0.6
+narwhals==2.28.0
+networkx==3.7
+numpy==2.5.4
+opencv-python-headless==5.0.0.93
+packaging==26.3
+pillow==13.0.0
+pluggy==1.7.0
+pycparser==3.12
+pygments==2.21.0
+pypdfium2==5.14.0
+pyproj==3.8.0
+pytest==9.2.0
+pyyaml==6.0.3
+requests==2.34.2
+scikit-image==0.26.0
+scikit-learn==1.9.1
+scipy==1.18.1
+shapely==2.2.0
+threadpoolctl==3.8.0
+tifffile==2026.11.8
+tinycss2==1.5.1
+urllib3==2.8.0
+webencodings==0.6.1

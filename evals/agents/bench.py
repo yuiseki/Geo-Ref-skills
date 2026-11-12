@@ -1,4 +1,4 @@
-"""Benchmark coding agents (Codex, Gemini) at georeferencing, with and without the skills of this repository.
+"""Benchmark coding agents (Claude Code, Codex, Gemini, OpenCode, Qoder) at georeferencing, with and without the skills of this repository.
 
     python evals/agents/bench.py make                                   # tasks and their truths, from bench.json
     python evals/agents/bench.py run --agent codex --cond skills --task L1-okayama [--rep 1]
@@ -28,8 +28,16 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 WORK = ROOT / "tmp" / "agent-bench"
-MODELS = {"codex": ["-m", "gpt-6-luna"], "gemini": []}  # gemini: the runner's default, gemini-3.8-flash-low
-RUNNERS = {"codex": HERE / "run_codex_docker.sh", "gemini": HERE / "run_gemini_docker.sh"}
+# The model arguments given to each runner. gemini and opencode take the runner's default (EVAL_MODEL), recorded below.
+MODELS = {"claude": ["--model", "claude-sonnet-5-5"], "codex": ["-m", "gpt-6-luna"], "gemini": [], "opencode": [],
+          "qoder": ["--model", "Auto"]}
+RUNNER_DEFAULT_MODEL = {"gemini": "gemini-3.8-flash-low", "opencode": "opencode/deepseek-v4.1-flash-free"}
+RUNNERS = {a: HERE / f"run_{a}_docker.sh" for a in MODELS}
+
+
+def model_record(agent, env):
+    """The model a run used, for meta.json: the arguments given, or the runner's default (EVAL_MODEL overrides it)."""
+    return MODELS[agent] or [env.get("EVAL_MODEL") or RUNNER_DEFAULT_MODEL[agent]]
 
 
 def agent_hint(task_hint, t, ref_style):
@@ -255,7 +263,7 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
     with open(d / "log.jsonl", "w") as log, open(d / "stderr.log", "w") as err:
         r = subprocess.run(cmd, stdout=log, stderr=err, env=env)
     (d / "meta.json").write_text(json.dumps({"agent": agent, "cond": cond, "task": task_id, "rep": rep,
-                                             "model": MODELS[agent] or ["gemini-3.8-flash-low"], "exit": r.returncode,
+                                             "model": model_record(agent, env), "exit": r.returncode,
                                              "seconds": round(time.time() - t0), "minutes": minutes, "rev": commit},
                                             indent=2), encoding="utf-8")
     print(d, r.returncode, round(time.time() - t0))
