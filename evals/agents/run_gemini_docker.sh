@@ -90,6 +90,8 @@ docker_args=(
   --memory="$MEMORY" --memory-swap="$MEMORY"
   --pids-limit="$PIDS"
   --cap-drop=ALL --security-opt=no-new-privileges
+  # the public OSM servers the prompt forbids are unreachable (blocked-hosts.txt)
+  $(grep -v '^#' "$(dirname "$0")/blocked-hosts.txt" | sed 's/.*/--add-host=&:0.0.0.0/')
   -v "$STATE_HOST":/home/geo/.gemini
 )
 [[ $auth == api-key ]] && docker_args+=(-e GEMINI_API_KEY)

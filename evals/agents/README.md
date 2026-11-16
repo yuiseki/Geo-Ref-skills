@@ -2,7 +2,7 @@
 
 Codex (gpt-6-luna) と Gemini (Antigravity CLI の `gemini-3.8-flash-low`) に、このリポジトリのスキルを渡したとき、渡さないときで、地図の画像を正しく地上の座標に結べるかを比べる。仕組みは GeoAI-skills の `evals/` (Docker の上限、作業場所の作り方、実行の道具) を写したもの。
 
-流せるエージェントは 5 つ。下の結果の表 (`results.md`) は、まだ Codex と Gemini だけ。
+流せるエージェントは 5 つ。結果の表 (`results.md`) は、Codex、Gemini、Qoder の 3 つ。
 
 | `--agent` | CLI と版 | 既定のモデル | 認証 (普段の設定とは別の場所) |
 |---|---|---|---|
@@ -46,7 +46,7 @@ Codex (gpt-6-luna) と Gemini (Antigravity CLI の `gemini-3.8-flash-low`) に�
 - どちらも、正解 (`truth.json`) と `evals/` は作業場所に入らない (`prepare_workdir` が確かめる)。
 - Docker の上限は、どのエージェントと条件でも同じ。CPU 8 (`EVAL_CPUSET` で、別の 8 論理 CPU に分けて並べて流せる)、メモリ 16GB、swap 無し、プロセス 512、非 root、`--cap-drop=ALL`。作業場所だけを `/work` に載せる。
 - 時間は 30 分 (`--minutes`)。コンテナの中の `timeout` で打ち切り、終了コード 124 になる。
-- ネットワークは開いている (タイル、自前の Nominatim、モデルの API)。
+- ネットワークは開いている (タイル、自前の Nominatim、モデルの API)。ただし、指示文が禁じる公開の OSM サーバーは、`blocked-hosts.txt` の名前を `--add-host=...:0.0.0.0` で塞いで、コンテナから届かない (Qoder のスキルなしの 1 回が公開の Overpass を呼んだため、2026-11-17 から)。
 
 ## 採点
 

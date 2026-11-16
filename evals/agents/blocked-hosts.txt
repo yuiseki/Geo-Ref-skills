@@ -1,0 +1,13 @@
+# Public OpenStreetMap servers. The prompts forbid them, and the runners make them unreachable from the container
+# (docker run --add-host=HOST:0.0.0.0) so that a run cannot call them anyway. One host per line.
+tile.openstreetmap.org
+a.tile.openstreetmap.org
+b.tile.openstreetmap.org
+c.tile.openstreetmap.org
+nominatim.openstreetmap.org
+api.openstreetmap.org
+overpass-api.de
+lz4.overpass-api.de
+z.overpass-api.de
+overpass.kumi.systems
+overpass.private.coffee

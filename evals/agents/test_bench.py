@@ -316,3 +316,42 @@ def test_summary_counts_reps_and_leaves_provider_errors_out():
 def test_summary_counts_a_correct_reject_as_good():
     s = bench.summarize([_row("codex", "skills", "N", 1, "correct_reject"), _row("codex", "skills", "N", 2, "false_accept")])
     assert s[0]["good"] == 1 and s[0]["n"] == 2 and not s[0]["single"]
+
+
+def _dry_run_env(tmp_path):
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}
+    for name, f in [("CLAUDE", "oauth_token"), ("QODER", "pat"), ("CODEX", "auth.json")]:
+        (tmp_path / name).mkdir(exist_ok=True)
+        (tmp_path / name / f).write_text("t")
+        env[f"EVAL_{name}_HOME"] = str(tmp_path / name)
+    (tmp_path / "GEMINI" / "antigravity-cli").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "GEMINI" / "antigravity-cli" / "antigravity-oauth-token").write_text("t")
+    env["EVAL_GEMINI_HOME"] = str(tmp_path / "GEMINI")
+    return env
+
+
+BLOCKED = (bench.HERE / "blocked-hosts.txt")
+
+
+def test_the_blocked_hosts_cover_the_public_osm_servers_the_score_looks_for():
+    hosts = [h for h in BLOCKED.read_text().split() if not h.startswith("#")]
+    for h in ["tile.openstreetmap.org", "a.tile.openstreetmap.org", "nominatim.openstreetmap.org", "overpass-api.de",
+              "overpass.kumi.systems", "api.openstreetmap.org"]:
+        assert h in hosts
+        assert bench.public_osm_hits(f"https://{h}/x") == [h]
+    assert not any("yuiseki" in h for h in hosts)
+
+
+@pytest.mark.parametrize("agent", ["claude", "codex", "gemini", "opencode", "qoder"])
+def test_every_runner_makes_the_public_osm_servers_unreachable(tmp_path, agent):
+    # the prompt forbids them, and a Qoder run called overpass-api.de anyway (2026-11-16): the sandbox enforces it
+    w = tmp_path / "w"
+    w.mkdir()
+    p = tmp_path / "p.md"
+    p.write_text("x")
+    r = subprocess.run([str(ROOT / f"evals/agents/run_{agent}_docker.sh"), "--dry-run", "--prompt", str(p), str(w)],
+                       capture_output=True, text=True, env=_dry_run_env(tmp_path))
+    assert r.returncode == 0, r.stderr
+    for h in ["overpass-api.de", "tile.openstreetmap.org", "nominatim.openstreetmap.org"]:
+        assert f"--add-host={h}:0.0.0.0" in r.stdout, (agent, h)
+    assert "yuiseki.net:0.0.0.0" not in r.stdout

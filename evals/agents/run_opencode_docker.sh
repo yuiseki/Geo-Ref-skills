@@ -63,6 +63,8 @@ docker_args=(
   --memory="$MEMORY" --memory-swap="$MEMORY"
   --pids-limit="$PIDS"
   --cap-drop=ALL --security-opt=no-new-privileges
+  # the public OSM servers the prompt forbids are unreachable (blocked-hosts.txt)
+  $(grep -v '^#' "$(dirname "$0")/blocked-hosts.txt" | sed 's/.*/--add-host=&:0.0.0.0/')
   -e OPENCODE_CONFIG_CONTENT="$CONFIG"
   -v "$workdir":/work -w /work
 )
