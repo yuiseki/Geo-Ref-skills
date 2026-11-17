@@ -93,6 +93,15 @@ def summarize(rows):
     return out
 
 
+def run_label(agent, env):
+    """Where a run is kept and how the score names it: the agent, with the model when EVAL_MODEL overrides the
+    runner's default (so that runs of one agent with two models are not mixed)."""
+    m = env.get("EVAL_MODEL")
+    if MODELS[agent] or not m or m == RUNNER_DEFAULT_MODEL[agent]:
+        return agent
+    return f"{agent}@{m.split('/')[-1]}"
+
+
 def model_record(agent, env):
     """The model a run used, for meta.json: the arguments given, or the runner's default (EVAL_MODEL overrides it)."""
     return MODELS[agent] or [env.get("EVAL_MODEL") or RUNNER_DEFAULT_MODEL[agent]]
@@ -306,7 +315,8 @@ def make(spec):
 
 def run(spec, agent, cond, task_id, rep, minutes, rev):
     t = next(x for x in spec["tasks"] if x["id"] == task_id)
-    d = WORK / "runs" / agent / cond / f"{task_id}-r{rep}"
+    env = {**__import__("os").environ, "EVAL_MINUTES": str(minutes)}
+    d = WORK / "runs" / run_label(agent, env) / cond / f"{task_id}-r{rep}"
     if (d / "meta.json").exists():
         raise SystemExit(f"{d} has already run")
     bad = preflight(SERVICES)
@@ -319,12 +329,11 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
     prompt = fill_prompt((HERE / template).read_text(encoding="utf-8"), "/work", cond == "skills", minutes, hint_text(t))
     (d / "prompt.md").write_text(prompt, encoding="utf-8")
     cmd = [str(RUNNERS[agent]), "--prompt", str(d / "prompt.md"), str(wd), *MODELS[agent]]
-    env = {**__import__("os").environ, "EVAL_MINUTES": str(minutes)}
     image = image_record(agent, env)
     t0 = time.time()
     with open(d / "log.jsonl", "w") as log, open(d / "stderr.log", "w") as err:
         r = subprocess.run(cmd, stdout=log, stderr=err, env=env)
-    (d / "meta.json").write_text(json.dumps({"agent": agent, "cond": cond, "task": task_id, "rep": rep,
+    (d / "meta.json").write_text(json.dumps({"agent": run_label(agent, env), "cli": agent, "cond": cond, "task": task_id, "rep": rep,
                                              "model": model_record(agent, env), **image, "exit": r.returncode,
                                              "seconds": round(time.time() - t0), "minutes": minutes, "rev": commit},
                                             indent=2), encoding="utf-8")

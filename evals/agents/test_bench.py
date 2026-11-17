@@ -355,3 +355,12 @@ def test_every_runner_makes_the_public_osm_servers_unreachable(tmp_path, agent):
     for h in ["overpass-api.de", "tile.openstreetmap.org", "nominatim.openstreetmap.org"]:
         assert f"--add-host={h}:0.0.0.0" in r.stdout, (agent, h)
     assert "yuiseki.net:0.0.0.0" not in r.stdout
+
+
+def test_a_run_with_another_model_is_kept_apart_from_the_default_model():
+    # opencode with hy4-flash-free and with the default deepseek must not share runs/<agent>/ (nor a row of the score)
+    assert bench.run_label("opencode", {}) == "opencode"
+    assert bench.run_label("opencode", {"EVAL_MODEL": "opencode/deepseek-v4.1-flash-free"}) == "opencode"
+    assert bench.run_label("opencode", {"EVAL_MODEL": "opencode/hy4-flash-free"}) == "opencode@hy4-flash-free"
+    assert bench.run_label("gemini", {"EVAL_MODEL": "gemini-3.8-flash-low"}) == "gemini"
+    assert bench.run_label("codex", {"EVAL_MODEL": "x"}) == "codex"  # codex takes its model as an argument
