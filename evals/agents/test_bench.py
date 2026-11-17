@@ -364,3 +364,36 @@ def test_a_run_with_another_model_is_kept_apart_from_the_default_model():
     assert bench.run_label("opencode", {"EVAL_MODEL": "opencode/hy4-flash-free"}) == "opencode@hy4-flash-free"
     assert bench.run_label("gemini", {"EVAL_MODEL": "gemini-3.8-flash-low"}) == "gemini"
     assert bench.run_label("codex", {"EVAL_MODEL": "x"}) == "codex"  # codex takes its model as an argument
+
+
+def test_opencode_runner_can_pin_the_model_catalogue(tmp_path):
+    # opencode looks a model up in its bundled catalogue before the fetched one arrives (seconds later), so a model
+    # newer than the release (hy4-flash-free, 2026-11-17) was "not found" in 3 of 4 fresh containers
+    w = tmp_path / "w"
+    w.mkdir()
+    p = tmp_path / "p.md"
+    p.write_text("x")
+    cat = tmp_path / "models.json"
+    cat.write_text("{}")
+    env = {**_dry_run_env(tmp_path), "EVAL_OPENCODE_MODELS": str(cat)}
+    r = subprocess.run([str(ROOT / "evals/agents/run_opencode_docker.sh"), "--dry-run", "--prompt", str(p), str(w)],
+                       capture_output=True, text=True, env=env)
+    assert r.returncode == 0, r.stderr
+    assert f"-v {cat}:/opt/opencode-models.json:ro" in r.stdout
+    assert "-e OPENCODE_MODELS_PATH=/opt/opencode-models.json" in r.stdout
+    assert "-e OPENCODE_DISABLE_MODELS_FETCH=1" in r.stdout
+    r = subprocess.run([str(ROOT / "evals/agents/run_opencode_docker.sh"), "--dry-run", "--prompt", str(p), str(w)],
+                       capture_output=True, text=True, env=_dry_run_env(tmp_path))
+    assert "OPENCODE_MODELS_PATH" not in r.stdout
+    env["EVAL_OPENCODE_MODELS"] = str(tmp_path / "missing.json")
+    r = subprocess.run([str(ROOT / "evals/agents/run_opencode_docker.sh"), "--dry-run", "--prompt", str(p), str(w)],
+                       capture_output=True, text=True, env=env)
+    assert r.returncode == 2
+
+
+def test_the_pinned_model_catalogue_is_recorded_by_hash(tmp_path):
+    c = tmp_path / "models.json"
+    c.write_text("{}")
+    assert bench.catalogue_record({}) == {}
+    rec = bench.catalogue_record({"EVAL_OPENCODE_MODELS": str(c)})
+    assert rec == {"model_catalogue_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}

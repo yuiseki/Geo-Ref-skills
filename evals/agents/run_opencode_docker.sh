@@ -15,7 +15,7 @@
 # to opencode as they are and come after the defaults (e.g. --variant high).
 #
 # Nothing of the everyday OpenCode is brought in: no config, auth or state from $HOME is mounted and no
-# OPENCODE_* variable is passed. The state lives in the container's home and goes with the container (--rm),
+# OPENCODE_* variable of the host is passed. The state lives in the container's home and goes with the container (--rm),
 # so runs cannot see each other's sessions. The models used here (opencode/*-free) need no sign-in. The config
 # is given inline: sharing off (a free-model session must not be published by accident), no update checks.
 #
@@ -23,6 +23,10 @@
 #   EVAL_IMAGE=geo-ref-skills-evals-opencode  EVAL_CPUSET=0-7  EVAL_CPUS=8  EVAL_MEMORY=16g  EVAL_PIDS=512
 #   EVAL_MINUTES=30   the run is cut off inside the container (timeout, exit code 124)
 #   EVAL_MODEL=opencode/deepseek-v4.1-flash-free   (also e.g. opencode/glm-5.3-flash-free)
+#   EVAL_OPENCODE_MODELS=FILE   a saved copy of https://models.dev/api.json, mounted read-only as the model catalogue
+#     with the fetch turned off. Needed for a model newer than the OpenCode release: opencode looks the model up in
+#     its bundled catalogue before the fetched one arrives (seconds later) and stops with "Model not found". It
+#     also keeps the catalogue the same for every run.
 set -euo pipefail
 
 IMAGE=${EVAL_IMAGE:-geo-ref-skills-evals-opencode}
@@ -52,6 +56,8 @@ if [[ -e "$workdir/evals" || -e "$workdir/.git" ]]; then
   echo "$workdir contains evals/ or .git; prepare it with evals/agents/bench.py" >&2; exit 2
 fi
 [[ -z "$prompt" || -f "$prompt" ]] || { echo "prompt file $prompt not found" >&2; exit 2; }
+CATALOGUE=${EVAL_OPENCODE_MODELS:-}
+[[ -z "$CATALOGUE" || -f "$CATALOGUE" ]] || { echo "EVAL_OPENCODE_MODELS: $CATALOGUE not found" >&2; exit 2; }
 
 # Hard limits. --memory-swap equal to --memory leaves no swap to escape into.
 docker_args=(
@@ -68,6 +74,8 @@ docker_args=(
   -e OPENCODE_CONFIG_CONTENT="$CONFIG"
   -v "$workdir":/work -w /work
 )
+[[ -n "$CATALOGUE" ]] && docker_args+=(-v "$(realpath "$CATALOGUE")":/opt/opencode-models.json:ro
+  -e OPENCODE_MODELS_PATH=/opt/opencode-models.json -e OPENCODE_DISABLE_MODELS_FETCH=1)
 
 # The container is the sandbox. In `opencode run`, a permission that would ask (a path outside /work, a call
 # repeated three times) is rejected unless --auto approves it; explicit denials (.env files) still hold.

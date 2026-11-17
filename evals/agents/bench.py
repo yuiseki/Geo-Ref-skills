@@ -76,6 +76,12 @@ def image_record(agent, env, inspect=docker_image_id):
     return {"image": image, "image_id": inspect(image)}
 
 
+def catalogue_record(env):
+    """The model catalogue a run was pinned to (run_opencode_docker.sh, EVAL_OPENCODE_MODELS), by its SHA-256."""
+    c = env.get("EVAL_OPENCODE_MODELS")
+    return {"model_catalogue_sha256": hashlib.sha256(Path(c).read_bytes()).hexdigest()} if c else {}
+
+
 def summarize(rows):
     """One row per (agent, cond, task) over the reps: n graded runs, good ones (accurate or correct_reject), the
     outcomes, and provider errors (not graded). single marks n == 1: one run does not tell two conditions apart."""
@@ -334,7 +340,7 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
     with open(d / "log.jsonl", "w") as log, open(d / "stderr.log", "w") as err:
         r = subprocess.run(cmd, stdout=log, stderr=err, env=env)
     (d / "meta.json").write_text(json.dumps({"agent": run_label(agent, env), "cli": agent, "cond": cond, "task": task_id, "rep": rep,
-                                             "model": model_record(agent, env), **image, "exit": r.returncode,
+                                             "model": model_record(agent, env), **image, **catalogue_record(env), "exit": r.returncode,
                                              "seconds": round(time.time() - t0), "minutes": minutes, "rev": commit},
                                             indent=2), encoding="utf-8")
     print(d, r.returncode, round(time.time() - t0))
