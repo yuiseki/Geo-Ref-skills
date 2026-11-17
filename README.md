@@ -33,7 +33,7 @@
 
 関門を全て通ったのに正解から大きくずれた答え (関門の穴) は、取っておいたレベル 3 の線だけの地図の 1 件 (千葉の川、45 m) でした。縁の不確かさの上限を画像の大きさに合わせて締め、今の関門ではこの答えも落ちます。ただ、正確な答えの一部 (レベル 2 で 1 件、レベル 3 の線の地図で 5 件) も一緒に落ちました。新しい関門は、まだ取っておいた別の課題で確かめていません ([記録](docs/failures/2026-11-03-level3-lines.md))。わざと別の場所の手がかりを渡した対照の課題は、どのレベルでも全て拒否しました。
 
-フロンティアでない汎用のコーディングエージェント (Codex と `gpt-6-luna`、Antigravity CLI と `gemini-3.8-flash-low`) にスキルを渡すと、どちらもレベル 1〜6 の課題を解きました。レベル 6 では、スキルを直す材料にしていない 4 枚の PKO の地図を両方とも 4/4 で解き、スキルを渡さないと 0/4 でした ([evals/agents/](evals/agents/README.md)、[結果](evals/agents/results.md))。評価は、Claude Code、Codex、Gemini、OpenCode、Qoder の 5 つで、CLI のほかは同じ Docker のイメージと上限の中で流せます Qoder (`Auto`) でも 1 回ずつ流し、スキルありはレベル 6 の 12 地図のうち 7、スキルなしは 0 でした (結果があるのは Codex、Gemini、Qoder です)。
+フロンティアでない汎用のコーディングエージェント (Codex と `gpt-6-luna`、Antigravity CLI と `gemini-3.8-flash-low`) にスキルを渡すと、どちらもレベル 1〜6 の課題を解きました。レベル 6 では、スキルを直す材料にしていない 4 枚の PKO の地図を両方とも 4/4 で解き、スキルを渡さないと 0/4 でした ([evals/agents/](evals/agents/README.md)、[結果](evals/agents/results.md))。評価は、Claude Code、Codex、Gemini、OpenCode、Qoder の 5 つで、CLI のほかは同じ Docker のイメージと上限の中で流せます Qoder (`Auto`) でも各課題を 2 回ずつ流し、レベル 6 はスキルありが 24 回のうち 17 回、スキルなしが 0 回で正確でした (結果があるのは Codex、Gemini、Qoder です)。
 
 ### 図の見方
 
