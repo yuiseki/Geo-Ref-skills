@@ -197,13 +197,20 @@ def codex_sessions_dir(env):
     return Path(env.get("EVAL_CODEX_HOME") or Path(env.get("HOME", "~")).expanduser() / ".codex-evals") / "sessions"
 
 
-def run_label(agent, env):
+def run_label(agent, env, variant=None):
     """Where a run is kept and how the score names it: the agent, with the model when EVAL_MODEL overrides the
-    runner's default (so that runs of one agent with two models are not mixed)."""
+    runner's default (so that runs of one agent with two models are not mixed), and +variant for runs of a
+    changed setup (for example skills from another --rev) that must not be mixed with the plain ones."""
+    if variant is not None and not re.fullmatch(r"[a-z0-9][a-z0-9-]*", variant):
+        raise SystemExit(f"variant {variant!r}: lower-case letters, digits and hyphens only")
     m = env.get("EVAL_MODEL")
-    if MODELS[agent] or not m or m == RUNNER_DEFAULT_MODEL[agent]:
-        return agent
-    return f"{agent}@{m.split('/')[-1]}"
+    label = agent if MODELS[agent] or not m or m == RUNNER_DEFAULT_MODEL[agent] else f"{agent}@{m.split('/')[-1]}"
+    return f"{label}+{variant}" if variant else label
+
+
+def cli_of(meta):
+    """The CLI of a run: meta.json says it since run_label, older runs have only the plain agent name."""
+    return meta.get("cli") or re.split(r"[@+]", meta["agent"])[0]
 
 
 def model_record(agent, env):
@@ -417,10 +424,11 @@ def make(spec):
         print(t["id"], r.returncode, r.stderr.strip()[-300:], file=sys.stderr)
 
 
-def run(spec, agent, cond, task_id, rep, minutes, rev):
+def run(spec, agent, cond, task_id, rep, minutes, rev, variant=None):
     t = next(x for x in spec["tasks"] if x["id"] == task_id)
     env = {**__import__("os").environ, "EVAL_MINUTES": str(minutes)}
-    d = WORK / "runs" / run_label(agent, env) / cond / f"{task_id}-r{rep}"
+    label = run_label(agent, env, variant)
+    d = WORK / "runs" / label / cond / f"{task_id}-r{rep}"
     if (d / "meta.json").exists():
         raise SystemExit(f"{d} has already run")
     bad = preflight(SERVICES)
@@ -437,7 +445,7 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
     t0 = time.time()
     with open(d / "log.jsonl", "w") as log, open(d / "stderr.log", "w") as err:
         r = subprocess.run(cmd, stdout=log, stderr=err, env=env)
-    (d / "meta.json").write_text(json.dumps({"agent": run_label(agent, env), "cli": agent, "cond": cond, "task": task_id, "rep": rep,
+    (d / "meta.json").write_text(json.dumps({"agent": label, "cli": agent, "variant": variant, "cond": cond, "task": task_id, "rep": rep,
                                              "model": model_record(agent, env), **image, **catalogue_record(env), "exit": r.returncode,
                                              "seconds": round(time.time() - t0), "minutes": minutes, "rev": commit},
                                             indent=2), encoding="utf-8")
@@ -492,7 +500,7 @@ def score_all(spec, accurate_pct):
         row = [meta["agent"], meta["cond"], meta["task"], meta["rep"], o, (sc or {}).get("max_pct_radius", ""),
                (sc or {}).get("median_m", ""), (sc or {}).get("n_gcps", ""), meta["exit"], meta["seconds"],
                ",".join(public_osm_hits(logs)) or "-",
-               *usage(d, meta.get("cli") or meta["agent"].split("@")[0]).values(),
+               *usage(d, cli_of(meta)).values(),
                str(reason).replace("\t", " ").replace("\n", " ")[:120]]
         print("\t".join(f"{v:.3g}" if isinstance(v, float) else str(v) for v in row))
 
@@ -508,6 +516,7 @@ def main():
     r.add_argument("--rep", type=int, default=1)
     r.add_argument("--minutes", type=int, default=30)
     r.add_argument("--rev", default="HEAD")
+    r.add_argument("--variant", help="keep these runs apart, as <agent>+<variant> (for example skills from another --rev)")
     s = sub.add_parser("score")
     s.add_argument("--accurate-pct", type=float, default=1.0)
     cs = sub.add_parser("codex-sessions", help="copy each Codex run's session file (its token counts) into the run")
@@ -519,7 +528,7 @@ def main():
     if a.cmd == "make":
         make(spec)
     elif a.cmd == "run":
-        run(spec, a.agent, a.cond, a.task, a.rep, a.minutes, a.rev)
+        run(spec, a.agent, a.cond, a.task, a.rep, a.minutes, a.rev, a.variant)
     elif a.cmd == "codex-sessions":
         import os
         index = codex_session_index(a.sessions or codex_sessions_dir(os.environ))

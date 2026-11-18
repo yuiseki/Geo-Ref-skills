@@ -480,3 +480,18 @@ def test_attach_codex_session_copies_the_one_match_and_nothing_else(tmp_path):
     assert bench.attach_codex_session(runs["none"], index) == "not found"
     assert bench.attach_codex_session(runs["nototal"], index) == "no total"
     assert not any((runs[n] / "codex-session.jsonl").exists() for n in ("two", "none", "nototal"))
+
+
+def test_a_variant_keeps_its_runs_apart_from_the_plain_ones():
+    assert bench.run_label("codex", {}, variant="read-listed") == "codex+read-listed"
+    assert bench.run_label("opencode", {"EVAL_MODEL": "opencode/hy4-flash-free"}, variant="v2") == "opencode@hy4-flash-free+v2"
+    assert bench.run_label("codex", {}, variant=None) == "codex"
+    for bad in ("", "a b", "../x", "A"):
+        with pytest.raises(SystemExit):
+            bench.run_label("codex", {}, variant=bad)
+
+
+def test_usage_reads_the_cli_of_a_variant_label(tmp_path):
+    assert bench.cli_of({"agent": "codex+read-listed"}) == "codex"
+    assert bench.cli_of({"agent": "opencode@hy4-flash-free+v2"}) == "opencode"
+    assert bench.cli_of({"agent": "x+y", "cli": "gemini"}) == "gemini"

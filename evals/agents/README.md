@@ -93,6 +93,8 @@ python3 evals/agents/bench.py summary results.tsv   # 回数と良い結果の�
 python3 evals/agents/bench.py codex-sessions        # Codex の実行に、トークンの内訳の記録を写す
 ```
 
+スキルの版などを変えて比べるときは、`run` に `--variant <名前>` を付ける。実行は `<エージェント>+<名前>` として、普段のものと分けて置かれ、数えられる。
+
 作業は `tmp/agent-bench/` に書く (`tasks/<課題>/{task,truth}`、`runs/<エージェント>/<条件>/<課題>-r<回>/` に作業場所、指示文、ログ、`meta.json`、Codex は `codex-session.jsonl`)。同じ回を流し直すことはできない (`--rep` を変える)。
 
 テスト: `python3 run_tests.py evals/agents` (CI でも流す)
