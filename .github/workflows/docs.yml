@@ -1,0 +1,30 @@
+name: docs
+
+# The checks on Markdown that need nothing but Python: no bold or em dash
+# in any .md file, and the README results table agrees with evals/results.
+on:
+  push:
+    branches: [main]
+    paths: ["**.md"]
+  pull_request:
+    paths: ["**.md"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: No bold or em dash, copies of shared scripts agree
+        run: python3 .agents/skills/check_skills.py
+      - name: README results table agrees with evals/results
+        run: python3 evals/scripts/results_table.py --check

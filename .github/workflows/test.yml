@@ -1,9 +1,22 @@
 name: test
 
+# A change to Markdown alone runs only docs.yml. Markdown that tests or agents read stays here.
 on:
   push:
     branches: [main]
+    paths:
+      - "**"
+      - "!**.md"
+      - ".agents/**"
+      - "AGENTS.md"
+      - "evals/agents/prompt*.md"
   pull_request:
+    paths:
+      - "**"
+      - "!**.md"
+      - ".agents/**"
+      - "AGENTS.md"
+      - "evals/agents/prompt*.md"
 
 permissions:
   contents: read
