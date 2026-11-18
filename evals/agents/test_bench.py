@@ -1,5 +1,6 @@
 # uvx --with pytest --with numpy --with pyproj python -m pytest agents/test_bench.py
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -480,6 +481,23 @@ def test_attach_codex_session_copies_the_one_match_and_nothing_else(tmp_path):
     assert bench.attach_codex_session(runs["none"], index) == "not found"
     assert bench.attach_codex_session(runs["nototal"], index) == "no total"
     assert not any((runs[n] / "codex-session.jsonl").exists() for n in ("two", "none", "nototal"))
+
+
+def test_attach_codex_session_breaks_a_tie_by_when_the_session_was_last_written(tmp_path):
+    # Two sessions days apart can print the same total. The run's own log was written as the run ended,
+    # so the session written last near that moment is the run's; one from days before is not.
+    sessions = tmp_path / "sessions"
+    sessions.mkdir()
+    _codex_rollout(sessions / "old.jsonl", 1000, 800, 50)                       # 250
+    _codex_rollout(sessions / "new.jsonl", 900, 700, 50)                        # 250 too
+    week = 7 * 24 * 3600
+    st = (sessions / "old.jsonl").stat()
+    os.utime(sessions / "old.jsonl", (st.st_atime - week, st.st_mtime - week))
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / "stderr.log").write_text("tokens used\n250\n")
+    assert bench.attach_codex_session(run, bench.codex_session_index(sessions)) == "attached"
+    assert (run / "codex-session.jsonl").read_bytes() == (sessions / "new.jsonl").read_bytes()
 
 
 def test_a_variant_keeps_its_runs_apart_from_the_plain_ones():

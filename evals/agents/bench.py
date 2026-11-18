@@ -177,6 +177,9 @@ def usage_of_rollout(f):
     return last
 
 
+CODEX_SESSION_END_SLACK_S = 600
+
+
 def attach_codex_session(d, index):
     """Copy the session file of a Codex run into the run, matched by the total it printed.
     Codex writes it under its home, shared by every run, so the run itself has only the total."""
@@ -187,6 +190,10 @@ def attach_codex_session(d, index):
     if n is None:
         return "no total"
     found = index.get(n, [])
+    if len(found) > 1:
+        # Totals can repeat across days. The session's last write and the run's log both come as the run ends.
+        ended = err.stat().st_mtime
+        found = [f for f in found if abs(f.stat().st_mtime - ended) <= CODEX_SESSION_END_SLACK_S] or found
     if len(found) != 1:
         return "ambiguous" if found else "not found"
     shutil.copyfile(found[0], d / "codex-session.jsonl")
