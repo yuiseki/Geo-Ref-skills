@@ -46,6 +46,13 @@ uvx --with pypdfium2 python scripts/batch.py --src pdfs --out work --min-year 20
 
 `UTM_ZONES` は、UTM の方眼で描かれ、帯の番号を書いていない図の、ミッションごとの帯である (UNIFIL は 36N)。`graticule-gcps` に渡す。
 
+## Codex で流すとき
+
+`batch.py` は 1 件で数分かかる。Codex はコマンドを `exec` の cell の中で動かし、cell は外側に渡した `yield_time_ms` で手放される (30 秒がよく選ばれる)。30 秒ごとの様子見は、そのたびに会話の全部を読み直す。
+
+- `exec` で起動したら、`wait` を `yield_time_ms: 300000` で呼ぶ。中の `write_stdin` だけを長くしても効かない。
+- 5 分で終わらなければ、`wait` を同じく 300000 で呼び直す。途中で出力のファイルを覗かない。
+
 ## 資源の上限
 
 実データを読む工程は、1 つずつ、メモリ 8 GB、スワップなし、CPU 400% の枠の中で動く。1 件の PDF が上限を超えて落ちても、全体は止まらず、その PDF が `failed` か `error` になる。1 つの工程の時間の上限 (30 分) も、枠そのもの (`RuntimeMaxSec`) に掛ける。Python の `subprocess` の時間切れは systemd-run の 1 プロセスしか止めず、枠の中の name-gcps と tesseract が 29 時間動き続けていた (2026-11-06)。`systemd-run --user --scope` が使えない環境 (Docker のコンテナの中など。`GEOREF_NO_SYSTEMD=1` でも同じ) では、枠を作らずに工程を流す。メモリと CPU の上限は、コンテナの側の上限に任せる。時間の上限は残す。工程を自分のプロセスグループで動かし、30 分で、そのグループごと (tesseract も) 止める。
