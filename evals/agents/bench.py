@@ -99,6 +99,104 @@ def summarize(rows):
     return out
 
 
+def _events(path):
+    if not path.exists():
+        return
+    for line in path.read_text(errors="replace").splitlines():
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(e, dict):
+            yield e
+
+
+def usage(d, cli):
+    """Tokens of one run from what its CLI logged: tok_in counts every input token,
+    cache reads included (tok_cached is that part), tok_out includes reasoning.
+    Qoder logs zero tokens and only its credits. Blank when nothing was logged."""
+    tin = cached = out = calls = 0
+    credits = ""
+    if cli == "opencode":
+        for e in _events(d / "log.jsonl"):
+            if e.get("type") == "step_finish":
+                t = e.get("part", {}).get("tokens", {})
+                c = t.get("cache", {})
+                tin += t.get("input", 0) + c.get("read", 0) + c.get("write", 0)
+                cached += c.get("read", 0)
+                out += t.get("output", 0) + t.get("reasoning", 0)
+                calls += 1
+    elif cli == "gemini":
+        for e in _events(d / "log.jsonl"):
+            st = e.get("step_update", {})
+            u = st.get("usage")
+            if e.get("event") == "step_update" and st.get("state") == "DONE" and u:
+                tin += u.get("input_tokens", 0) + u.get("cache_read_tokens", 0)
+                cached += u.get("cache_read_tokens", 0)
+                out += u.get("output_tokens", 0) + u.get("thinking_tokens", 0)
+                calls += 1
+    elif cli == "codex":
+        last = usage_of_rollout(d / "codex-session.jsonl")
+        if last:  # input_tokens holds the cached ones, output_tokens the reasoning
+            tin, cached, out, calls = last["input_tokens"], last["cached_input_tokens"], last["output_tokens"], ""
+    elif cli in ("claude", "qoder"):
+        for e in _events(d / "log.jsonl"):
+            if e.get("type") == "result":
+                u = e.get("usage", {})
+                tin = u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+                cached, out, calls = u.get("cache_read_input_tokens", 0), u.get("output_tokens", 0), e.get("num_turns", "")
+                credits = e.get("total_credits", "")
+    if not (tin or out):
+        tin = cached = out = ""
+        calls = calls or ""
+    return {"tok_in": tin, "tok_cached": cached, "tok_out": out, "calls": calls, "credits": credits}
+
+
+def codex_printed_total(stderr_text):
+    """The total `codex exec` prints at the end: input - cached input + output."""
+    m = re.search(r"tokens used\n([\d,]+)", stderr_text)
+    return int(m.group(1).replace(",", "")) if m else None
+
+
+def codex_session_index(sessions):
+    """Codex's session files, by the total it printed for them."""
+    index = {}
+    for f in sorted(Path(sessions).rglob("*.jsonl")):
+        u = usage_of_rollout(f)
+        if u:
+            index.setdefault(u["input_tokens"] - u["cached_input_tokens"] + u["output_tokens"], []).append(f)
+    return index
+
+
+def usage_of_rollout(f):
+    last = None
+    for e in _events(f):
+        p = e.get("payload", {})
+        if p.get("type") == "token_count" and p.get("info"):
+            last = p["info"]["total_token_usage"]
+    return last
+
+
+def attach_codex_session(d, index):
+    """Copy the session file of a Codex run into the run, matched by the total it printed.
+    Codex writes it under its home, shared by every run, so the run itself has only the total."""
+    if (d / "codex-session.jsonl").exists():
+        return "present"
+    err = d / "stderr.log"
+    n = codex_printed_total(err.read_text(errors="replace")) if err.exists() else None
+    if n is None:
+        return "no total"
+    found = index.get(n, [])
+    if len(found) != 1:
+        return "ambiguous" if found else "not found"
+    shutil.copyfile(found[0], d / "codex-session.jsonl")
+    return "attached"
+
+
+def codex_sessions_dir(env):
+    return Path(env.get("EVAL_CODEX_HOME") or Path(env.get("HOME", "~")).expanduser() / ".codex-evals") / "sessions"
+
+
 def run_label(agent, env):
     """Where a run is kept and how the score names it: the agent, with the model when EVAL_MODEL overrides the
     runner's default (so that runs of one agent with two models are not mixed)."""
@@ -343,6 +441,8 @@ def run(spec, agent, cond, task_id, rep, minutes, rev):
                                              "model": model_record(agent, env), **image, **catalogue_record(env), "exit": r.returncode,
                                              "seconds": round(time.time() - t0), "minutes": minutes, "rev": commit},
                                             indent=2), encoding="utf-8")
+    if agent == "codex":
+        print("codex session:", attach_codex_session(d, codex_session_index(codex_sessions_dir(env))))
     print(d, r.returncode, round(time.time() - t0))
 
 
@@ -351,7 +451,8 @@ def score_all(spec, accurate_pct):
     import score_task
     from make_doc_task import crop_truth
     tasks = {t["id"]: t for t in spec["tasks"]}
-    cols = ["agent", "cond", "task", "rep", "outcome", "max_pct_radius", "median_m", "n_gcps", "exit", "seconds", "public_osm", "reason"]
+    cols = ["agent", "cond", "task", "rep", "outcome", "max_pct_radius", "median_m", "n_gcps", "exit", "seconds", "public_osm",
+            "tok_in", "tok_cached", "tok_out", "calls", "credits", "reason"]
     print("\t".join(cols))
     for m in sorted((WORK / "runs").glob("*/*/*/meta.json")):
         meta = json.loads(m.read_text())
@@ -391,6 +492,7 @@ def score_all(spec, accurate_pct):
         row = [meta["agent"], meta["cond"], meta["task"], meta["rep"], o, (sc or {}).get("max_pct_radius", ""),
                (sc or {}).get("median_m", ""), (sc or {}).get("n_gcps", ""), meta["exit"], meta["seconds"],
                ",".join(public_osm_hits(logs)) or "-",
+               *usage(d, meta.get("cli") or meta["agent"].split("@")[0]).values(),
                str(reason).replace("\t", " ").replace("\n", " ")[:120]]
         print("\t".join(f"{v:.3g}" if isinstance(v, float) else str(v) for v in row))
 
@@ -408,6 +510,8 @@ def main():
     r.add_argument("--rev", default="HEAD")
     s = sub.add_parser("score")
     s.add_argument("--accurate-pct", type=float, default=1.0)
+    cs = sub.add_parser("codex-sessions", help="copy each Codex run's session file (its token counts) into the run")
+    cs.add_argument("--sessions", help="default: $EVAL_CODEX_HOME/sessions, else ~/.codex-evals/sessions")
     sm = sub.add_parser("summary", help="read a score table (stdin) and count the reps of each agent, cond and task")
     sm.add_argument("table", nargs="?", default="-")
     a = ap.parse_args()
@@ -416,6 +520,11 @@ def main():
         make(spec)
     elif a.cmd == "run":
         run(spec, a.agent, a.cond, a.task, a.rep, a.minutes, a.rev)
+    elif a.cmd == "codex-sessions":
+        import os
+        index = codex_session_index(a.sessions or codex_sessions_dir(os.environ))
+        for d in sorted((WORK / "runs").glob("codex*/*/*/")):
+            print(d.relative_to(WORK), attach_codex_session(d, index))
     elif a.cmd == "summary":
         import csv
         f = sys.stdin if a.table == "-" else open(a.table, encoding="utf-8")

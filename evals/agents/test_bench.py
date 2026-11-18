@@ -397,3 +397,86 @@ def test_the_pinned_model_catalogue_is_recorded_by_hash(tmp_path):
     assert bench.catalogue_record({}) == {}
     rec = bench.catalogue_record({"EVAL_OPENCODE_MODELS": str(c)})
     assert rec == {"model_catalogue_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"}
+
+
+def _jsonl(path, events):
+    path.write_text("".join(json.dumps(e) + "\n" for e in events), encoding="utf-8")
+
+
+def test_usage_of_opencode_adds_the_steps_and_counts_cache_reads_as_input(tmp_path):
+    step = {"type": "step_finish", "part": {"tokens": {"input": 100, "output": 5, "reasoning": 20, "cache": {"read": 900, "write": 0}}}}
+    _jsonl(tmp_path / "log.jsonl", [step, {"type": "tool_use"}, step])
+    assert bench.usage(tmp_path, "opencode") == {"tok_in": 2000, "tok_cached": 1800, "tok_out": 50, "calls": 2, "credits": ""}
+
+
+def _gemini_step(i, o, c, state="DONE"):
+    return {"event": "step_update", "step_update": {"state": state, "usage": {
+        "input_tokens": i, "output_tokens": o, "thinking_tokens": 1, "cache_read_tokens": c, "total_tokens": i + o}}}
+
+
+def test_usage_of_gemini_adds_the_finished_steps(tmp_path):
+    _jsonl(tmp_path / "log.jsonl", [{"event": "init"}, _gemini_step(10, 2, 90), _gemini_step(10, 2, 90, state="RUNNING"),
+                                    _gemini_step(20, 3, 80)])
+    assert bench.usage(tmp_path, "gemini") == {"tok_in": 200, "tok_cached": 170, "tok_out": 7, "calls": 2, "credits": ""}
+
+
+def _codex_rollout(path, i, cached, o):
+    info = {"total_token_usage": {"input_tokens": i, "cached_input_tokens": cached, "output_tokens": o,
+                                  "reasoning_output_tokens": 3, "total_tokens": i + o}}
+    _jsonl(path, [{"type": "session_meta", "payload": {}},
+                  {"type": "event_msg", "payload": {"type": "token_count", "info": None}},
+                  {"type": "event_msg", "payload": {"type": "token_count", "info": info}}])
+
+
+def test_usage_of_codex_reads_the_copied_session_and_its_output_holds_the_reasoning(tmp_path):
+    _codex_rollout(tmp_path / "codex-session.jsonl", 1000, 800, 50)
+    assert bench.usage(tmp_path, "codex") == {"tok_in": 1000, "tok_cached": 800, "tok_out": 50, "calls": "", "credits": ""}
+
+
+def test_usage_is_blank_when_the_record_is_missing(tmp_path):
+    for cli in ("opencode", "gemini", "codex", "qoder", "claude"):
+        assert bench.usage(tmp_path, cli) == {"tok_in": "", "tok_cached": "", "tok_out": "", "calls": "", "credits": ""}
+
+
+def test_usage_of_qoder_is_credits_because_its_token_counts_are_zero(tmp_path):
+    zero = {"input_tokens": 0, "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0, "output_tokens": 0}
+    _jsonl(tmp_path / "log.jsonl", [{"type": "assistant", "message": {"usage": zero}},
+                                    {"type": "result", "num_turns": 8, "total_credits": 0.53, "usage": zero}])
+    assert bench.usage(tmp_path, "qoder") == {"tok_in": "", "tok_cached": "", "tok_out": "", "calls": 8, "credits": 0.53}
+
+
+def test_usage_of_claude_reads_the_result(tmp_path):
+    u = {"input_tokens": 10, "cache_read_input_tokens": 900, "cache_creation_input_tokens": 90, "output_tokens": 40}
+    _jsonl(tmp_path / "log.jsonl", [{"type": "result", "num_turns": 3, "usage": u}])
+    assert bench.usage(tmp_path, "claude") == {"tok_in": 1000, "tok_cached": 900, "tok_out": 40, "calls": 3, "credits": ""}
+
+
+def test_codex_session_is_found_by_the_total_that_codex_prints(tmp_path):
+    sessions = tmp_path / "sessions" / "2026" / "11" / "09"
+    sessions.mkdir(parents=True)
+    _codex_rollout(sessions / "a.jsonl", 1000, 800, 50)   # prints 1000 - 800 + 50 = 250
+    _codex_rollout(sessions / "b.jsonl", 1000, 700, 50)   # 350
+    assert bench.codex_printed_total("...\ntokens used\n250\n") == 250
+    assert bench.codex_printed_total("no total") is None
+    index = bench.codex_session_index(tmp_path / "sessions")
+    assert index[250] == [sessions / "a.jsonl"] and index[350] == [sessions / "b.jsonl"]
+
+
+def test_attach_codex_session_copies_the_one_match_and_nothing_else(tmp_path):
+    sessions = tmp_path / "sessions"
+    sessions.mkdir()
+    _codex_rollout(sessions / "a.jsonl", 1000, 800, 50)                         # 250
+    _codex_rollout(sessions / "b.jsonl", 900, 700, 50)                          # 250 too
+    _codex_rollout(sessions / "c.jsonl", 1000, 600, 50)                         # 450
+    runs = {name: tmp_path / name for name in ("one", "two", "none", "nototal")}
+    for name, text in [("one", "tokens used\n450\n"), ("two", "tokens used\n250\n"), ("none", "tokens used\n9\n"), ("nototal", "")]:
+        runs[name].mkdir()
+        (runs[name] / "stderr.log").write_text(text)
+    index = bench.codex_session_index(sessions)
+    assert bench.attach_codex_session(runs["one"], index) == "attached"
+    assert (runs["one"] / "codex-session.jsonl").read_bytes() == (sessions / "c.jsonl").read_bytes()
+    assert bench.attach_codex_session(runs["one"], index) == "present"
+    assert bench.attach_codex_session(runs["two"], index) == "ambiguous"
+    assert bench.attach_codex_session(runs["none"], index) == "not found"
+    assert bench.attach_codex_session(runs["nototal"], index) == "no total"
+    assert not any((runs[n] / "codex-session.jsonl").exists() for n in ("two", "none", "nototal"))

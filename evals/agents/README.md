@@ -62,6 +62,8 @@ Codex (gpt-6-luna) と Gemini (Antigravity CLI の `gemini-3.8-flash-low`) に�
 | correct_reject, false_accept | 陰性対照で、失敗を宣言した、答えを返した |
 | provider_error | 実行の道具が 0 と 124 以外で終わり、答えが無い。エージェントの結果として数えず、流し直す |
 
+トークンの欄は、各 CLI が残した記録から数える。`tok_in` はキャッシュの読み出しも含めた入力の全部 (`tok_cached` はそのうちのキャッシュの読み出し)、`tok_out` は推論も含めた出力、`calls` はモデルの呼び出しの回数。OpenCode はログの `step_finish`、Gemini は `step_update` の終わったもの、Claude Code は `result` から。Qoder はトークンを 0 と記録するので、使ったクレジット (`credits`) だけ。Codex は、ログには合計だけを出し、内訳を評価用の場所 (`$EVAL_CODEX_HOME/sessions`) の会話の記録に書く。`run` は終わったあとに、その記録を実行の場所へ `codex-session.jsonl` として写す。どの記録かは、Codex が出す合計 (入力 − キャッシュ + 出力) で決まる。それより前の実行には `bench.py codex-sessions` で写す。
+
 `public_osm` の欄は、ログに公開の OSM サーバーの URL (https://.../) が出たかを示す。名前だけでは数えない。指示文 (Codex はログに写す) とスキルの文書が、呼ばないものとして名前を書いているため。出たら中身を読んで確かめる。
 
 ## 結果を読むときの決まり
@@ -88,8 +90,9 @@ EVAL_CPUSET=0-7  python3 evals/agents/bench.py run --agent codex  --cond skills 
 EVAL_CPUSET=8-15 python3 evals/agents/bench.py run --agent gemini --cond baseline --task L1-okayama
 uv run --with numpy --with pyproj python evals/agents/bench.py score > results.tsv
 python3 evals/agents/bench.py summary results.tsv   # 回数と良い結果の数。single は 1 回だけ
+python3 evals/agents/bench.py codex-sessions        # Codex の実行に、トークンの内訳の記録を写す
 ```
 
-作業は `tmp/agent-bench/` に書く (`tasks/<課題>/{task,truth}`、`runs/<エージェント>/<条件>/<課題>-r<回>/` に作業場所、指示文、ログ、`meta.json`)。同じ回を流し直すことはできない (`--rep` を変える)。
+作業は `tmp/agent-bench/` に書く (`tasks/<課題>/{task,truth}`、`runs/<エージェント>/<条件>/<課題>-r<回>/` に作業場所、指示文、ログ、`meta.json`、Codex は `codex-session.jsonl`)。同じ回を流し直すことはできない (`--rep` を変える)。
 
 テスト: `python3 run_tests.py evals/agents` (CI でも流す)
