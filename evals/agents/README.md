@@ -2,7 +2,7 @@
 
 Codex (gpt-6-luna) と Gemini (Antigravity CLI の `gemini-3.8-flash-low`) に、このリポジトリのスキルを渡したとき、渡さないときで、地図の画像を正しく地上の座標に結べるかを比べる。仕組みは GeoAI-skills の `evals/` (Docker の上限、作業場所の作り方、実行の道具) を写したもの。
 
-流せるエージェントは 5 つ。結果の表 (`results.md`) は、Codex、Gemini、Qoder の 3 つ。
+流せるエージェントは 5 つ。結果の表 (`results.md`) は、Codex、Gemini、Qoder、OpenCode (Hy4 Flash) の 4 つ。
 
 | `--agent` | CLI と版 | 既定のモデル | 認証 (普段の設定とは別の場所) |
 |---|---|---|---|
